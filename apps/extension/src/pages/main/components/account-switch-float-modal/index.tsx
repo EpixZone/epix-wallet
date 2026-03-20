@@ -1,14 +1,7 @@
-import React, {
-  FunctionComponent,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import styled, { useTheme } from "styled-components";
 import SimpleBar from "simplebar-react";
 import { ColorPalette } from "../../../../styles";
-import { Subtitle3 } from "../../../../components/typography";
 import { useStore } from "../../../../stores";
 import { KeyInfo } from "@keplr-wallet/background";
 import { observer } from "mobx-react-lite";
@@ -21,8 +14,12 @@ import { ReferenceType, UseFloatingReturn } from "@floating-ui/react-dom";
 import { FloatModal } from "../../../../components/float-modal";
 import { useSearchKeyInfos } from "../../../../hooks/use-search-key-infos";
 import { useGetAllSortedKeyInfos } from "../../../../hooks/key-info";
-import { IconProps } from "../../../../components/icon/types";
+import {
+  SettingOutlineIcon,
+  PlusStrokeIcon,
+} from "../../../../components/icon";
 import { Box } from "../../../../components/box";
+import { useNavigate } from "react-router";
 import { Stack } from "../../../../components/stack";
 import { AccountItemSwitchModal } from "./account-item";
 
@@ -46,6 +43,7 @@ export const AccountSwitchFloatModal = observer(
     const searchInputRef = useRef<HTMLInputElement>(null);
     const intl = useIntl();
     const theme = useTheme();
+    const navigate = useNavigate();
     const { searchText, setSearchText, searchedKeyInfos } = useSearchKeyInfos();
 
     const closeModalInner = useCallback(() => {
@@ -109,9 +107,29 @@ export const AccountSwitchFloatModal = observer(
             ref={floating.refs.setFloating}
           >
             <Styles.TitleContainer>
-              <Subtitle3>
+              <Styles.TitleText>
                 {intl.formatMessage({ id: "page.wallet.title" })}
-              </Subtitle3>
+              </Styles.TitleText>
+              <Box
+                cursor="pointer"
+                hover={{
+                  opacity: COMMON_HOVER_OPACITY,
+                }}
+                onClick={() => {
+                  closeModalInner();
+                  navigate("/wallet/select");
+                }}
+              >
+                <SettingOutlineIcon
+                  width="1.5rem"
+                  height="1.5rem"
+                  color={
+                    theme.mode === "light"
+                      ? ColorPalette["gray-700"]
+                      : ColorPalette["gray-10"]
+                  }
+                />
+              </Box>
               <Box
                 cursor="pointer"
                 hover={{
@@ -123,9 +141,18 @@ export const AccountSwitchFloatModal = observer(
                   });
                 }}
               >
-                <_PlusIcon width="1.5rem" height="1.5rem" />
+                <PlusStrokeIcon
+                  width="1.5rem"
+                  height="1.5rem"
+                  color={
+                    theme.mode === "light"
+                      ? ColorPalette["gray-700"]
+                      : ColorPalette["gray-10"]
+                  }
+                />
               </Box>
             </Styles.TitleContainer>
+            <Gutter size="0.5rem" />
 
             <SimpleBar
               style={{
@@ -135,33 +162,39 @@ export const AccountSwitchFloatModal = observer(
               }}
             >
               {shouldShowSearch && (
-                <Styles.SearchContainer>
-                  <SearchTextInput
-                    ref={searchInputRef}
-                    value={searchText}
-                    onChange={(e) => {
-                      e.preventDefault();
-                      setSearchText(e.target.value);
-                    }}
-                    placeholder="Search"
-                    placeholderColor={
-                      theme.mode === "dark"
-                        ? ColorPalette["gray-300"]
-                        : undefined
-                    }
-                    iconColor={
-                      theme.mode === "dark"
-                        ? ColorPalette["gray-300"]
-                        : undefined
-                    }
-                    textInputContainerStyle={{
-                      backgroundColor: "transparent",
-                    }}
-                    inputStyle={{
-                      backgroundColor: "transparent",
-                    }}
-                  />
-                </Styles.SearchContainer>
+                <React.Fragment>
+                  <Styles.SearchContainer>
+                    <SearchTextInput
+                      ref={searchInputRef}
+                      value={searchText}
+                      onChange={(e) => {
+                        e.preventDefault();
+                        setSearchText(e.target.value);
+                      }}
+                      placeholder="Search"
+                      placeholderColor={
+                        theme.mode === "dark"
+                          ? ColorPalette["gray-300"]
+                          : undefined
+                      }
+                      iconColor={
+                        theme.mode === "dark"
+                          ? ColorPalette["gray-300"]
+                          : undefined
+                      }
+                      textInputContainerStyle={{
+                        backgroundColor: "transparent",
+                        borderRadius: "1rem",
+                        minHeight: "3.75rem",
+                      }}
+                      inputStyle={{
+                        backgroundColor: "transparent",
+                        height: "3.75rem",
+                      }}
+                    />
+                  </Styles.SearchContainer>
+                  <Gutter size="0.75rem" />
+                </React.Fragment>
               )}
               <Stack gutter="0.5rem">
                 {sortedKeyInfos.map((keyInfo) => {
@@ -193,23 +226,6 @@ export const AccountSwitchFloatModal = observer(
   }
 );
 
-const _PlusIcon: FunctionComponent<IconProps> = ({ width, height, color }) => {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width={width}
-      height={height}
-      viewBox="0 0 24 24"
-      fill="none"
-    >
-      <path
-        d="M12.9 5.69993C12.9 5.20287 12.4971 4.79993 12 4.79993C11.503 4.79993 11.1 5.20287 11.1 5.69993V11.0999H5.70005C5.20299 11.0999 4.80005 11.5029 4.80005 11.9999C4.80005 12.497 5.20299 12.8999 5.70005 12.8999L11.1 12.8999V18.2999C11.1 18.797 11.503 19.1999 12 19.1999C12.4971 19.1999 12.9 18.797 12.9 18.2999V12.8999H18.3C18.7971 12.8999 19.2 12.497 19.2 11.9999C19.2 11.5029 18.7971 11.0999 18.3 11.0999H12.9V5.69993Z"
-        fill={color || "currentColor"}
-      />
-    </svg>
-  );
-};
-
 const Styles = {
   ModalContainer: styled.div<{
     top: number;
@@ -239,14 +255,26 @@ const Styles = {
   `,
 
   TitleContainer: styled.div`
-    padding: 0 0.5rem 0.25rem 0.5rem;
+    padding: 0.5rem 0.5rem 0.25rem 0.5rem;
     display: flex;
     flex-direction: row;
-    justify-content: space-between;
     align-items: center;
+    gap: 0.75rem;
 
     color: ${({ theme }) =>
       theme.mode === "light" ? ColorPalette["gray-700"] : ColorPalette.white};
+  `,
+
+  TitleText: styled.div`
+    flex: 1;
+    font-weight: 600;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    letter-spacing: -0.14px;
+    color: ${({ theme }) =>
+      theme.mode === "light"
+        ? ColorPalette["gray-700"]
+        : ColorPalette["gray-10"]};
   `,
 
   SearchContainer: styled.div`
