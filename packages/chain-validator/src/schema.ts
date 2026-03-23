@@ -284,7 +284,10 @@ export const ChainInfoSchema = Joi.object<ChainInfo>({
   explorers: Joi.object({
     txPage: Joi.string()
       .custom((value, helpers) => {
-        const testUri = value.replace(/\{txHash\}/g, "test");
+        const testUri = value.replace(
+          /\{txHash(:(lowercase|uppercase))?\}/g,
+          "test"
+        );
         const { error } = Joi.string().uri().validate(testUri);
         if (error) {
           return helpers.error("string.uri");
