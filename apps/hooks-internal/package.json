@@ -1,6 +1,6 @@
 {
   "name": "@keplr-wallet/hooks-internal",
-  "version": "0.13.14",
+  "version": "0.13.15-rc.0",
   "main": "build/index.js",
   "author": "chainapsis",
   "license": "Apache-2.0",
@@ -15,13 +15,13 @@
     "typecheck": "npx tsc -p tsconfig.check.json"
   },
   "dependencies": {
-    "@keplr-wallet/hooks": "0.13.14",
-    "@keplr-wallet/hooks-evm": "0.13.14",
-    "@keplr-wallet/stores": "0.13.14",
-    "@keplr-wallet/stores-eth": "0.13.14",
-    "@keplr-wallet/stores-internal": "0.13.14",
-    "@keplr-wallet/types": "0.13.14",
-    "@keplr-wallet/unit": "0.13.14"
+    "@keplr-wallet/hooks": "0.13.15-rc.0",
+    "@keplr-wallet/hooks-evm": "0.13.15-rc.0",
+    "@keplr-wallet/stores": "0.13.15-rc.0",
+    "@keplr-wallet/stores-eth": "0.13.15-rc.0",
+    "@keplr-wallet/stores-internal": "0.13.15-rc.0",
+    "@keplr-wallet/types": "0.13.15-rc.0",
+    "@keplr-wallet/unit": "0.13.15-rc.0"
   },
   "peerDependencies": {
     "mobx": "^6",
