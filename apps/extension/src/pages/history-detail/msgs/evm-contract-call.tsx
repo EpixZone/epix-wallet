@@ -15,22 +15,23 @@ export const HistoryDetailEvmContractCall: FunctionComponent<{
 }> = observer(({ msg }) => {
   const { queriesStore } = useStore();
 
+  const theme = useTheme();
+
+  const queries = queriesStore.get(msg.chainId);
+  const receiptQuery =
+    queries.ethereum?.queryEthereumTxReceipt.getQueryByTxHash(
+      `0x${msg.txHash}`
+    );
+
   const contractAddress = useMemo(() => {
-    // Contract call should have a 'to' field in the meta or msg
     if (msg.meta && typeof msg.meta === "object" && "contract" in msg.meta) {
       return (msg.meta as any).contract;
     }
-    const res = queriesStore.simpleQuery.queryGet<{
-      to: string;
-    }>(
-      "https://keplr-api.keplr.app",
-      `/v1/evm/tx?chain_identifier=${msg.chainId}&tx_hash=0x${msg.txHash}`
-    );
-    if (res.response?.data.to) {
-      return res.response.data.to;
+    if (receiptQuery?.to) {
+      return receiptQuery.to;
     }
     return "Unknown";
-  }, [msg.chainId, msg.meta, msg.txHash, queriesStore.simpleQuery]);
+  }, [msg.meta, receiptQuery?.to]);
 
   const shortenedContractAddress = useMemo(() => {
     if (contractAddress === "Unknown") return "Unknown";
@@ -50,10 +51,26 @@ export const HistoryDetailEvmContractCall: FunctionComponent<{
           width="100%"
           padding="1rem"
           borderRadius="0.375rem"
-          backgroundColor={ColorPalette["gray-650"]}
+          backgroundColor={
+            theme.mode === "light"
+              ? ColorPalette["white"]
+              : ColorPalette["gray-650"]
+          }
+          style={{
+            boxShadow:
+              theme.mode === "light"
+                ? "0 1px 4px 0 rgba(43, 39, 55, 0.10)"
+                : undefined,
+          }}
         >
           <XAxis alignY="center">
-            <Subtitle4 color={ColorPalette["gray-200"]}>
+            <Subtitle4
+              color={
+                theme.mode === "light"
+                  ? ColorPalette["gray-300"]
+                  : ColorPalette["gray-200"]
+              }
+            >
               Contract Address
             </Subtitle4>
             <div style={{ flex: 1 }} />
@@ -62,7 +79,13 @@ export const HistoryDetailEvmContractCall: FunctionComponent<{
               allowedPlacements={["top", "left"]}
               hoverCloseInteractive={true}
             >
-              <Subtitle3 color={ColorPalette["white"]}>
+              <Subtitle3
+                color={
+                  theme.mode === "light"
+                    ? ColorPalette["gray-700"]
+                    : ColorPalette["white"]
+                }
+              >
                 {shortenedContractAddress}
               </Subtitle3>
             </Tooltip>

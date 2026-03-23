@@ -36,22 +36,23 @@ export const HistoryDetailCommonBottomSection: FunctionComponent<{
     const modularChainInfo = chainStore.getModularChain(msg.chainId);
     const u = modularChainInfo.unwrapped;
     if (u.type === "evm") {
-      // EVM 트랜잭션의 수수료 계산 로직
-      const res = queriesStore.simpleQuery.queryGet<{
-        tx_fee?: string;
-      }>(
-        "https://keplr-api.keplr.app",
-        `/v1/evm/tx?chain_identifier=${msg.chainId}&tx_hash=0x${msg.txHash}`
-      );
+      const queries = queriesStore.get(msg.chainId);
+      const receiptQuery =
+        queries.ethereum?.queryEthereumTxReceipt.getQueryByTxHash(
+          `0x${msg.txHash}`
+        );
+      if (!receiptQuery || receiptQuery.error) {
+        return "-";
+      }
 
-      if (res.response?.data) {
-        const txData = res.response.data;
+      const txFee = receiptQuery.txFee;
 
-        if (!txData.tx_fee) {
+      if (receiptQuery.response) {
+        if (!txFee) {
           return "-";
         }
 
-        const amt = new Int(txData.tx_fee);
+        const amt = new Int(txFee);
         const feeCurrency = u.evm.nativeCurrency;
         const pretty = new CoinPretty(feeCurrency, amt);
         return pretty
