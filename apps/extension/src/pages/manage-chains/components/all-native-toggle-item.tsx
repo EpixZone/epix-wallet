@@ -1,5 +1,5 @@
 import React, { FunctionComponent, useMemo } from "react";
-import { ModularChainInfo } from "@keplr-wallet/types";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import { ToggleItemHeader } from "./toggle-item-header";
 import { ColorPalette } from "../../../styles";
 import { useTheme } from "styled-components";
@@ -8,7 +8,7 @@ import { NativeChainSectionIconDM } from "../../register/enable-chains/component
 import { useStore } from "../../../stores";
 
 interface AllNativeToggleItemProps {
-  nativeChainInfos: ModularChainInfo[];
+  nativeChainInfos: IModularChainInfoImpl[];
   nativeChainIdentifierSet: Set<string>;
   onToggleAll: () => void;
 }

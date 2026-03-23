@@ -23,6 +23,7 @@ import { Gutter } from "../../../../components/gutter";
 import { Tooltip } from "../../../../components/tooltip";
 import { FormattedMessage, useIntl } from "react-intl";
 import { CoinPretty } from "@keplr-wallet/unit";
+import { filterModularChainInfosByKeyType } from "../../../../utils/is-chain-supported-by-key-type";
 
 const Styles = {
   Container: styled(Stack)`
@@ -39,35 +40,50 @@ const Styles = {
 };
 
 export const SettingTokenListPage: FunctionComponent = observer(() => {
-  const { chainStore, accountStore, tokensStore } = useStore();
+  const { chainStore, accountStore, keyRingStore, tokensStore } = useStore();
 
   const intl = useIntl();
   const navigate = useNavigate();
 
+  const availableChainInfosInListUI = filterModularChainInfosByKeyType(
+    keyRingStore.selectedKeyInfo?.type,
+    chainStore.modularChainInfosInListUI
+  );
+
   const supportedChainInfos = useMemo(() => {
-    return chainStore.chainInfosInListUI.filter((chainInfo) => {
-      return (
-        chainInfo.features?.includes("cosmwasm") ||
-        chainInfo.features?.includes("secretwasm") ||
-        chainStore.isEvmChain(chainInfo.chainId)
-      );
+    return availableChainInfosInListUI.filter((modularChainInfo) => {
+      const u = modularChainInfo.unwrapped;
+      if (u.type === "cosmos" || u.type === "ethermint") {
+        return (
+          u.cosmos.features?.includes("cosmwasm") ||
+          u.cosmos.features?.includes("secretwasm") ||
+          u.type === "ethermint"
+        );
+      }
+      if (u.type === "evm") {
+        return true;
+      }
+      return false;
     });
-  }, [chainStore.chainInfosInListUI]);
+  }, [availableChainInfosInListUI]);
+
+  const availableChainInfos = filterModularChainInfosByKeyType(
+    keyRingStore.selectedKeyInfo?.type,
+    chainStore.modularChainInfos
+  );
 
   const supportedModuleChainInfos = useMemo(() => {
-    return chainStore.modularChainInfos.filter((modularChainInfo) => {
-      return (
-        "starknet" in modularChainInfo && modularChainInfo.starknet != null
-      );
+    return availableChainInfos.filter((modularChainInfo) => {
+      return modularChainInfo.type === "starknet";
     });
-  }, [chainStore.modularChainInfos]);
+  }, [availableChainInfos]);
 
   const [chainId, setChainId] = useState<string>(() => {
     if (supportedChainInfos.length > 0) {
       return supportedChainInfos[0].chainId;
-    } else {
-      return chainStore.chainInfos[0].chainId;
     }
+
+    return availableChainInfos[0].chainId;
   });
 
   useEffect(() => {

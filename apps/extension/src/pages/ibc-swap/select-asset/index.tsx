@@ -27,7 +27,7 @@ import {
   ObservableQueryTargetAssets,
 } from "@keplr-wallet/stores-internal";
 import { Currency } from "@keplr-wallet/types";
-import { IChainInfoImpl } from "@keplr-wallet/stores";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import { FixedSizeList } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { DenomHelper } from "@keplr-wallet/common";
@@ -49,7 +49,7 @@ class IBCSwapDestinationState {
   @observable.shallow appendedPages: Set<number> = new Set();
   @observable.shallow targetEntriesInternal: {
     currency: Currency;
-    chainInfo: IChainInfoImpl;
+    chainInfo: IModularChainInfoImpl;
   }[] = [];
   protected disposer: IReactionDisposer | undefined;
 
@@ -114,7 +114,9 @@ class IBCSwapDestinationState {
 
             this.targetEntriesInternal.push({
               currency,
-              chainInfo: value.chainInfo,
+              chainInfo: this.chainStore.getModularChain(
+                value.chainInfo.chainId
+              ),
             });
           }
         }
@@ -193,7 +195,10 @@ class IBCSwapDestinationState {
   }
 
   @computed
-  get targetEntries(): { currency: Currency; chainInfo: IChainInfoImpl }[] {
+  get targetEntries(): {
+    currency: Currency;
+    chainInfo: IModularChainInfoImpl;
+  }[] {
     return this.targetEntriesInternal;
   }
 
@@ -218,9 +223,6 @@ class IBCSwapDestinationState {
         enableFilterDisabledAssetToken: false,
       })
       .filter((token) => {
-        if (!("currencies" in token.chainInfo)) {
-          return false;
-        }
         if (token.token.toDec().lte(new Dec(0))) {
           return false;
         }
@@ -247,7 +249,10 @@ class IBCSwapDestinationState {
   }
 
   @computed
-  get remainingCombined(): { currency: Currency; chainInfo: IChainInfoImpl }[] {
+  get remainingCombined(): {
+    currency: Currency;
+    chainInfo: IModularChainInfoImpl;
+  }[] {
     if (!this.sourceChainId || !this.sourceDenom) {
       return [];
     }
@@ -277,7 +282,7 @@ class IBCSwapDestinationState {
     tokens: ReadonlyArray<ViewToken>;
     remaining: {
       currency: Currency;
-      chainInfo: IChainInfoImpl;
+      chainInfo: IModularChainInfoImpl;
     }[];
     isFetchingItems: boolean;
   } {
@@ -323,7 +328,10 @@ const Styles = {
 const targetEntrySearchFields = [
   {
     key: "currency.coinDenom",
-    function: (item: { currency: Currency; chainInfo: IChainInfoImpl }) => {
+    function: (item: {
+      currency: Currency;
+      chainInfo: IModularChainInfoImpl;
+    }) => {
       return CoinPretty.makeCoinDenomPretty(item.currency.coinDenom);
     },
   },
@@ -384,10 +392,6 @@ export const IBCSwapDestinationSelectAssetPage: FunctionComponent = observer(
 
     const filteredTokens = useMemo(() => {
       const filtered = tokens.filter((token) => {
-        if (!("currencies" in token.chainInfo)) {
-          return false;
-        }
-
         const denomHelper = new DenomHelper(
           token.token.currency.coinMinimalDenom
         );
@@ -506,7 +510,7 @@ export const IBCSwapDestinationSelectAssetPage: FunctionComponent = observer(
                           // 따라서 findCurrency를 쓰되 정해진 timeout 동안에도 찾지 못하면 찾지 못했다고 판단하도록 한다.
                           disposal = autorun(() => {
                             const currency = chainStore
-                              .getChain(viewToken.chainInfo.chainId)
+                              .getModularChain(viewToken.chainInfo.chainId)
                               .findCurrency(
                                 viewToken.token.currency.coinMinimalDenom
                               );
@@ -627,11 +631,11 @@ const TokenListItem = ({
     filteredTokens: ViewToken[];
     filteredRemaining: {
       currency: Currency;
-      chainInfo: IChainInfoImpl;
+      chainInfo: IModularChainInfoImpl;
     }[];
     filteredTargetEntries: {
       currency: Currency;
-      chainInfo: IChainInfoImpl;
+      chainInfo: IModularChainInfoImpl;
     }[];
     ownedTokensMap: Map<string, ViewToken>;
     selectedCoinMinimalDenom?: string;
@@ -664,7 +668,9 @@ const TokenListItem = ({
     );
   }
 
-  let item: ViewToken | { currency: Currency; chainInfo: IChainInfoImpl };
+  let item:
+    | ViewToken
+    | { currency: Currency; chainInfo: IModularChainInfoImpl };
   let isOwned: boolean;
 
   if (data.hasSearch) {

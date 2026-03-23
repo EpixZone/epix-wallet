@@ -17,7 +17,7 @@ export class TxChainSetter implements ITxChainSetter {
 
   @computed
   get modularChainInfo(): IModularChainInfoImpl {
-    return this.chainGetter.getModularChainInfoImpl(this.chainId);
+    return this.chainGetter.getModularChain(this.chainId);
   }
 
   get chainId(): string {

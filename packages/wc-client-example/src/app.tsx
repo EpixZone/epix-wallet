@@ -12,9 +12,10 @@ export const App: FunctionComponent = observer(() => {
   return (
     <div>
       <p>
-        Name: {accountStore.getAccount(chainStore.chainInfos[0].chainId).name}
+        Name:{" "}
+        {accountStore.getAccount(chainStore.modularChainInfos[0].chainId).name}
       </p>
-      {chainStore.chainInfos.map((chainInfo) => {
+      {chainStore.modularChainInfos.map((chainInfo) => {
         const account = accountStore.getAccount(chainInfo.chainId);
         const queries = queriesStore.get(chainInfo.chainId);
 
@@ -34,17 +35,17 @@ export const App: FunctionComponent = observer(() => {
         onClick={() => {
           (window as any).keplr.enable(["cosmoshub-4", "osmosis-1"]);
 
-          const chainInfo = chainStore.chainInfos[0];
+          const chainInfo = chainStore.modularChainInfos[0];
           const account = accountStore.getAccount(chainInfo.chainId);
           const counterpartyAccount = accountStore.getAccount(
-            chainStore.chainInfos[1].chainId
+            chainStore.modularChainInfos[1].chainId
           );
 
           account.cosmos.sendIBCTransferMsg(
             {
               portId: "transfer",
               channelId: IBCChannel,
-              counterpartyChainId: chainStore.chainInfos[1].chainId,
+              counterpartyChainId: chainStore.modularChainInfos[1].chainId,
             },
             "1",
             chainInfo.currencies[0],
@@ -56,17 +57,17 @@ export const App: FunctionComponent = observer(() => {
       </button>
       <button
         onClick={() => {
-          const chainInfo = chainStore.chainInfos[1];
+          const chainInfo = chainStore.modularChainInfos[1];
           const account = accountStore.getAccount(chainInfo.chainId);
           const counterpartyAccount = accountStore.getAccount(
-            chainStore.chainInfos[0].chainId
+            chainStore.modularChainInfos[0].chainId
           );
 
           account.cosmos.sendIBCTransferMsg(
             {
               portId: "transfer",
               channelId: CounterpartyIBCChannel,
-              counterpartyChainId: chainStore.chainInfos[0].chainId,
+              counterpartyChainId: chainStore.modularChainInfos[0].chainId,
             },
             "1",
             chainInfo.currencies[0],
@@ -79,7 +80,7 @@ export const App: FunctionComponent = observer(() => {
 
       <button
         onClick={() => {
-          const chainInfo = chainStore.chainInfos[0];
+          const chainInfo = chainStore.modularChainInfos[0];
           const account = accountStore.getAccount(chainInfo.chainId);
 
           const data =
@@ -98,7 +99,7 @@ export const App: FunctionComponent = observer(() => {
       </button>
       <button
         onClick={() => {
-          const evmosChainInfo = chainStore.getChain("evmos_9001-2");
+          const evmosChainInfo = chainStore.getModularChain("evmos_9001-2");
           const account = accountStore.getAccount(evmosChainInfo.chainId);
 
           const ethereumTx = {
@@ -133,7 +134,7 @@ export const App: FunctionComponent = observer(() => {
       <button
         onClick={() => {
           accountStore
-            .getAccount(chainStore.chainInfos[0].chainId)
+            .getAccount(chainStore.modularChainInfos[0].chainId)
             .getKeplr()
             .then((keplr) => {
               keplr?.experimentalSuggestChain({
@@ -202,7 +203,7 @@ export const App: FunctionComponent = observer(() => {
       <button
         onClick={() => {
           accountStore
-            .getAccount(chainStore.chainInfos[0].chainId)
+            .getAccount(chainStore.modularChainInfos[0].chainId)
             .getKeplr()
             .then((keplr) => {
               keplr?.suggestToken(

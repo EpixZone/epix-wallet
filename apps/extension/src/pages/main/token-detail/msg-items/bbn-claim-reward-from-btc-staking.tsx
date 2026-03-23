@@ -16,10 +16,10 @@ export const MsgRelationBbnClaimRewardFromBTCStaking: FunctionComponent<{
 }> = observer(({ msg, prices, targetDenom, isInAllActivitiesPage }) => {
   const { chainStore } = useStore();
 
-  const chainInfo = chainStore.getChain(msg.chainId);
+  const modularChainInfo = chainStore.getModularChain(msg.chainId);
 
   const amountPretty = useMemo(() => {
-    const currency = chainInfo.forceFindCurrency(targetDenom);
+    const currency = modularChainInfo.forceFindCurrency(targetDenom);
 
     const rewards = msg.meta["reward"] as string;
 
@@ -31,7 +31,7 @@ export const MsgRelationBbnClaimRewardFromBTCStaking: FunctionComponent<{
     }
 
     return new CoinPretty(currency, "0");
-  }, [chainInfo, msg.meta, targetDenom]);
+  }, [modularChainInfo, msg.meta, targetDenom]);
 
   return (
     <MsgItemBase

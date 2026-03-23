@@ -42,8 +42,8 @@ export class ObservableQueryBitcoinUTXOs {
       return prior;
     }
 
-    const modularChainInfo = chainGetter.getModularChain(chainId);
-    if (!("bitcoin" in modularChainInfo)) {
+    const mcInfo2 = chainGetter.getModularChain(chainId);
+    if (mcInfo2.type !== "bitcoin") {
       return;
     }
 

@@ -14,7 +14,7 @@ import TransportWebHID from "@ledgerhq/hw-transport-webhid";
 import TransportWebUSB from "@ledgerhq/hw-transport-webusb";
 import { PubKeyBitcoinCompatible, toXOnly } from "@keplr-wallet/crypto";
 import { KeplrError } from "@keplr-wallet/router";
-import { ModularChainInfo } from "@keplr-wallet/types";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import AppClient, {
   DefaultWalletPolicy,
   WalletPolicy,
@@ -101,12 +101,12 @@ export const connectAndSignMessageWithLedger = async (
   interactionData: NonNullable<
     SignBitcoinMessageInteractionStore["waitingData"]
   >,
-  modularChainInfo: ModularChainInfo,
+  modularChainInfo: IModularChainInfoImpl,
   options: LedgerOptions
 ): Promise<string> => {
-  if (!("bitcoin" in modularChainInfo)) {
-    throw new Error("Bitcoin not found");
-  }
+  const u = modularChainInfo.unwrapped;
+  if (u.type !== "bitcoin") throw new Error("Bitcoin not found");
+  const bitcoinInfo = u.bitcoin;
 
   const appData = interactionData.data.keyInsensitive;
   if (!appData) {
@@ -120,7 +120,7 @@ export const connectAndSignMessageWithLedger = async (
     throw new Error("Invalid ledger app data");
   }
 
-  const { purpose, coinType } = modularChainInfo.bitcoin.bip44;
+  const { purpose, coinType } = bitcoinInfo.bip44;
 
   if (!purpose) {
     throw new Error("BIP44 purpose is not set");
@@ -270,12 +270,12 @@ export const connectAndSignPsbtsWithLedger = async (
       useTweakedSigner?: boolean;
     }[];
   }[],
-  modularChainInfo: ModularChainInfo,
+  modularChainInfo: IModularChainInfoImpl,
   options: LedgerOptions
 ): Promise<string[]> => {
-  if (!("bitcoin" in modularChainInfo)) {
-    throw new Error("Bitcoin not found");
-  }
+  const u2 = modularChainInfo.unwrapped;
+  if (u2.type !== "bitcoin") throw new Error("Bitcoin not found");
+  const bitcoinInfo = u2.bitcoin;
 
   if (psbtSignData.length === 0) {
     throw new Error("No psbt sign data");
@@ -293,7 +293,7 @@ export const connectAndSignPsbtsWithLedger = async (
     throw new Error("Invalid ledger app data");
   }
 
-  const { purpose, coinType } = modularChainInfo.bitcoin.bip44;
+  const { purpose, coinType } = bitcoinInfo.bip44;
 
   if (!purpose) {
     throw new Error("BIP44 purpose is not set");

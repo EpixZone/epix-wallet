@@ -4,6 +4,7 @@ import { useSearch } from "../../../hooks/use-search";
 import { useStore } from "../../../stores";
 import { useMemo, useState } from "react";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
+import { isChainSupportedByKeyType } from "../../../utils/is-chain-supported-by-key-type";
 
 const addressSearchFields = [
   "modularChainInfo.chainName",
@@ -21,40 +22,31 @@ const addressSearchFields = [
   {
     key: "modularChainInfo.currency.coinDenom",
     function: (item: Address) => {
-      if (
-        "cosmos" in item.modularChainInfo &&
-        item.modularChainInfo.cosmos != null
-      ) {
-        const cosmosChainInfo = item.modularChainInfo.cosmos;
-        if (cosmosChainInfo.stakeCurrency) {
+      const u = item.modularChainInfo.unwrapped;
+      if (u.type === "cosmos" || u.type === "ethermint") {
+        if (u.cosmos.stakeCurrency) {
           return CoinPretty.makeCoinDenomPretty(
-            cosmosChainInfo.stakeCurrency.coinDenom
+            u.cosmos.stakeCurrency.coinDenom
           );
         }
-        if (cosmosChainInfo.currencies.length > 0) {
-          const currency = cosmosChainInfo.currencies[0];
+        if (u.cosmos.currencies.length > 0) {
+          const currency = u.cosmos.currencies[0];
           if (!currency.coinMinimalDenom.startsWith("ibc/")) {
             return CoinPretty.makeCoinDenomPretty(currency.coinDenom);
           }
         }
-      } else if (
-        "starknet" in item.modularChainInfo &&
-        item.modularChainInfo.starknet != null
-      ) {
-        const starknetChainInfo = item.modularChainInfo.starknet;
-        if (starknetChainInfo.currencies.length > 0) {
+      } else if (u.type === "evm") {
+        return CoinPretty.makeCoinDenomPretty(u.evm.nativeCurrency.coinDenom);
+      } else if (u.type === "starknet") {
+        if (u.starknet.currencies.length > 0) {
           return CoinPretty.makeCoinDenomPretty(
-            starknetChainInfo.currencies[0].coinDenom
+            u.starknet.currencies[0].coinDenom
           );
         }
-      } else if (
-        "bitcoin" in item.modularChainInfo &&
-        item.modularChainInfo.bitcoin != null
-      ) {
-        const bitcoinChainInfo = item.modularChainInfo.bitcoin;
-        if (bitcoinChainInfo.currencies.length > 0) {
+      } else if (u.type === "bitcoin") {
+        if (u.bitcoin.currencies.length > 0) {
           return CoinPretty.makeCoinDenomPretty(
-            bitcoinChainInfo.currencies[0].coinDenom
+            u.bitcoin.currencies[0].coinDenom
           );
         }
       }
@@ -101,58 +93,79 @@ export const useGetAddressesOnCopyAddress = (search: string) => {
   });
 
   const addresses: Address[] = useMemo(() => {
-    return chainStore.modularChainInfosInUI.map((modularChainInfo) => {
-      const accountInfo = accountStore.getAccount(modularChainInfo.chainId);
+    return chainStore.modularChainInfosInUI
+      .filter((modularChainInfo) =>
+        isChainSupportedByKeyType(
+          keyRingStore.selectedKeyInfo?.type,
+          modularChainInfo
+        )
+      )
+      .map((modularChainInfo) => {
+        const accountInfo = accountStore.getAccount(modularChainInfo.chainId);
 
-      const bech32Address = (() => {
-        if (!("cosmos" in modularChainInfo)) {
-          return undefined;
-        }
+        const bech32Address = (() => {
+          if (
+            modularChainInfo.type !== "cosmos" &&
+            modularChainInfo.type !== "ethermint"
+          ) {
+            return undefined;
+          }
 
-        if (modularChainInfo.chainId.startsWith("eip155")) {
-          return undefined;
-        }
+          if (
+            modularChainInfo.type === "ethermint" &&
+            modularChainInfo.chainId.startsWith("eip155")
+          ) {
+            return undefined;
+          }
 
-        return accountInfo.bech32Address;
-      })();
-      const ethereumAddress = (() => {
-        if (!("cosmos" in modularChainInfo)) {
-          return undefined;
-        }
+          return accountInfo.bech32Address;
+        })();
+        const ethereumAddress = (() => {
+          if (
+            modularChainInfo.type !== "cosmos" &&
+            modularChainInfo.type !== "ethermint" &&
+            modularChainInfo.type !== "evm"
+          ) {
+            return undefined;
+          }
 
-        if (modularChainInfo.chainId.startsWith("injective")) {
-          return undefined;
-        }
+          if (modularChainInfo.chainId.startsWith("injective")) {
+            return undefined;
+          }
 
-        return accountInfo.hasEthereumHexAddress
-          ? accountInfo.ethereumHexAddress
-          : undefined;
-      })();
-      const starknetAddress = (() => {
-        if (!("starknet" in modularChainInfo)) {
-          return undefined;
-        }
+          return accountInfo.hasEthereumHexAddress
+            ? accountInfo.ethereumHexAddress
+            : undefined;
+        })();
+        const starknetAddress = (() => {
+          if (modularChainInfo.type !== "starknet") {
+            return undefined;
+          }
 
-        return accountInfo.starknetHexAddress;
-      })();
+          return accountInfo.starknetHexAddress;
+        })();
 
-      const bitcoinAddress = (() => {
-        if (!("bitcoin" in modularChainInfo)) {
-          return undefined;
-        }
+        const bitcoinAddress = (() => {
+          if (modularChainInfo.type !== "bitcoin") {
+            return undefined;
+          }
 
-        return accountInfo.bitcoinAddress;
-      })();
+          return accountInfo.bitcoinAddress;
+        })();
 
-      return {
-        modularChainInfo,
-        bech32Address,
-        ethereumAddress,
-        starknetAddress,
-        bitcoinAddress,
-      };
-    });
-  }, [chainStore.modularChainInfosInUI, accountStore]);
+        return {
+          modularChainInfo: modularChainInfo,
+          bech32Address,
+          ethereumAddress,
+          starknetAddress,
+          bitcoinAddress,
+        };
+      });
+  }, [
+    accountStore,
+    chainStore.modularChainInfosInUI,
+    keyRingStore.selectedKeyInfo?.type,
+  ]);
 
   const searchedAddresses = useSearchAddressOnCopyAddress(addresses, search);
 

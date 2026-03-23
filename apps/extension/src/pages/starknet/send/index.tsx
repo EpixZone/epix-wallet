@@ -85,7 +85,7 @@ export const StarknetSendPage: FunctionComponent = observer(() => {
       let r = "";
 
       for (const modularChainInfo of chainStore.modularChainInfosInUI) {
-        if ("starknet" in modularChainInfo) {
+        if (modularChainInfo.type === "starknet") {
           r = modularChainInfo.chainId;
           break;
         }
@@ -97,20 +97,23 @@ export const StarknetSendPage: FunctionComponent = observer(() => {
       return r;
     })();
   const modularChainInfo = chainStore.getModularChain(chainId);
-  if (!("starknet" in modularChainInfo)) {
+  if (modularChainInfo.type !== "starknet") {
     throw new Error(`${modularChainInfo.chainId} is not starknet chain`);
   }
-  const starknet = modularChainInfo.starknet;
+  const u = modularChainInfo.unwrapped;
+  if (u.type !== "starknet") {
+    throw new Error(`${modularChainInfo.chainId} is not starknet chain`);
+  }
+  const starknet = u.starknet;
 
   const coinMinimalDenom =
     initialCoinMinimalDenom || starknet.currencies[0].coinMinimalDenom;
   const currency = (() => {
     // TODO: 대충 여기에다가 force currency 로직을 박아놓는다...
     //       나중에 이런 기능을 chain store 자체에다가 만들어야한다.
-    const res = chainStore
-      .getModularChainInfoImpl(chainId)
-      .getCurrencies("starknet")
-      .find((cur) => cur.coinMinimalDenom === coinMinimalDenom);
+    const res = modularChainInfo.currencies.find(
+      (cur) => cur.coinMinimalDenom === coinMinimalDenom
+    );
     if (res) {
       return res;
     }
@@ -247,10 +250,9 @@ export const StarknetSendPage: FunctionComponent = observer(() => {
       // observed되어야 하므로 꼭 여기서 참조 해야함.
       // const type = sendConfigs.feeConfig.type;
       const feeContractAddress = starknet.strkContractAddress;
-      const feeCurrency = chainStore
-        .getModularChainInfoImpl(chainId)
-        .getCurrencies("starknet")
-        .find((cur) => cur.coinMinimalDenom === `erc20:${feeContractAddress}`);
+      const feeCurrency = modularChainInfo.currencies.find(
+        (cur) => cur.coinMinimalDenom === `erc20:${feeContractAddress}`
+      );
       if (!feeCurrency) {
         throw new Error("Can't find fee currency");
       }
@@ -399,12 +401,9 @@ export const StarknetSendPage: FunctionComponent = observer(() => {
           setIsLoading(true);
           try {
             const feeContractAddress = starknet.strkContractAddress;
-            const feeCurrency = chainStore
-              .getModularChainInfoImpl(chainId)
-              .getCurrencies("starknet")
-              .find(
-                (cur) => cur.coinMinimalDenom === `erc20:${feeContractAddress}`
-              );
+            const feeCurrency = modularChainInfo.currencies.find(
+              (cur) => cur.coinMinimalDenom === `erc20:${feeContractAddress}`
+            );
             if (!feeCurrency) {
               throw new Error("Can't find fee currency");
             }

@@ -8,7 +8,7 @@ import { CloseIcon, PlusIcon, QuestionIcon } from "../../../../components/icon";
 import { ColorPalette } from "../../../../styles";
 import { Stack } from "../../../../components/stack";
 import { Body1, Body3, Subtitle3 } from "../../../../components/typography";
-import { ChainInfo } from "@keplr-wallet/types";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import { Column, Columns } from "../../../../components/column";
 import { ChainImageFallback } from "../../../../components/image";
 import { EmptyView } from "../../../../components/empty-view";
@@ -22,8 +22,8 @@ export const SettingGeneralDeleteSuggestChainPage: FunctionComponent = observer(
   () => {
     const intl = useIntl();
     const { chainStore, keyRingStore } = useStore();
-    const suggestedChains = chainStore.chainInfos.filter(
-      (chainInfo) => !chainInfo.embedded.embedded
+    const suggestedChains = chainStore.modularChainInfos.filter(
+      (chainInfo) => !chainInfo.embedded.isBuiltInChain
     );
 
     return (
@@ -81,7 +81,7 @@ export const SettingGeneralDeleteSuggestChainPage: FunctionComponent = observer(
 );
 
 const ChainItem: FunctionComponent<{
-  chainInfo: ChainInfo;
+  chainInfo: IModularChainInfoImpl;
   onClickClose?: () => void;
 }> = ({ chainInfo, onClickClose }) => {
   const intl = useIntl();
@@ -130,7 +130,7 @@ const ChainItem: FunctionComponent<{
             </Tooltip>
           </Columns>
           <Body3 color={ColorPalette["gray-300"]}>
-            {chainInfo.currencies[0].coinDenom}
+            {chainInfo.currencies[0]?.coinDenom}
           </Body3>
         </Stack>
 

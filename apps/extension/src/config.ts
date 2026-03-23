@@ -2136,6 +2136,8 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
     features: [],
   },
   {
+    isV2: true,
+    type: "starknet" as const,
     chainId: "starknet:SN_MAIN",
     chainName: "Starknet",
     chainSymbolImageUrl:
@@ -2222,7 +2224,7 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
             "0x033068F6539f8e6e6b131e6B2B814e6c34A5224bC66947c47DaB9dFeE93b35fb",
           coinDenom: "USDC",
           coinMinimalDenom:
-            "erc20:0x033068F6539f8e6e6b131e6B2B814e6c34A5224bC66947c47DaB9dFeE93b35fb",
+            "erc20:0x033068f6539f8e6e6b131e6b2b814e6c34a5224bc66947c47dab9dfee93b35fb",
           coinDecimals: 6,
           coinGeckoId: "usd-coin",
           coinImageUrl:
@@ -2293,6 +2295,8 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
     },
   },
   {
+    isV2: true,
+    type: "starknet" as const,
     chainId: "starknet:SN_SEPOLIA",
     chainName: "Starknet Sepolia",
     chainSymbolImageUrl:
@@ -2676,7 +2680,7 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
         type: "erc20",
         contractAddress: "0x7499d654422023a407d92e1D83D387d81BC68De1",
         coinDenom: "stDRV",
-        coinMinimalDenom: "erc20:0x7499d654422023a407d92e1D83D387d81BC68De1",
+        coinMinimalDenom: "erc20:0x7499d654422023a407d92e1d83d387d81bc68de1",
         coinDecimals: 18,
       },
     ],
@@ -2715,14 +2719,14 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
       },
       {
         coinDenom: "BGT",
-        coinMinimalDenom: "erc20:0x656b95E550C07a9ffe548bd4085c72418Ceb1dba",
+        coinMinimalDenom: "erc20:0x656b95e550c07a9ffe548bd4085c72418ceb1dba",
         coinDecimals: 18,
         coinImageUrl:
           "https://raw.githubusercontent.com/chainapsis/keplr-chain-registry/main/images/eip155:80094/erc20/0x656b95E550C07a9ffe548bd4085c72418Ceb1dba.png",
       },
       {
         coinDenom: "HONEY",
-        coinMinimalDenom: "erc20:0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce",
+        coinMinimalDenom: "erc20:0xfcbd14dc51f0a4d49d5e53c2e0950e0bc26d0dce",
         coinDecimals: 18,
         coinImageUrl:
           "https://raw.githubusercontent.com/chainapsis/keplr-chain-registry/main/images/eip155:80094/erc20/0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce.png",
@@ -2812,6 +2816,8 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
     features: ["op-stack-l1-data-fee"],
   },
   {
+    isV2: true,
+    type: "bitcoin" as const,
     chainId:
       "bip122:000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f:taproot",
     chainName: "Bitcoin",
@@ -2841,6 +2847,8 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
     },
   },
   {
+    isV2: true,
+    type: "bitcoin" as const,
     chainId:
       "bip122:000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f:native-segwit",
     chainName: "Bitcoin",
@@ -2870,6 +2878,8 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
     },
   },
   {
+    isV2: true,
+    type: "bitcoin" as const,
     chainId:
       "bip122:000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943:taproot",
     chainName: "Bitcoin Testnet",
@@ -2899,6 +2909,8 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
     isTestnet: true,
   },
   {
+    isV2: true,
+    type: "bitcoin" as const,
     chainId:
       "bip122:000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943:native-segwit",
     chainName: "Bitcoin Testnet",
@@ -2928,6 +2940,8 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
     isTestnet: true,
   },
   {
+    isV2: true,
+    type: "bitcoin" as const,
     chainId:
       "bip122:00000008819873e925422c1ff0f99f7cc9bbb232af63a077a480a3633bee1ef6:taproot",
     chainName: "Bitcoin Signet",
@@ -2957,6 +2971,8 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
     isTestnet: true,
   },
   {
+    isV2: true,
+    type: "bitcoin" as const,
     chainId:
       "bip122:00000008819873e925422c1ff0f99f7cc9bbb232af63a077a480a3633bee1ef6:native-segwit",
     chainName: "Bitcoin Signet",
@@ -3350,7 +3366,7 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
       },
       {
         coinDenom: "USDC.e",
-        coinMinimalDenom: "erc20:0xF1815bd50389c46847f0Bda824eC8da914045D14",
+        coinMinimalDenom: "erc20:0xf1815bd50389c46847f0bda824ec8da914045d14",
         coinDecimals: 6,
         coinGeckoId: "stargate-bridged-usdc-ink",
         coinImageUrl:
@@ -3395,7 +3411,7 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
       },
       {
         coinDenom: "USDC",
-        coinMinimalDenom: "erc20:0x176211869cA2b568f2A7D4EE941E073a821EE1ff",
+        coinMinimalDenom: "erc20:0x176211869ca2b568f2a7d4ee941e073a821ee1ff",
         coinDecimals: 6,
         coinGeckoId: "usd-coin",
         coinImageUrl:
@@ -3544,7 +3560,7 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
       },
       {
         coinDenom: "WMON",
-        coinMinimalDenom: "erc20:0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A",
+        coinMinimalDenom: "erc20:0x3bd359c1119da7da1d913d1c4d2b7c461115433a",
         coinDecimals: 18,
         coinGeckoId: "wrapped-monad",
         coinImageUrl:

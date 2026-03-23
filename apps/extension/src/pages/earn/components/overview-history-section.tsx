@@ -4,8 +4,7 @@ import { usePaginatedCursorQuery } from "../../main/token-detail/hook";
 import { ResMsgsHistory } from "../../main/token-detail/types";
 import { useStore } from "../../../stores";
 import { PaginationLimit, Relations } from "../../main/token-detail/constants";
-import { ChainInfoWithCoreTypes } from "@keplr-wallet/background";
-import { IChainInfoImpl } from "@keplr-wallet/stores";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import React from "react";
 import { Box } from "../../../components/box";
 import { useTheme } from "styled-components";
@@ -19,7 +18,7 @@ import { RenderMessages } from "../../main/token-detail/messages";
 const NOBLE_CHAIN_IDENTIFIER = "noble";
 
 export const EarnOverviewHistorySection: FunctionComponent<{
-  chainInfo: IChainInfoImpl<ChainInfoWithCoreTypes>;
+  chainInfo: IModularChainInfoImpl;
 }> = observer(({ chainInfo }) => {
   const theme = useTheme();
   const { accountStore, priceStore } = useStore();

@@ -11,11 +11,7 @@ import {
 } from "./types";
 import { KVStore } from "@keplr-wallet/common";
 import { ChainsService } from "../chains";
-import {
-  ChainInfo,
-  GENESIS_HASH_TO_NETWORK,
-  GenesisHash,
-} from "@keplr-wallet/types";
+import { GENESIS_HASH_TO_NETWORK, GenesisHash } from "@keplr-wallet/types";
 import { action, autorun, makeObservable, observable, runInAction } from "mobx";
 import { migrate } from "./migrate";
 import { computedFn } from "mobx-utils";
@@ -150,8 +146,8 @@ export class PermissionService {
     });
   }
 
-  protected readonly onChainRemoved = (chainInfo: ChainInfo) => {
-    this.removeAllPermissions(chainInfo.chainId);
+  protected readonly onChainRemoved = (chainId: string) => {
+    this.removeAllPermissions(chainId);
   };
 
   getAllPermissionDataPerOrigin(): AllPermissionDataPerOrigin {

@@ -47,10 +47,10 @@ export class ObservableQueryCosmosBalancesImplParent extends ObservableChainQuer
   ) {
     super.onReceiveResponse(response);
 
-    const chainInfo = this.chainGetter.getChain(this.chainId);
+    const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
     const balances = response.data.balances ?? [];
     const denoms = balances.map((coin) => coin.denom);
-    chainInfo.addUnknownDenoms(...denoms);
+    mcInfo2.addUnknownDenoms(...denoms);
   }
 }
 
@@ -84,8 +84,8 @@ export class ObservableQueryCosmosBalancesImpl
   get currency(): AppCurrency {
     const denom = this.denomHelper.denom;
 
-    const chainInfo = this.chainGetter.getChain(this.chainId);
-    return chainInfo.forceFindCurrency(denom);
+    const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
+    return mcInfo2.forceFindCurrency(denom);
   }
 
   get error(): Readonly<QueryError<unknown>> | undefined {

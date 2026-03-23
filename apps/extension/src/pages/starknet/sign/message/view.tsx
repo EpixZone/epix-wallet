@@ -48,7 +48,7 @@ export const SignStarknetMessageView: FunctionComponent<{
   const chainId = interactionData.data.chainId;
 
   const modularChainInfo = chainStore.getModularChain(chainId);
-  if (!("starknet" in modularChainInfo)) {
+  if (modularChainInfo.type !== "starknet") {
     throw new Error(`${modularChainInfo.chainId} is not starknet chain`);
   }
 
@@ -163,7 +163,6 @@ export const SignStarknetMessageView: FunctionComponent<{
           style: {
             width: "3.25rem",
           },
-          isLoading: isLedgerInteracting,
           onClick: async () => {
             await signStarknetMessageInteractionStore.rejectWithProceedNext(
               interactionData.id,
@@ -192,7 +191,8 @@ export const SignStarknetMessageView: FunctionComponent<{
           isSpecial: true,
           text: intl.formatMessage({ id: "button.approve" }),
           size: "large",
-          left: <ApproveIcon />,
+          left: !isLedgerInteracting && <ApproveIcon />,
+          isLoading: isLedgerInteracting,
           onClick: approve,
         },
       ]}

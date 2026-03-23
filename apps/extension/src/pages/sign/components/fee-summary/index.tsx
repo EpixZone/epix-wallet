@@ -69,13 +69,27 @@ export const FeeSummary: FunctionComponent<{
                 feeConfig.fees.length === 0 ||
                 (isForEVMTx && !gasSimulator?.gasEstimated)
               ) {
-                const chainInfo = chainStore.getChain(feeConfig.chainId);
-                return [
-                  new CoinPretty(
-                    chainInfo.stakeCurrency || chainInfo.currencies[0],
-                    new Dec(0)
-                  ),
-                ];
+                const modularChainInfo = chainStore.getModularChain(
+                  feeConfig.chainId
+                );
+                const u = modularChainInfo.unwrapped;
+                const fallbackCurrency = (() => {
+                  if (u.type === "cosmos" || u.type === "ethermint") {
+                    return u.cosmos.stakeCurrency || u.cosmos.currencies[0];
+                  }
+                  if (u.type === "evm") {
+                    return u.evm.nativeCurrency;
+                  }
+                  if (u.type === "starknet") {
+                    return u.starknet.currencies[0];
+                  }
+                  if (u.type === "bitcoin") {
+                    return u.bitcoin.currencies[0];
+                  }
+                  return undefined;
+                })();
+                if (!fallbackCurrency) return [];
+                return [new CoinPretty(fallbackCurrency, new Dec(0))];
               }
 
               return feeConfig.fees;

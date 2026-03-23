@@ -19,8 +19,8 @@ export function normalizeDenom(
     return lowerCaseDenom.replace("erc20:", "");
   }
 
-  if (chainStore.hasChain(chainId) && chainId.startsWith("eip155:")) {
-    const currencies = chainStore.getChain(chainId).currencies;
+  if (chainStore.hasModularChain(chainId) && chainId.startsWith("eip155:")) {
+    const currencies = chainStore.getModularChain(chainId).currencies;
     if (
       currencies.length > 0 &&
       currencies[0].coinMinimalDenom === lowerCaseDenom

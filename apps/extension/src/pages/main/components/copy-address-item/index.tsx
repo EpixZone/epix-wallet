@@ -67,8 +67,7 @@ export const CopyAddressItem = observer(
       }: CopyAddressItemProps,
       ref
     ) {
-      const { analyticsStore, keyRingStore, uiConfigStore, chainStore } =
-        useStore();
+      const { analyticsStore, keyRingStore, uiConfigStore } = useStore();
 
       const theme = useTheme();
 
@@ -83,10 +82,7 @@ export const CopyAddressItem = observer(
 
       const [isBookmarkHover, setIsBookmarkHover] = useState(false);
 
-      const isEVMOnlyChain =
-        "cosmos" in address.modularChainInfo &&
-        address.modularChainInfo.cosmos != null &&
-        chainStore.isEvmOnlyChain(address.modularChainInfo.chainId);
+      const chainType = address.modularChainInfo.type;
 
       const executeCopy = useCallback(async () => {
         if (blockInteraction) {
@@ -137,7 +133,8 @@ export const CopyAddressItem = observer(
           <XAxis alignY="center">
             <Box
               cursor={
-                blockInteraction || (!isEVMOnlyChain && address.ethereumAddress)
+                blockInteraction ||
+                (chainType !== "evm" && address.ethereumAddress)
                   ? undefined
                   : "pointer"
               }
@@ -146,9 +143,9 @@ export const CopyAddressItem = observer(
                 setIsBookmarkHover(isHover);
               }}
               style={{
-                opacity: !isEVMOnlyChain && address.ethereumAddress ? 0 : 1,
+                opacity: chainType !== "evm" && address.ethereumAddress ? 0 : 1,
                 pointerEvents:
-                  !isEVMOnlyChain && address.ethereumAddress
+                  chainType !== "evm" && address.ethereumAddress
                     ? "none"
                     : undefined,
                 color: (() => {

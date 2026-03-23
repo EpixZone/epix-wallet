@@ -30,6 +30,7 @@ import {
   useVerticalSizeInternalContext,
 } from "../../../components/transition/vertical-size/internal";
 import { PortalTooltip } from "../../../components/tooltip/portal";
+import { useClaimAllSession } from "../../../hooks/claim/use-claim-all-session";
 import { useRewards, ViewClaimToken } from "../../../hooks/use-rewards";
 import { TextButton } from "../../../components/button-text";
 import { Button } from "../../../components/button";
@@ -51,10 +52,14 @@ export const RewardsCard: FunctionComponent<{
     isKeystone,
     claimAll,
     claimAllDisabled,
-    claimAllIsLoading,
     states,
     getClaimAllEachState,
   } = useRewards();
+  const { hasClaimAllSession, isClaimAllInProgress, startClaimAllSession } =
+    useClaimAllSession({
+      viewClaimTokens,
+      getClaimAllEachState,
+    });
 
   useEffect(() => {
     if (initialExpand) {
@@ -146,15 +151,16 @@ export const RewardsCard: FunctionComponent<{
                 size="small"
                 disabled={claimAllDisabled}
                 onClick={() => {
-                  if (claimAllDisabled || claimAllIsLoading) {
+                  if (claimAllDisabled || hasClaimAllSession) {
                     return;
                   }
 
+                  startClaimAllSession();
                   claimAll();
                   setIsExpanded(true);
                 }}
                 right={
-                  claimAllIsLoading ? (
+                  isClaimAllInProgress ? (
                     <Box padding="0.125rem">
                       <LoadingIcon
                         width="0.875rem"
@@ -189,7 +195,7 @@ export const RewardsCard: FunctionComponent<{
           opacityLeft={0}
           onTransitionEnd={() => {
             if (!isExpanded) {
-              if (!claimAllIsLoading) {
+              if (!hasClaimAllSession) {
                 // Clear errors when collapsed.
                 for (const state of states) {
                   state.setFailedReason(undefined);
@@ -221,7 +227,7 @@ const ViewClaimTokenItem: FunctionComponent<{
   itemsLength: number;
   isLastItem: boolean;
 }> = observer(({ viewClaimToken, state, itemsLength, isLastItem }) => {
-  if ("starknet" in viewClaimToken.modularChainInfo) {
+  if (viewClaimToken.modularChainInfo.type === "starknet") {
     return (
       <ViewStarknetClaimTokenItem
         viewClaimToken={viewClaimToken}
@@ -232,7 +238,10 @@ const ViewClaimTokenItem: FunctionComponent<{
     );
   }
 
-  if ("cosmos" in viewClaimToken.modularChainInfo) {
+  if (
+    viewClaimToken.modularChainInfo.type === "cosmos" ||
+    viewClaimToken.modularChainInfo.type === "ethermint"
+  ) {
     return (
       <ViewCosmosClaimTokenItem
         viewClaimToken={viewClaimToken}

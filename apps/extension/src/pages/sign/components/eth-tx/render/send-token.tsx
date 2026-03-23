@@ -137,12 +137,21 @@ export const EthSendTokenTxPretty: React.FunctionComponent<{
   erc20ContractAddress?: string;
 }> = observer(({ chainId, recipient, amount, erc20ContractAddress }) => {
   const { chainStore, accountStore } = useStore();
-  const chainInfo = chainStore.getChain(chainId);
+  const mcInfo2 = chainStore.getModularChain(chainId);
   const sender = accountStore.getAccount(chainId).ethereumHexAddress;
 
-  const currency = erc20ContractAddress
-    ? chainInfo.forceFindCurrency(`erc20:${erc20ContractAddress}`)
-    : chainInfo.currencies[0];
+  const currency = (() => {
+    if (erc20ContractAddress) {
+      return mcInfo2.forceFindCurrency(`erc20:${erc20ContractAddress}`);
+    }
+    const u = mcInfo2.unwrapped;
+    if (u.type === "evm") return u.evm.nativeCurrency;
+    if (u.type === "ethermint") return u.evm.nativeCurrency;
+    if (u.type === "cosmos") return u.cosmos.currencies[0];
+    throw new Error(
+      `Unexpected chain type "${u.type}" for EthSendTokenTxPretty (${mcInfo2.chainId})`
+    );
+  })();
   const amountCoinPretty = new CoinPretty(currency, new Dec(Number(amount)));
 
   const theme = useTheme();

@@ -14,12 +14,12 @@ export const MsgRelationEvmApprove: FunctionComponent<{
 }> = observer(({ msg, prices, targetDenom, isInAllActivitiesPage }) => {
   const { chainStore } = useStore();
 
-  const chainInfo = chainStore.getChain(msg.chainId);
+  const modularChainInfo = chainStore.getModularChain(msg.chainId);
 
   const meta = msg.meta as ERC20ApproveRelMeta;
 
   const currencyName = (() => {
-    const approveCurrency = chainInfo.findCurrency(
+    const approveCurrency = modularChainInfo.findCurrency(
       meta.contract ? `erc20:${meta.contract}` : targetDenom
     );
     if (approveCurrency) {

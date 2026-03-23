@@ -1,4 +1,4 @@
-import React, { FunctionComponent, useEffect, useState, useRef } from "react";
+import React, { FunctionComponent, useEffect } from "react";
 import { observer } from "mobx-react-lite";
 import { useIntl, IntlShape } from "react-intl";
 import { Box } from "../../../../components/box";
@@ -13,6 +13,7 @@ import { ColorPalette } from "../../../../styles";
 import { COMMON_HOVER_OPACITY } from "../../../../styles/constant";
 import { XAxis, YAxis } from "../../../../components/axis";
 import { Gutter } from "../../../../components/gutter";
+import { useClaimAllSession } from "../../../../hooks/claim/use-claim-all-session";
 import { useRewards } from "../../../../hooks/use-rewards";
 import { useNavigate } from "react-router";
 import { LoadingIcon } from "../../../../components/icon";
@@ -34,56 +35,29 @@ export const RewardsCard: FunctionComponent<{
   const { uiConfigStore } = useStore();
 
   const {
+    viewClaimTokens,
     totalPrice,
     claimAll,
     claimAllDisabled,
-    claimAllIsLoading,
     isLedger,
     isKeystone,
-    claimAllIsCompleted,
-    succeededCount,
-    totalClaimTokenCount,
+    getClaimAllEachState,
   } = useRewards();
-
-  const [showCompletionUI, setShowCompletionUI] = useState(false);
-  const [count, setCount] = useState(0);
-  const prevClaimAllIsLoadingRef = useRef(claimAllIsLoading);
-  const [snapshotCount, setSnapshotCount] = useState(0);
-
-  useEffect(() => {
-    const wasLoading = prevClaimAllIsLoadingRef.current;
-    prevClaimAllIsLoadingRef.current = claimAllIsLoading;
-
-    if (wasLoading && claimAllIsCompleted && !claimAllIsLoading) {
-      setShowCompletionUI(true);
-      setCount(6);
-
-      const interval = setInterval(() => {
-        setCount((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            setShowCompletionUI(false);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => {
-        clearInterval(interval);
-      };
-    }
-  }, [claimAllIsCompleted, claimAllIsLoading]);
-
-  const claimCountText = (() => {
-    if (snapshotCount === 0) return "";
-    return `${succeededCount}/${snapshotCount}`;
-  })();
+  const {
+    isClaimAllInProgress,
+    claimAllIsCompleted,
+    claimAllIsLoading,
+    claimCountText,
+    count,
+    showCompletionUI,
+    startClaimAllSession,
+  } = useClaimAllSession({
+    viewClaimTokens,
+    getClaimAllEachState,
+  });
 
   const handleClaimAll = () => {
-    setShowCompletionUI(false);
-    setCount(0);
-    setSnapshotCount(totalClaimTokenCount);
+    startClaimAllSession();
     claimAll();
   };
 
@@ -168,7 +142,7 @@ export const RewardsCard: FunctionComponent<{
                 id: "page.main.components.rewards-card.view-button",
               })}
             </Body3>
-          ) : claimAllIsLoading || showCompletionUI ? (
+          ) : isClaimAllInProgress || showCompletionUI ? (
             <YAxis alignX="right">
               <XAxis alignY="center">
                 <Body3
@@ -181,7 +155,7 @@ export const RewardsCard: FunctionComponent<{
                   {claimCountText}
                 </Body3>
                 <Gutter size="0.25rem" />
-                {claimAllIsLoading ? (
+                {isClaimAllInProgress || claimAllIsLoading ? (
                   <LoadingIcon
                     width="0.75rem"
                     height="0.75rem"

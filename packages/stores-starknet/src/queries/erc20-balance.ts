@@ -3,7 +3,7 @@ import {
   IObservableQueryBalanceImpl,
   QuerySharedContext,
 } from "@keplr-wallet/stores";
-import { AppCurrency, ChainInfo } from "@keplr-wallet/types";
+import { AppCurrency } from "@keplr-wallet/types";
 import { CoinPretty, Int } from "@keplr-wallet/unit";
 import { computed, makeObservable } from "mobx";
 import { DenomHelper } from "@keplr-wallet/common";
@@ -58,17 +58,14 @@ export class ObservableQueryStarknetERC20BalanceImpl
   get currency(): AppCurrency {
     const denom = this.denomHelper.denom;
 
-    const modularChainInfo = this.chainGetter.getModularChain(this.chainId);
-    if (!("starknet" in modularChainInfo)) {
+    const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
+    if (mcInfo2.type !== "starknet") {
       throw new Error(`The chain (${this.chainId}) doesn't support starknet`);
     }
-    const modularChainInfoImpl = this.chainGetter.getModularChainInfoImpl(
-      this.chainId
-    );
 
-    const currency = modularChainInfoImpl
-      .getCurrencies("starknet")
-      .find((cur) => cur.coinMinimalDenom === denom);
+    const currency = mcInfo2.currencies.find(
+      (cur) => cur.coinMinimalDenom === denom
+    );
 
     if (!currency) {
       throw new Error(`Unknown currency: ${this.contractAddress}`);
@@ -86,7 +83,7 @@ export class ObservableQueryStarknetERC20Balance {
 
   getBalance(
     chainId: string,
-    chainGetter: ChainGetter<ChainInfo>,
+    chainGetter: ChainGetter,
     address: string,
     minimalDenom: string
   ): IObservableQueryBalanceImpl | undefined {
@@ -97,8 +94,8 @@ export class ObservableQueryStarknetERC20Balance {
     }
 
     const denomHelper = new DenomHelper(minimalDenom);
-    const modularChainInfo = chainGetter.getModularChain(chainId);
-    if (denomHelper.type !== "erc20" || !("starknet" in modularChainInfo)) {
+    const mcInfo2 = chainGetter.getModularChain(chainId);
+    if (denomHelper.type !== "erc20" || mcInfo2.type !== "starknet") {
       return;
     }
 

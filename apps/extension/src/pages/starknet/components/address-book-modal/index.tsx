@@ -99,7 +99,7 @@ export const AddressBookModal: FunctionComponent<{
     const modularChainInfo = chainStore.getModularChain(
       recipientConfig.chainId
     );
-    if (!("starknet" in modularChainInfo)) {
+    if (modularChainInfo.type !== "starknet") {
       throw new Error(`${recipientConfig.chainId} is not starknet chain`);
     }
 

@@ -3,7 +3,7 @@ import {
   ObservableChainQueryMap,
 } from "../../chain-query";
 import { BondStatus, Validators, Validator } from "./types";
-import { ChainGetter } from "../../../chain";
+import { ChainGetter, requireCosmosInfo } from "../../../chain";
 import { computed, makeObservable, observable, runInAction } from "mobx";
 import { ObservableQuery, QuerySharedContext } from "../../../common";
 import PQueue from "p-queue";
@@ -96,7 +96,10 @@ export class ObservableQueryValidatorsInner extends ObservableChainQuery<Validat
   }
 
   protected override canFetch(): boolean {
-    if (!this.chainGetter.getChain(this.chainId).stakeCurrency) {
+    if (
+      !requireCosmosInfo(this.chainGetter.getModularChain(this.chainId))
+        .stakeCurrency
+    ) {
       return false;
     }
     return super.canFetch();
@@ -185,8 +188,10 @@ export class ObservableQueryValidatorsInner extends ObservableChainQuery<Validat
         return;
       }
 
-      const chainInfo = this.chainGetter.getChain(this.chainId);
-      const stakeCurrency = chainInfo.stakeCurrency;
+      const cosmosInfo = requireCosmosInfo(
+        this.chainGetter.getModularChain(this.chainId)
+      );
+      const stakeCurrency = cosmosInfo.stakeCurrency;
 
       if (!stakeCurrency) {
         return;

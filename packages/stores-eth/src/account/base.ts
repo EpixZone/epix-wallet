@@ -141,9 +141,8 @@ export class EthereumAccountBase {
     unsignedTx: UnsignedTransaction,
     stateOverride?: StateOverride
   ) {
-    const chainInfo = this.chainGetter.getChain(this.chainId);
-    const evmInfo = chainInfo.evm;
-    if (!evmInfo) {
+    const u = this.chainGetter.getModularChain(this.chainId).unwrapped;
+    if (u.type !== "evm" && u.type !== "ethermint") {
       throw new Error("No EVM chain info provided");
     }
 
@@ -227,11 +226,11 @@ export class EthereumAccountBase {
     sender: string,
     unsignedTx: UnsignedEVMTransactionWithErc20Approvals
   ): Promise<SimulateGasWithPendingErc20ApprovalResult> {
-    const chainInfo = this.chainGetter.getChain(this.chainId);
-    const evmInfo = chainInfo.evm;
-    if (!evmInfo) {
+    const u = this.chainGetter.getModularChain(this.chainId).unwrapped;
+    if (u.type !== "evm" && u.type !== "ethermint") {
       throw new Error("No EVM chain info provided");
     }
+    const evmInfo = u.evm;
 
     const { to, value, data, requiredErc20Approvals } = unsignedTx;
 
@@ -274,7 +273,7 @@ export class EthereumAccountBase {
 
     try {
       // State diff tracing for the ERC20 approval transaction
-      const approvalStateDiff = await traceCallWithDiff(chainInfo.rpc, {
+      const approvalStateDiff = await traceCallWithDiff(evmInfo.rpc, {
         from: sender,
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         to: erc20ApprovalTx.to!,
@@ -319,14 +318,9 @@ export class EthereumAccountBase {
   }
 
   async simulateOpStackL1Fee(unsignedTx: UnsignedTransaction): Promise<string> {
-    const chainInfo = this.chainGetter.getChain(this.chainId);
-    if (!chainInfo.features.includes("op-stack-l1-data-fee")) {
+    const mcInfo = this.chainGetter.getModularChain(this.chainId);
+    if (!mcInfo.hasFeature("op-stack-l1-data-fee")) {
       throw new Error("The chain isn't built with OP Stack");
-    }
-
-    const evmInfo = chainInfo.evm;
-    if (!evmInfo) {
-      throw new Error("No EVM chain info provided");
     }
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -352,15 +346,16 @@ export class EthereumAccountBase {
   async simulateOpStackL1FeeWithPendingErc20Approval(
     unsignedTx: UnsignedEVMTransactionWithErc20Approvals
   ): Promise<string> {
-    const chainInfo = this.chainGetter.getChain(this.chainId);
-    if (!chainInfo.features.includes("op-stack-l1-data-fee")) {
+    const mcInfo = this.chainGetter.getModularChain(this.chainId);
+    if (!mcInfo.hasFeature("op-stack-l1-data-fee")) {
       throw new Error("The chain isn't built with OP Stack");
     }
 
-    const evmInfo = chainInfo.evm;
-    if (!evmInfo) {
+    const u = mcInfo.unwrapped;
+    if (u.type !== "evm" && u.type !== "ethermint") {
       throw new Error("No EVM chain info provided");
     }
+    const evmInfo = u.evm;
 
     const txsToSimulate: UnsignedTransaction[] = [
       {
@@ -494,14 +489,13 @@ export class EthereumAccountBase {
   }
 
   makeTx(to: string, value: string, data?: string): UnsignedTransaction {
-    const chainInfo = this.chainGetter.getChain(this.chainId);
-    const evmInfo = chainInfo.evm;
-    if (!evmInfo) {
+    const u = this.chainGetter.getModularChain(this.chainId).unwrapped;
+    if (u.type !== "evm" && u.type !== "ethermint") {
       throw new Error("No EVM chain info provided");
     }
 
     return {
-      chainId: evmInfo.chainId,
+      chainId: u.evm.chainId,
       to,
       value,
       data,
@@ -524,9 +518,8 @@ export class EthereumAccountBase {
       considerRequiredErc20ApprovalsForNonce?: boolean;
     }
   ) {
-    const chainInfo = this.chainGetter.getChain(this.chainId);
-    const evmInfo = chainInfo.evm;
-    if (!evmInfo) {
+    const u = this.chainGetter.getModularChain(this.chainId).unwrapped;
+    if (u.type !== "evm" && u.type !== "ethermint") {
       throw new Error("No EVM info provided");
     }
 
@@ -580,9 +573,8 @@ export class EthereumAccountBase {
     }
   ) {
     try {
-      const chainInfo = this.chainGetter.getChain(this.chainId);
-      const evmInfo = chainInfo.evm;
-      if (!evmInfo) {
+      const u = this.chainGetter.getModularChain(this.chainId).unwrapped;
+      if (u.type !== "evm" && u.type !== "ethermint") {
         throw new Error("No EVM info provided");
       }
 

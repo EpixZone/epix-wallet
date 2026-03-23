@@ -34,10 +34,10 @@ export const ConnectLedgerModal: FunctionComponent<{
     }
 
     const modInfo = chainStore.getModularChain(chainId);
-    if ("linkedChainKey" in modInfo) {
-      const key = modInfo.linkedChainKey;
+    if (modInfo.embedded.linkedChainKey) {
+      const key = modInfo.embedded.linkedChainKey;
       return chainStore.modularChainInfos
-        .filter((ci) => "linkedChainKey" in ci && ci.linkedChainKey === key)
+        .filter((ci) => ci.embedded.linkedChainKey === key)
         .map((ci) => ChainIdHelper.parse(ci.chainId).identifier);
     }
 

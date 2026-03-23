@@ -641,7 +641,7 @@ export class SwapAmountConfig extends AmountConfig {
     switch (msg.type) {
       case "cosmos-sdk/MsgTransfer": {
         const currency = this.chainGetter
-          .getChain(chainId)
+          .getModularChain(chainId)
           .forceFindCurrency(msg.value.token.denom);
         const normalizedAmount = new Dec(msg.value.token.amount)
           .quo(DecUtils.getPrecisionDec(currency.coinDecimals))
@@ -776,8 +776,8 @@ export class SwapAmountConfig extends AmountConfig {
   ): boolean {
     return (
       inCurrencyDenom === this.outCurrency.coinMinimalDenom &&
-      this.chainGetter.getChain(inChainId).chainIdentifier ===
-        this.chainGetter.getChain(this.outChainId).chainIdentifier
+      this.chainGetter.getModularChain(inChainId).chainIdentifier ===
+        this.chainGetter.getModularChain(this.outChainId).chainIdentifier
     );
   }
 

@@ -12,6 +12,7 @@ import {
   InvalidBech32Error,
   InvalidHexError,
 } from "./errors";
+import { isEthSignChain } from "@keplr-wallet/types";
 import { Bech32Address } from "@keplr-wallet/cosmos";
 import { useState } from "react";
 import { Buffer } from "buffer/";
@@ -157,7 +158,11 @@ export class RecipientConfig
   @computed
   get bech32Prefix(): string {
     if (!this._bech32Prefix) {
-      return this.chainInfo.bech32Config?.bech32PrefixAccAddr ?? "";
+      const u = this.modularChainInfo.unwrapped;
+      if (u.type === "cosmos" || u.type === "ethermint") {
+        return u.cosmos.bech32Config?.bech32PrefixAccAddr ?? "";
+      }
+      return "";
     }
 
     return this._bech32Prefix;
@@ -176,13 +181,9 @@ export class RecipientConfig
 
     const rawRecipient = this.value.trim();
 
-    const chainInfo = this.chainInfo;
-    const isEvmChain = !!this.chainInfo.evm;
-    const hasEthereumAddress =
-      chainInfo.bip44.coinType === 60 ||
-      !!chainInfo.features?.includes("eth-address-gen") ||
-      !!chainInfo.features?.includes("eth-key-sign") ||
-      isEvmChain;
+    const chainInfo = this.modularChainInfo;
+    const u = chainInfo.unwrapped;
+    const hasEthereumAddress = isEthSignChain(u);
     if (
       hasEthereumAddress &&
       EthereumAccountBase.isEthereumHexAddressWithChecksum(rawRecipient) &&
@@ -221,13 +222,9 @@ export class RecipientConfig
       rawRecipient = r.address;
     }
 
-    const chainInfo = this.chainInfo;
-    const isEvmChain = !!this.chainInfo.evm;
-    const hasEthereumAddress =
-      chainInfo.bip44.coinType === 60 ||
-      !!chainInfo.features?.includes("eth-address-gen") ||
-      !!chainInfo.features?.includes("eth-key-sign") ||
-      isEvmChain;
+    const chainInfo = this.modularChainInfo;
+    const u = chainInfo.unwrapped;
+    const hasEthereumAddress = isEthSignChain(u);
     const isHexAddressAllowed =
       this._allowHexAddressOnly ||
       (rawRecipient.startsWith("0x") && this._allowHexAddressToBech32Address);

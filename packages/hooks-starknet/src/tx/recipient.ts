@@ -106,8 +106,7 @@ export class RecipientConfig
 
     const rawRecipient = this.value.trim();
 
-    const modularChainInfoImpl = this.modularChainInfo;
-    if (!("starknet" in modularChainInfoImpl.embedded)) {
+    if (this.modularChainInfo.type !== "starknet") {
       throw new Error("Chain doesn't support the starknet");
     }
 

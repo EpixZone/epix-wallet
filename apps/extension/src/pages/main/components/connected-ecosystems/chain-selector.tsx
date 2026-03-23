@@ -1,6 +1,6 @@
 import React, { FunctionComponent, useEffect, useRef } from "react";
 import { useTheme } from "styled-components";
-import { ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import { InExtensionMessageRequester } from "@keplr-wallet/router-extension";
 import { BACKGROUND_PORT } from "@keplr-wallet/router";
 import {
@@ -16,9 +16,10 @@ import { Subtitle3 } from "../../../../components/typography";
 import { ColorPalette } from "../../../../styles";
 
 export const ChainSelector: FunctionComponent<{
-  chainInfos: (ModularChainInfo | ChainInfo)[];
+  chainInfos: IModularChainInfoImpl[];
   currentChainId: string;
   setCurrentChainId: (chainId: string) => void;
+  invalidateCurrentChainSync: () => void;
   activeTabOrigin: string;
   updateMessage:
     | typeof UpdateCurrentChainIdForBitcoinMsg
@@ -26,15 +27,16 @@ export const ChainSelector: FunctionComponent<{
     | typeof UpdateCurrentChainIdForEVMMsg;
 
   // Ecosystem-specific options (e.g. Bitcoin uses baseChainId as identifier)
-  getChainId?: (chainInfo: ModularChainInfo | ChainInfo) => string;
+  getChainId?: (chainInfo: IModularChainInfoImpl) => string;
   isChainSelected?: (
-    chainInfo: ModularChainInfo | ChainInfo,
+    chainInfo: IModularChainInfoImpl,
     currentChainId: string
   ) => boolean;
 }> = ({
   chainInfos,
   currentChainId,
   setCurrentChainId,
+  invalidateCurrentChainSync,
   activeTabOrigin,
   updateMessage,
   getChainId,
@@ -42,14 +44,20 @@ export const ChainSelector: FunctionComponent<{
 }) => {
   const theme = useTheme();
   const selectedChainRef = useRef<HTMLDivElement>(null);
+  const prevCurrentChainIdRef = useRef(currentChainId);
 
   useEffect(() => {
-    if (selectedChainRef.current) {
+    if (
+      prevCurrentChainIdRef.current !== currentChainId &&
+      selectedChainRef.current
+    ) {
       selectedChainRef.current.scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
     }
+
+    prevCurrentChainIdRef.current = currentChainId;
   }, [currentChainId]);
 
   return (
@@ -67,11 +75,7 @@ export const ChainSelector: FunctionComponent<{
               paddingY="0.75rem"
               cursor="pointer"
               backgroundColor={
-                isSelected
-                  ? theme.mode === "light"
-                    ? ColorPalette["white"]
-                    : ColorPalette["gray-650"]
-                  : theme.mode === "light"
+                theme.mode === "light"
                   ? ColorPalette["white"]
                   : ColorPalette["gray-650"]
               }
@@ -87,6 +91,7 @@ export const ChainSelector: FunctionComponent<{
                   BACKGROUND_PORT,
                   msg
                 );
+                invalidateCurrentChainSync();
                 setCurrentChainId(chainId);
               }}
             >

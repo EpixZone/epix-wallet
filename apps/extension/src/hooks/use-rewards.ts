@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { ViewToken } from "../pages/main";
 import { useStore } from "../stores";
 import {
@@ -8,11 +7,11 @@ import {
 } from "./claim";
 import { CoinPretty, Dec, PricePretty } from "@keplr-wallet/unit";
 import { NEUTRON_CHAIN_ID, NOBLE_CHAIN_ID } from "../config.ui";
-import { ModularChainInfo } from "@keplr-wallet/types";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import { ClaimAllEachState } from "../stores/claim-rewards-state";
 
 export interface ViewClaimToken extends Omit<ViewToken, "chainInfo"> {
-  modularChainInfo: ModularChainInfo;
+  modularChainInfo: IModularChainInfoImpl;
   price?: PricePretty;
   onClaimAll: (
     chainId: string,
@@ -77,20 +76,24 @@ export function useRewards() {
             onClaimSingle: handleCosmosClaimSingle,
           });
         }
-      } else if ("cosmos" in modularChainInfo) {
-        const isEVMOnly = chainStore.isEvmOnlyChain(chainId);
-        if (isEVMOnly) {
-          continue;
+      } else if (
+        modularChainInfo.type === "cosmos" ||
+        modularChainInfo.type === "ethermint"
+      ) {
+        if (modularChainInfo.type === "ethermint") {
+          // ethermint(evm+cosmos) chains don't have staking rewards via cosmos in v2
+          // but they may have cosmos staking, so we don't skip
         }
 
         const accountAddress = account.bech32Address;
-        const chainInfo = chainStore.getChain(chainId);
         const queries = queriesStore.get(chainId);
+        const u = modularChainInfo.unwrapped;
 
         if (chainId === NOBLE_CHAIN_ID) {
           const queryYield =
             queries.noble.queryYield.getQueryBech32Address(accountAddress);
-          const usdnCurrency = chainInfo.findCurrency("uusdn") || USDN_CURRENCY;
+          const usdnCurrency =
+            modularChainInfo.findCurrency("uusdn") || USDN_CURRENCY;
           const rawAmount = queryYield.claimableAmount;
           const amount = new CoinPretty(usdnCurrency, rawAmount);
           if (amount.toDec().gt(new Dec(0))) {
@@ -109,20 +112,22 @@ export function useRewards() {
         const queryRewards =
           queries.cosmos.queryRewards.getQueryBech32Address(accountAddress);
 
+        const cosmosInfo =
+          u.type === "cosmos" || u.type === "ethermint" ? u.cosmos : undefined;
         const targetDenom = (() => {
-          if (chainInfo.chainIdentifier === "dydx-mainnet") {
+          if (modularChainInfo.chainIdentifier === "dydx-mainnet") {
             return "ibc/8E27BA2D5493AF5636760E354E46004562C46AB7EC0CC4C1CA14E9E20E2545B5";
           }
 
-          if (chainInfo.chainIdentifier === "elys") {
+          if (modularChainInfo.chainIdentifier === "elys") {
             return "ueden";
           }
 
-          return chainInfo.stakeCurrency?.coinMinimalDenom;
+          return cosmosInfo?.stakeCurrency?.coinMinimalDenom;
         })();
 
         if (targetDenom) {
-          const currency = chainInfo.findCurrency(targetDenom);
+          const currency = modularChainInfo.findCurrency(targetDenom);
           if (currency) {
             const reward = queryRewards.rewards.find(
               (r) => r.currency.coinMinimalDenom === targetDenom
@@ -140,17 +145,15 @@ export function useRewards() {
             }
           }
         }
-      } else if ("starknet" in modularChainInfo) {
+      } else if (modularChainInfo.type === "starknet") {
         if (chainId !== "starknet:SN_MAIN") {
           continue;
         }
 
-        const starknetChainInfo = chainStore.getModularChain(chainId);
         const queryStakingInfo = starknetQueriesStore
           .get(chainId)
           .stakingInfoManager.getStakingInfo(
-            accountStore.getAccount(starknetChainInfo.chainId)
-              .starknetHexAddress
+            accountStore.getAccount(modularChainInfo.chainId).starknetHexAddress
           );
 
         const totalClaimableRewardAmount =
@@ -160,7 +163,7 @@ export function useRewards() {
           res.push({
             token: totalClaimableRewardAmount,
             price: priceStore.calculatePrice(totalClaimableRewardAmount),
-            modularChainInfo: starknetChainInfo,
+            modularChainInfo: modularChainInfo,
             isFetching: queryStakingInfo?.isFetching ?? false,
             error: queryStakingInfo?.error,
             onClaimAll: handleStarknetClaimAllEach,
@@ -259,50 +262,6 @@ export function useRewards() {
     return true;
   })();
 
-  const totalClaimTokenCount = viewClaimTokens.length;
-
-  const finishedCount = useMemo(() => {
-    let count = 0;
-    for (const viewClaimToken of viewClaimTokens) {
-      const state = getClaimAllEachState(
-        viewClaimToken.modularChainInfo.chainId
-      );
-      if (state.isCompleted) {
-        count += 1;
-      }
-    }
-    return count;
-  }, [viewClaimTokens, getClaimAllEachState]);
-
-  const succeededCount = useMemo(() => {
-    let count = 0;
-    for (const viewClaimToken of viewClaimTokens) {
-      const state = getClaimAllEachState(
-        viewClaimToken.modularChainInfo.chainId
-      );
-      if (state.isSucceeded) {
-        count += 1;
-      }
-    }
-    return count;
-  }, [viewClaimTokens, getClaimAllEachState]);
-
-  const claimAllIsLoading = useMemo(() => {
-    for (const viewClaimToken of viewClaimTokens) {
-      const state = getClaimAllEachState(
-        viewClaimToken.modularChainInfo.chainId
-      );
-      if (state.hasStarted && (state.isLoading || state.isSimulating)) {
-        return true;
-      }
-    }
-    return false;
-  }, [viewClaimTokens, getClaimAllEachState]);
-
-  const claimAllIsCompleted = useMemo(() => {
-    return totalClaimTokenCount > 0 && finishedCount === totalClaimTokenCount;
-  }, [finishedCount, totalClaimTokenCount]);
-
   return {
     viewClaimTokens,
     totalPrice,
@@ -310,11 +269,7 @@ export function useRewards() {
     isKeystone,
     claimAll,
     claimAllDisabled,
-    claimAllIsLoading,
-    claimAllIsCompleted,
     getClaimAllEachState,
     states,
-    succeededCount,
-    totalClaimTokenCount,
   };
 }

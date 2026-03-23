@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@keplr-wallet/hooks": "0.13.14",
+    "@keplr-wallet/hooks-evm": "0.13.14",
     "@keplr-wallet/stores": "0.13.14",
     "@keplr-wallet/stores-eth": "0.13.14",
     "@keplr-wallet/stores-internal": "0.13.14",

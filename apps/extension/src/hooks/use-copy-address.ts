@@ -3,25 +3,29 @@ import { DenomHelper } from "@keplr-wallet/common";
 import { ViewToken } from "../pages/main";
 
 export const useCopyAddress = (viewToken: ViewToken): string | undefined => {
-  const { accountStore, chainStore } = useStore();
+  const { accountStore } = useStore();
 
   const denomHelper = new DenomHelper(
     viewToken.token.currency.coinMinimalDenom
   );
   const account = accountStore.getAccount(viewToken.chainInfo.chainId);
 
-  if ("bitcoin" in viewToken.chainInfo) {
+  if (viewToken.chainInfo.type === "bitcoin") {
     return account.bitcoinAddress?.bech32Address;
   }
 
   // only ETH and STRK are supported on Starknet
-  if ("starknet" in viewToken.chainInfo) {
+  if (viewToken.chainInfo.type === "starknet") {
     if (denomHelper.type !== "erc20") {
       return undefined;
     }
 
-    const { ethContractAddress, strkContractAddress } =
-      viewToken.chainInfo.starknet;
+    const u = viewToken.chainInfo.unwrapped;
+    if (u.type !== "starknet") {
+      return undefined;
+    }
+
+    const { ethContractAddress, strkContractAddress } = u.starknet;
     const isSupportedToken =
       denomHelper.contractAddress === ethContractAddress ||
       denomHelper.contractAddress === strkContractAddress;
@@ -33,8 +37,10 @@ export const useCopyAddress = (viewToken: ViewToken): string | undefined => {
     return account.starknetHexAddress;
   }
 
-  const isEVMOnlyChain = chainStore.isEvmOnlyChain(viewToken.chainInfo.chainId);
-  if (isEVMOnlyChain) {
+  if (
+    viewToken.chainInfo.type === "evm" ||
+    (viewToken.chainInfo.type === "ethermint" && denomHelper.type === "erc20")
+  ) {
     return account.ethereumHexAddress;
   }
 

@@ -45,10 +45,15 @@ export class SignDocAmountConfig
 
   @computed
   get amount(): CoinPretty[] {
+    const u = this.modularChainInfo.unwrapped;
+    const feeCurrencies =
+      u.type === "cosmos" || u.type === "ethermint"
+        ? u.cosmos.feeCurrencies
+        : [];
     if (
       this.disableBalanceCheck ||
       !this.signDocHelper?.signDocWrapper ||
-      this.chainInfo.feeCurrencies.length === 0
+      feeCurrencies.length === 0
     ) {
       return [];
     }
@@ -81,7 +86,9 @@ export class SignDocAmountConfig
                 for (const amountInMsg of msg.value.amount) {
                   amount.push(
                     new CoinPretty(
-                      this.chainInfo.forceFindCurrency(amountInMsg.denom),
+                      this.modularChainInfo.forceFindCurrency(
+                        amountInMsg.denom
+                      ),
                       amountInMsg.amount
                     )
                   );
@@ -101,7 +108,9 @@ export class SignDocAmountConfig
               ) {
                 amount.push(
                   new CoinPretty(
-                    this.chainInfo.forceFindCurrency(msg.value.amount.denom),
+                    this.modularChainInfo.forceFindCurrency(
+                      msg.value.amount.denom
+                    ),
                     msg.value.amount.amount
                   )
                 );
@@ -120,7 +129,9 @@ export class SignDocAmountConfig
               ) {
                 amount.push(
                   new CoinPretty(
-                    this.chainInfo.forceFindCurrency(msg.value.token.denom),
+                    this.modularChainInfo.forceFindCurrency(
+                      msg.value.token.denom
+                    ),
                     msg.value.token.amount
                   )
                 );
@@ -155,7 +166,9 @@ export class SignDocAmountConfig
                 for (const amountInMsg of sendMsg.amount) {
                   amount.push(
                     new CoinPretty(
-                      this.chainInfo.forceFindCurrency(amountInMsg.denom),
+                      this.modularChainInfo.forceFindCurrency(
+                        amountInMsg.denom
+                      ),
                       amountInMsg.amount
                     )
                   );
@@ -172,7 +185,7 @@ export class SignDocAmountConfig
                 if (delegateMsg.amount) {
                   amount.push(
                     new CoinPretty(
-                      this.chainInfo.forceFindCurrency(
+                      this.modularChainInfo.forceFindCurrency(
                         delegateMsg.amount.denom
                       ),
                       delegateMsg.amount.amount
@@ -191,7 +204,7 @@ export class SignDocAmountConfig
                 if (ibcTransferMsg.token) {
                   amount.push(
                     new CoinPretty(
-                      this.chainInfo.forceFindCurrency(
+                      this.modularChainInfo.forceFindCurrency(
                         ibcTransferMsg.token.denom
                       ),
                       ibcTransferMsg.token.amount

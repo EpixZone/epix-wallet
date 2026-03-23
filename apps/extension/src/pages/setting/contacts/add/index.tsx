@@ -21,11 +21,16 @@ import {
   useRecipientConfig as useRecipientConfigForBitcoin,
   useTxConfigsValidate as useTxConfigsValidateForBitcoin,
 } from "@keplr-wallet/hooks-bitcoin";
+import {
+  useRecipientConfig as useRecipientConfigForEvm,
+  useTxConfigsValidate as useTxConfigsValidateForEvm,
+} from "@keplr-wallet/hooks-evm";
 import { useStore } from "../../../../stores";
 import { MemoInput } from "../../../../components/input/memo-input";
 import { useNavigate } from "react-router";
 import { useIntl } from "react-intl";
 import { ENSInfo } from "../../../../config.ui";
+import { filterModularChainInfosByKeyType } from "../../../../utils/is-chain-supported-by-key-type";
 
 const Styles = {
   Container: styled(Stack)`
@@ -34,13 +39,21 @@ const Styles = {
 };
 
 export const SettingContactsAdd: FunctionComponent = observer(() => {
-  const { chainStore, uiConfigStore } = useStore();
+  const { chainStore, keyRingStore, uiConfigStore } = useStore();
   const labelRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
   const intl = useIntl();
+  const [searchParams] = useSearchParams();
+  // Param "chainId" is required.
+  const paramChainId = searchParams.get("chainId");
+  const paramEditIndex = searchParams.get("editIndex");
 
-  // CHECK: starknet, bitcoin만 활성화되어 있는 경우 chainInfosInUI의 길이가 0이 됨으로 인해 참조 오류 발생
-  const [chainId, setChainId] = useState(chainStore.chainInfosInUI[0].chainId);
+  const supportedChainInfosInUI = filterModularChainInfosByKeyType(
+    keyRingStore.selectedKeyInfo?.type,
+    chainStore.modularChainInfosInUI
+  );
+
+  const chainId = paramChainId ?? supportedChainInfosInUI[0]?.chainId ?? "";
   // If edit mode, this will be equal or greater than 0.
   const [editIndex, setEditIndex] = useState(-1);
 
@@ -48,8 +61,11 @@ export const SettingContactsAdd: FunctionComponent = observer(() => {
 
   const recipientConfig = useRecipientConfig(chainStore, chainId, {
     allowHexAddressToBech32Address:
-      chainStore.hasChain(chainId) &&
-      !chainStore.getChain(chainId).chainId.startsWith("injective"),
+      chainStore.hasModularChain(chainId) &&
+      chainStore.getModularChain(chainId).type !== "starknet" &&
+      chainStore.getModularChain(chainId).type !== "bitcoin" &&
+      chainStore.getModularChain(chainId).type !== "evm" &&
+      !chainId.startsWith("injective"),
     icns: uiConfigStore.icnsInfo,
     ens: ENSInfo,
   });
@@ -61,21 +77,27 @@ export const SettingContactsAdd: FunctionComponent = observer(() => {
     chainStore,
     chainId
   );
+  const recipientConfigForEvm = useRecipientConfigForEvm(chainStore, chainId, {
+    ens: ENSInfo,
+  });
 
   const memoConfig = useMemoConfig(chainStore, chainId);
 
-  const [searchParams] = useSearchParams();
-  // Param "chainId" is required.
-  const paramChainId = searchParams.get("chainId");
-  const paramEditIndex = searchParams.get("editIndex");
+  const chainType = chainStore.hasModularChain(chainId)
+    ? chainStore.getModularChain(chainId).type
+    : undefined;
 
-  const isStarknet =
-    chainStore.hasModularChain(chainId) &&
-    "starknet" in chainStore.getModularChain(chainId);
+  const isStarknet = chainType === "starknet";
+  const isBitcoin = chainType === "bitcoin";
+  const isEvm = chainType === "evm";
 
-  const isBitcoin =
-    chainStore.hasModularChain(chainId) &&
-    "bitcoin" in chainStore.getModularChain(chainId);
+  const activeRecipientConfig = isStarknet
+    ? recipientConfigForStarknet
+    : isBitcoin
+    ? recipientConfigForBitcoin
+    : isEvm
+    ? recipientConfigForEvm
+    : recipientConfig;
 
   useEffect(() => {
     if (labelRef.current) {
@@ -88,31 +110,15 @@ export const SettingContactsAdd: FunctionComponent = observer(() => {
       throw new Error(`Param "chainId" is required`);
     }
 
-    setChainId(paramChainId);
-    if (isStarknet) {
-      recipientConfigForStarknet.setChain(paramChainId);
-    } else if (isBitcoin) {
-      recipientConfigForBitcoin.setChain(paramChainId);
-    } else {
-      recipientConfig.setChain(paramChainId);
-    }
-    memoConfig.setChain(paramChainId);
-
     if (paramEditIndex) {
       const index = Number.parseInt(paramEditIndex);
       const addressBook =
-        uiConfigStore.addressBookConfig.getAddressBook(paramChainId);
+        uiConfigStore.addressBookConfig.getAddressBook(chainId);
       if (addressBook.length > index) {
         setEditIndex(index);
         const data = addressBook[index];
         setName(data.name);
-        if (isStarknet) {
-          recipientConfigForStarknet.setValue(data.address);
-        } else if (isBitcoin) {
-          recipientConfigForBitcoin.setValue(data.address);
-        } else {
-          recipientConfig.setValue(data.address);
-        }
+        activeRecipientConfig.setValue(data.address);
         memoConfig.setValue(data.memo);
         return;
       }
@@ -120,22 +126,22 @@ export const SettingContactsAdd: FunctionComponent = observer(() => {
 
     setEditIndex(-1);
   }, [
-    intl,
-    isBitcoin,
-    isStarknet,
+    activeRecipientConfig,
+    chainId,
     memoConfig,
     paramChainId,
     paramEditIndex,
-    recipientConfig,
-    recipientConfigForBitcoin,
-    recipientConfigForStarknet,
     uiConfigStore.addressBookConfig,
   ]);
 
   const txConfigsValidate = useTxConfigsValidate({
     recipientConfig,
     memoConfig,
-    isIgnoringModularChain: isStarknet || isBitcoin,
+    isIgnoringModularChain: isStarknet || isBitcoin || isEvm,
+  });
+
+  const txConfigsValidateForEvm = useTxConfigsValidateForEvm({
+    recipientConfig: recipientConfigForEvm,
   });
 
   const txConfigsValidateForStarknet = useTxConfigsValidateForStarknet({
@@ -145,6 +151,14 @@ export const SettingContactsAdd: FunctionComponent = observer(() => {
   const txConfigsValidateForBitcoin = useTxConfigsValidateForBitcoin({
     recipientConfig: recipientConfigForBitcoin,
   });
+
+  const interactionBlocked = isStarknet
+    ? txConfigsValidateForStarknet.interactionBlocked
+    : isBitcoin
+    ? txConfigsValidateForBitcoin.interactionBlocked
+    : isEvm
+    ? txConfigsValidateForEvm.interactionBlocked
+    : txConfigsValidate.interactionBlocked;
 
   return (
     <HeaderLayout
@@ -156,26 +170,17 @@ export const SettingContactsAdd: FunctionComponent = observer(() => {
       left={<BackButton />}
       onSubmit={(e) => {
         e.preventDefault();
-        const internalRecipientConfig = (() => {
-          if (isStarknet) {
-            return recipientConfigForStarknet;
-          } else if (isBitcoin) {
-            return recipientConfigForBitcoin;
-          }
-
-          return recipientConfig;
-        })();
 
         const address = (() => {
-          if ("nameServiceResult" in internalRecipientConfig) {
+          if ("nameServiceResult" in activeRecipientConfig) {
             // name service fetch가 성공했을 경우 저장할때는 suffix까지 포함된 형태로 저장한다.
-            const r = internalRecipientConfig.nameServiceResult;
+            const r = activeRecipientConfig.nameServiceResult;
             if (r.length > 0) {
               return r[0].fullName;
             }
           }
 
-          return internalRecipientConfig.value;
+          return activeRecipientConfig.value;
         })();
 
         if (editIndex < 0) {
@@ -202,14 +207,7 @@ export const SettingContactsAdd: FunctionComponent = observer(() => {
           color: "secondary",
           size: "large",
           type: "submit",
-          disabled:
-            (isStarknet
-              ? txConfigsValidateForStarknet.interactionBlocked
-              : txConfigsValidate.interactionBlocked) ||
-            (isBitcoin
-              ? txConfigsValidateForBitcoin.interactionBlocked
-              : txConfigsValidate.interactionBlocked) ||
-            name === "",
+          disabled: interactionBlocked || name === "",
         },
       ]}
     >
@@ -239,9 +237,14 @@ export const SettingContactsAdd: FunctionComponent = observer(() => {
             recipientConfig={recipientConfigForBitcoin}
             hideAddressBookButton={true}
           />
+        ) : isEvm ? (
+          <RecipientInput
+            recipientConfig={recipientConfigForEvm}
+            hideAddressBookButton={true}
+          />
         ) : (
           <RecipientInput
-            recipientConfig={recipientConfig}
+            recipientConfig={activeRecipientConfig}
             hideAddressBookButton={true}
           />
         )}

@@ -31,11 +31,11 @@ export class ObservableChainQuerySpendableBalances extends ObservableChainQuery<
 
     const res: CoinPretty[] = [];
 
-    const chainInfo = this.chainGetter.getChain(this.chainId);
+    const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
 
     const balances = this.response.data.balances ?? [];
     for (const bal of balances) {
-      const currency = chainInfo.findCurrency(bal.denom);
+      const currency = mcInfo2.findCurrency(bal.denom);
       if (currency) {
         res.push(new CoinPretty(currency, bal.amount));
       }

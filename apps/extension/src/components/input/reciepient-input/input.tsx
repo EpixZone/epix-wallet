@@ -40,6 +40,25 @@ export type RecipientInputProps = (
   bottom?: React.ReactNode;
 };
 
+const isEmptyAddressError = (err: unknown): boolean => {
+  if (!err || typeof err !== "object") {
+    return false;
+  }
+
+  const error = err as {
+    name?: string;
+    message?: string;
+    constructor?: { name?: string };
+  };
+
+  return (
+    err instanceof EmptyAddressError ||
+    error.name === "EmptyAddressError" ||
+    error.constructor?.name === "EmptyAddressError" ||
+    error.message === "Address is empty"
+  );
+};
+
 export const RecipientInput = observer<RecipientInputProps, HTMLInputElement>(
   (props, ref) => {
     const { analyticsStore, chainStore } = useStore();
@@ -94,19 +113,26 @@ export const RecipientInput = observer<RecipientInputProps, HTMLInputElement>(
               if ("getNameService" in recipientConfig) {
                 const icns = recipientConfig.getNameService("icns");
                 const ens = recipientConfig.getNameService("ens");
+                const modularChainInfoRecipient = chainStore.getModularChain(
+                  recipientConfig.chainId
+                );
+                const uRecipient = modularChainInfoRecipient.unwrapped;
+                const hasBech32 =
+                  (uRecipient.type === "cosmos" ||
+                    uRecipient.type === "ethermint") &&
+                  uRecipient.cosmos.bech32Config != null;
+                const isEvmCapableRecipient =
+                  modularChainInfoRecipient.type === "evm" ||
+                  modularChainInfoRecipient.type === "ethermint";
                 if (
                   icns?.isEnabled &&
-                  chainStore.getChain(recipientConfig.chainId).bech32Config !=
-                    null &&
+                  hasBech32 &&
                   ens?.isEnabled &&
-                  chainStore.isEvmChain(recipientConfig.chainId)
+                  isEvmCapableRecipient
                 ) {
                   return "components.input.recipient-input.wallet-address-label-icns-ens";
                 }
-                if (
-                  ens?.isEnabled &&
-                  chainStore.isEvmChain(recipientConfig.chainId)
-                ) {
+                if (ens?.isEnabled && isEvmCapableRecipient) {
                   return "components.input.recipient-input.wallet-address-label-ens";
                 }
               }
@@ -199,7 +225,7 @@ export const RecipientInput = observer<RecipientInputProps, HTMLInputElement>(
 
             const err = uiProperties.error || uiProperties.warning;
 
-            if (err instanceof EmptyAddressError) {
+            if (isEmptyAddressError(err)) {
               return;
             }
 

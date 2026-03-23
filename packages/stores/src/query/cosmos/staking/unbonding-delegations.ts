@@ -3,7 +3,7 @@ import {
   ObservableChainQueryMap,
 } from "../../chain-query";
 import { UnbondingDelegation, UnbondingDelegations } from "./types";
-import { ChainGetter } from "../../../chain";
+import { ChainGetter, requireCosmosInfo } from "../../../chain";
 import { CoinPretty, Int, Dec } from "@keplr-wallet/unit";
 import { computed, makeObservable } from "mobx";
 import { QuerySharedContext } from "../../../common";
@@ -29,7 +29,10 @@ export class ObservableQueryUnbondingDelegationsInner extends ObservableChainQue
   }
 
   protected override canFetch(): boolean {
-    if (!this.chainGetter.getChain(this.chainId).stakeCurrency) {
+    if (
+      !requireCosmosInfo(this.chainGetter.getModularChain(this.chainId))
+        .stakeCurrency
+    ) {
       return false;
     }
     // If bech32 address is empty, it will always fail, so don't need to fetch it.
@@ -38,7 +41,10 @@ export class ObservableQueryUnbondingDelegationsInner extends ObservableChainQue
 
   @computed
   get total(): CoinPretty | undefined {
-    const stakeCurrency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+    const stakeCurrency = cosmosInfo.stakeCurrency;
 
     if (!stakeCurrency) {
       return;
@@ -72,7 +78,10 @@ export class ObservableQueryUnbondingDelegationsInner extends ObservableChainQue
   }[] {
     const unbondings = this.unbondings;
 
-    const stakeCurrency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+    const stakeCurrency = cosmosInfo.stakeCurrency;
 
     if (!stakeCurrency) {
       return [];

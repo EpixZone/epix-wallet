@@ -2,7 +2,7 @@ import { KVStore, PrefixKVStore } from "@keplr-wallet/common";
 import { action, autorun, makeObservable, observable, runInAction } from "mobx";
 import { ChainStore } from "../chain";
 import { computedFn } from "mobx-utils";
-import { IChainInfoImpl, IQueriesStore } from "@keplr-wallet/stores";
+import { IQueriesStore, IModularChainInfoImpl } from "@keplr-wallet/stores";
 import { AppCurrency } from "@keplr-wallet/types";
 
 export class IBCSwapConfig {
@@ -118,16 +118,16 @@ export class IBCSwapConfig {
     });
   }
 
-  getAmountInChainInfo = computedFn((): IChainInfoImpl => {
+  getAmountInChainInfo = computedFn((): IModularChainInfoImpl => {
     if (
       this._lastAmountInChainId &&
-      this.chainStore.hasChain(this._lastAmountInChainId) &&
+      this.chainStore.hasModularChain(this._lastAmountInChainId) &&
       this.chainStore.isEnabledChain(this._lastAmountInChainId)
     ) {
-      return this.chainStore.getChain(this._lastAmountInChainId);
+      return this.chainStore.getModularChain(this._lastAmountInChainId);
     }
 
-    return this.chainStore.chainInfosInUI[0];
+    return this.chainStore.modularChainInfosInUI[0];
   });
 
   @action
@@ -136,8 +136,9 @@ export class IBCSwapConfig {
   }
 
   getAmountInCurrency = computedFn((): AppCurrency => {
+    const modularChainInfo = this.getAmountInChainInfo();
     if (this._lastAmountInMinimalDenom) {
-      const currency = this.getAmountInChainInfo().findCurrency(
+      const currency = modularChainInfo.findCurrency(
         this._lastAmountInMinimalDenom
       );
       if (currency) {
@@ -145,7 +146,19 @@ export class IBCSwapConfig {
       }
     }
 
-    return this.getAmountInChainInfo().currencies[0];
+    const u = modularChainInfo.unwrapped;
+    switch (u.type) {
+      case "cosmos":
+        return u.cosmos.stakeCurrency ?? u.cosmos.currencies[0];
+      case "ethermint":
+        return u.cosmos.stakeCurrency ?? u.cosmos.currencies[0];
+      case "evm":
+        return u.evm.nativeCurrency;
+      case "starknet":
+        return u.starknet.currencies[0];
+      case "bitcoin":
+        return u.bitcoin.currencies[0];
+    }
   });
 
   @action
@@ -153,39 +166,36 @@ export class IBCSwapConfig {
     this._lastAmountInMinimalDenom = denom;
   }
 
-  getAmountOutChainInfo = computedFn((): IChainInfoImpl => {
+  getAmountOutChainInfo = computedFn((): IModularChainInfoImpl => {
     if (
       this._lastAmountOutChainId &&
-      this.chainStore.hasChain(this._lastAmountOutChainId)
+      this.chainStore.hasModularChain(this._lastAmountOutChainId)
     ) {
-      return this.chainStore.getChain(this._lastAmountOutChainId);
+      return this.chainStore.getModularChain(this._lastAmountOutChainId);
     }
 
     if (this.getAmountInChainInfo().chainIdentifier !== "osmosis") {
-      const findIndex = this.chainStore.chainInfosInUI.findIndex(
+      const findIndex = this.chainStore.modularChainInfosInUI.findIndex(
         (c) => c.chainIdentifier === "osmosis"
       );
       if (findIndex >= 0) {
-        return this.chainStore.chainInfosInUI[findIndex];
+        return this.chainStore.modularChainInfosInUI[findIndex];
       }
     }
 
-    if (this.chainStore.chainInfosInUI.length >= 2) {
-      return this.chainStore.chainInfosInUI[1];
+    if (this.chainStore.modularChainInfosInUI.length >= 2) {
+      return this.chainStore.modularChainInfosInUI[1];
     }
 
     // Enabled된 체인들이 한개만 있을수도 있다는 점을 고려해야한다. 그러므로 chain infos in ui에서 두번째 체인을 찾을 수 없다면
     // 그것과 상관없이 chain infos에서 찾는다.
-    const find = this.chainStore.chainInfos.find((chainInfo) => {
-      return (
-        chainInfo.chainIdentifier !==
-        this.getAmountInChainInfo().chainIdentifier
-      );
+    const find = this.chainStore.modularChainInfos.find((mc) => {
+      return mc.chainIdentifier !== this.getAmountInChainInfo().chainIdentifier;
     });
     if (find) {
       return find;
     }
-    return this.chainStore.chainInfos[0];
+    return this.chainStore.modularChainInfos[0];
   });
 
   @action
@@ -194,13 +204,26 @@ export class IBCSwapConfig {
   }
 
   getAmountOutCurrency = computedFn((): AppCurrency => {
+    const modularChainInfo = this.getAmountOutChainInfo();
     if (this._lastAmountOutMinimalDenom) {
-      return this.getAmountOutChainInfo().forceFindCurrency(
+      return modularChainInfo.forceFindCurrency(
         this._lastAmountOutMinimalDenom
       );
     }
 
-    return this.getAmountOutChainInfo().currencies[0];
+    const u = modularChainInfo.unwrapped;
+    switch (u.type) {
+      case "cosmos":
+        return u.cosmos.stakeCurrency ?? u.cosmos.currencies[0];
+      case "ethermint":
+        return u.cosmos.stakeCurrency ?? u.cosmos.currencies[0];
+      case "evm":
+        return u.evm.nativeCurrency;
+      case "starknet":
+        return u.starknet.currencies[0];
+      case "bitcoin":
+        return u.bitcoin.currencies[0];
+    }
   });
 
   @action

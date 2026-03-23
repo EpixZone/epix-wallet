@@ -15,11 +15,8 @@ import {
   useSceneEvents,
   useSceneTransition,
 } from "../../../../components/transition";
-import {
-  ChainInfo,
-  ModularChainInfo,
-  SupportedPaymentType,
-} from "@keplr-wallet/types";
+import { ChainInfo, SupportedPaymentType } from "@keplr-wallet/types";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import { isRunningInSidePanel } from "../../../../utils";
 import { useGetSearchChains } from "../../../../hooks/use-get-search-chains";
 import { LookingForChainItem } from "../looking-for-chains";
@@ -35,9 +32,10 @@ import {
 } from "../copy-address-item/copy-address-item-list";
 import { useInitialChunkedRender } from "../../../../hooks/use-initial-chunked-render";
 import { FadeInContainer } from "../copy-address-item/fade-in-container";
+import { isChainSupportedByKeyType } from "../../../../utils/is-chain-supported-by-key-type";
 
 export type Address = {
-  modularChainInfo: ModularChainInfo;
+  modularChainInfo: IModularChainInfoImpl;
   bech32Address?: string;
   ethereumAddress?: string;
   starknetAddress?: string;
@@ -52,17 +50,11 @@ const chainSearchFields = [
   "chainInfo.chainId",
   {
     key: "ethereum-and-bitcoin",
-    function: (item: { chainInfo: ChainInfo | ModularChainInfo }) => {
-      if (
-        "starknet" in item.chainInfo ||
-        item.chainInfo.chainName.toLowerCase().includes("ethereum")
-      ) {
+    function: (item: { chainInfo: { chainName: string } }) => {
+      if (item.chainInfo.chainName.toLowerCase().includes("ethereum")) {
         return "eth";
       }
-      if (
-        "bitcoin" in item.chainInfo ||
-        item.chainInfo.chainName.toLowerCase().includes("bitcoin")
-      ) {
+      if (item.chainInfo.chainName.toLowerCase().includes("bitcoin")) {
         return "btc";
       }
       return "";
@@ -74,7 +66,7 @@ export const CopyAddressScene: FunctionComponent<{
   close: () => void;
   initialSearch?: string;
 }> = observer(({ close, initialSearch }) => {
-  const { chainStore } = useStore();
+  const { chainStore, keyRingStore } = useStore();
 
   const intl = useIntl();
   const theme = useTheme();
@@ -106,12 +98,25 @@ export const CopyAddressScene: FunctionComponent<{
 
   const initialLookingForChains = useMemo(
     () =>
-      chainStore.groupedModularChainInfosInListUI.filter(
-        (modularChainInfo) =>
-          !chainStore.isEnabledChain(modularChainInfo.chainId)
-      ),
+      chainStore.groupedModularChainInfosInListUI
+        .filter(
+          (group) =>
+            !chainStore.isEnabledChain(group.modularChainInfo.chainId) &&
+            isChainSupportedByKeyType(
+              keyRingStore.selectedKeyInfo?.type,
+              group.modularChainInfo
+            )
+        )
+        .map((group) => ({
+          chainId: group.modularChainInfo.chainId,
+          chainName: group.modularChainInfo.chainName,
+          chainSymbolImageUrl: group.modularChainInfo.chainSymbolImageUrl,
+        })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [chainStore.groupedModularChainInfosInListUI]
+    [
+      chainStore.groupedModularChainInfosInListUI,
+      keyRingStore.selectedKeyInfo?.type,
+    ]
   );
 
   const { searchedChainInfos } = useGetSearchChains({
@@ -123,50 +128,29 @@ export const CopyAddressScene: FunctionComponent<{
   });
 
   const lookingForChains = useMemo(() => {
-    let disabledChainInfos: (ChainInfo | ModularChainInfo)[] =
-      searchedChainInfos.filter(
-        (chainInfo) => !chainStore.isEnabledChain(chainInfo.chainId)
-      );
-
-    const disabledModularChainInfos =
-      chainStore.groupedModularChainInfos.filter(
-        (modularChainInfo) =>
-          ("starknet" in modularChainInfo || "bitcoin" in modularChainInfo) &&
-          !chainStore.isEnabledChain(modularChainInfo.chainId)
-      );
-
-    disabledChainInfos = [
-      ...new Set([...disabledChainInfos, ...disabledModularChainInfos]),
-    ].sort((a, b) => a.chainName.localeCompare(b.chainName));
+    const disabledChainInfos = searchedChainInfos
+      .filter((chainInfo) => !chainStore.isEnabledChain(chainInfo.chainId))
+      .sort((a, b) => a.chainName.localeCompare(b.chainName));
 
     return disabledChainInfos.reduce(
       (acc, chainInfo) => {
         let embedded: boolean | undefined = false;
         let stored: boolean = true;
 
-        const isModular = "starknet" in chainInfo || "bitcoin" in chainInfo;
-
-        try {
-          if (isModular) {
-            embedded = true;
-          } else {
-            const chainInfoInStore = chainStore.getChain(chainInfo.chainId);
-
-            if (!chainInfoInStore) {
-              stored = false;
-            } else {
-              if (chainInfoInStore.hideInUI) {
-                return acc;
-              }
-
-              stored = true;
-              embedded = chainInfoInStore.embedded?.embedded;
-            }
-          }
-        } catch (e) {
-          // got an error while getting chain info
+        if (!chainStore.hasModularChain(chainInfo.chainId)) {
           embedded = undefined;
           stored = false;
+        } else {
+          const modularChainInfo = chainStore.getModularChain(
+            chainInfo.chainId
+          );
+
+          if (modularChainInfo.hideInUI) {
+            return acc;
+          }
+
+          stored = true;
+          embedded = modularChainInfo.embedded.isBuiltInChain;
         }
 
         const chainItem = {
@@ -182,7 +166,12 @@ export const CopyAddressScene: FunctionComponent<{
       [] as {
         embedded: boolean;
         stored: boolean;
-        chainInfo: ChainInfo | ModularChainInfo;
+        chainInfo: {
+          chainId: string;
+          chainName: string;
+          chainSymbolImageUrl?: string;
+          suggestChainInfo?: ChainInfo;
+        };
       }[]
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps

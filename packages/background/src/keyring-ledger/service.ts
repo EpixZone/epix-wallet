@@ -2,8 +2,7 @@ import { PlainObject, Vault } from "../vault";
 import { Buffer } from "buffer/";
 import { PubKeySecp256k1, PubKeyStarknet } from "@keplr-wallet/crypto";
 import { KeplrError } from "@keplr-wallet/router";
-import { ModularChainInfo } from "@keplr-wallet/types";
-import { KeyRingService } from "../keyring";
+import { ModularChainInfo, isEthSignChain } from "@keplr-wallet/types";
 import { Network as BitcoinNetwork } from "bitcoinjs-lib";
 import { PubKeyBitcoinCompatible } from "@keplr-wallet/crypto";
 import { Descriptor } from "../keyring-bitcoin";
@@ -46,21 +45,22 @@ export class KeyRingLedgerService {
     _coinType: number,
     modularChainInfo: ModularChainInfo
   ): PubKeySecp256k1 {
-    if ("starknet" in modularChainInfo) {
+    if (modularChainInfo.type === "starknet") {
       throw new Error(
         "'getPubKeyStarknet' should be called for Starknet chain"
       );
     }
-    if (!("cosmos" in modularChainInfo)) {
-      // TODO: 나중에 starknet을 어떻게 지원할지 생각해본다.
+    if (
+      modularChainInfo.type !== "cosmos" &&
+      modularChainInfo.type !== "ethermint" &&
+      modularChainInfo.type !== "evm"
+    ) {
       throw new Error("Chain is not a cosmos chain");
     }
 
     let app = "Cosmos";
 
-    const isEthermintLike = KeyRingService.isEthermintLike(
-      modularChainInfo.cosmos
-    );
+    const isEthermintLike = isEthSignChain(modularChainInfo);
     if (isEthermintLike) {
       app = "Ethereum";
       if (!vault.insensitive[app]) {
@@ -100,7 +100,7 @@ export class KeyRingLedgerService {
     vault: Vault,
     modularChainInfo: ModularChainInfo
   ): PubKeyStarknet {
-    if (!("starknet" in modularChainInfo)) {
+    if (modularChainInfo.type !== "starknet") {
       throw new Error("'modularChainInfo' should have Starknet chain info");
     }
 
@@ -127,7 +127,7 @@ export class KeyRingLedgerService {
     network: BitcoinNetwork,
     modularChainInfo: ModularChainInfo
   ): PubKeyBitcoinCompatible {
-    if (!("bitcoin" in modularChainInfo)) {
+    if (modularChainInfo.type !== "bitcoin") {
       throw new Error("'modularChainInfo' should have Bitcoin chain info");
     }
 

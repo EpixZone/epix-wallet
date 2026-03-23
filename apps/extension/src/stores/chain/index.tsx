@@ -11,12 +11,17 @@ import {
 import { AppCurrency, ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
 import {
   ChainStore as BaseChainStore,
-  IChainInfoImpl,
+  IModularChainInfoImpl,
+  ModularChainInfoImpl,
 } from "@keplr-wallet/stores";
 import { KeyRingStore } from "@keplr-wallet/stores-core";
 
+export type GroupedModularChainInfo = {
+  modularChainInfo: IModularChainInfoImpl;
+  linkedModularChainInfos?: IModularChainInfoImpl[];
+};
+
 import {
-  ChainInfoWithCoreTypes,
   ClearAllChainEndpointsMsg,
   ClearAllSuggestedChainInfosMsg,
   ClearChainEndpointsMsg,
@@ -56,7 +61,7 @@ export type RequiredCurrencyTokenScan = Omit<
   })[];
 };
 
-export class ChainStore extends BaseChainStore<ChainInfoWithCoreTypes> {
+export class ChainStore extends BaseChainStore {
   @observable
   protected _isInitializing: boolean = false;
 
@@ -145,7 +150,7 @@ export class ChainStore extends BaseChainStore<ChainInfoWithCoreTypes> {
   @computed
   get tokenScans(): RequiredCurrencyTokenScan[] {
     let res = this._tokenScans.filter((scan) => {
-      if (!this.hasChain(scan.chainId) && !this.hasModularChain(scan.chainId)) {
+      if (!this.hasModularChain(scan.chainId)) {
         return false;
       }
 
@@ -168,8 +173,8 @@ export class ChainStore extends BaseChainStore<ChainInfoWithCoreTypes> {
                     }
 
                     if (asset.coinMinimalDenom) {
-                      if (this.hasChain(scan.chainId)) {
-                        const currency = this.getChain(
+                      if (this.hasModularChain(scan.chainId)) {
+                        const currency = this.getModularChain(
                           scan.chainId
                         ).findCurrency(asset.coinMinimalDenom);
                         if (currency) {
@@ -203,7 +208,7 @@ export class ChainStore extends BaseChainStore<ChainInfoWithCoreTypes> {
   @computed
   get tokenScansWithoutDismissed(): RequiredCurrencyTokenScan[] {
     let res = this._tokenScansWithoutDismissed.filter((scan) => {
-      if (!this.hasChain(scan.chainId) && !this.hasModularChain(scan.chainId)) {
+      if (!this.hasModularChain(scan.chainId)) {
         return false;
       }
 
@@ -226,8 +231,8 @@ export class ChainStore extends BaseChainStore<ChainInfoWithCoreTypes> {
                     }
 
                     if (asset.coinMinimalDenom) {
-                      if (this.hasChain(scan.chainId)) {
-                        const currency = this.getChain(
+                      if (this.hasModularChain(scan.chainId)) {
+                        const currency = this.getModularChain(
                           scan.chainId
                         ).findCurrency(asset.coinMinimalDenom);
                         if (currency) {
@@ -259,10 +264,10 @@ export class ChainStore extends BaseChainStore<ChainInfoWithCoreTypes> {
   }
 
   @computed
-  override get chainInfos(): IChainInfoImpl<ChainInfoWithCoreTypes>[] {
+  override get modularChainInfos(): ModularChainInfoImpl[] {
     // Sort by chain name.
     // The first chain has priority to be the first.
-    return super.chainInfos.sort((a, b) => {
+    return super.modularChainInfos.slice().sort((a, b) => {
       const aChainIdentifier = ChainIdHelper.parse(a.chainId).identifier;
       const bChainIdentifier = ChainIdHelper.parse(b.chainId).identifier;
 
@@ -284,48 +289,29 @@ export class ChainStore extends BaseChainStore<ChainInfoWithCoreTypes> {
   }
 
   @computed
-  override get modularChainInfos(): ModularChainInfo[] {
-    // Sort by chain name.
-    // The first chain has priority to be the first.
-    return super.modularChainInfos.sort((a, b) => {
-      const aChainIdentifier = ChainIdHelper.parse(a.chainId).identifier;
-      const bChainIdentifier = ChainIdHelper.parse(b.chainId).identifier;
-
-      if (
-        aChainIdentifier ===
-        ChainIdHelper.parse(this.embedChainInfos[0].chainId).identifier
-      ) {
-        return -1;
+  get modularChainInfosInUI(): IModularChainInfoImpl[] {
+    return this.modularChainInfos.filter((modularChainInfo) => {
+      if (modularChainInfo.hideInUI) {
+        return false;
       }
-      if (
-        bChainIdentifier ===
-        ChainIdHelper.parse(this.embedChainInfos[0].chainId).identifier
-      ) {
-        return 1;
-      }
+      const chainIdentifier = ChainIdHelper.parse(
+        modularChainInfo.chainId
+      ).identifier;
 
-      return a.chainName.trim().localeCompare(b.chainName.trim());
+      return this.enabledChainIdentifiesMap.get(chainIdentifier);
     });
   }
 
-  /**
-   * Group modular chain infos by linked chain ids.
-   * For example, bitcoin has separated chain for native segwit and taproot,
-   * but they have to be shown as a same chain in some cases.
-   *
-   * @returns Grouped modular chain infos.
-   */
   @computed
-  get groupedModularChainInfos(): (ModularChainInfo & {
-    linkedModularChainInfos?: ModularChainInfo[];
-  })[] {
-    const linkedChainInfosByChainKey = new Map<string, ModularChainInfo[]>();
-    const groupedModularChainInfos: (ModularChainInfo & {
-      linkedModularChainInfos?: ModularChainInfo[];
-    })[] = [];
+  get groupedModularChainInfos(): GroupedModularChainInfo[] {
+    const linkedChainInfosByChainKey = new Map<
+      string,
+      IModularChainInfoImpl[]
+    >();
+    const grouped: GroupedModularChainInfo[] = [];
 
     for (const modularChainInfo of this.modularChainInfos) {
-      if ("linkedChainKey" in modularChainInfo) {
+      if (modularChainInfo.linkedChainKey) {
         const linkedChainKey = modularChainInfo.linkedChainKey;
         const linkedChainInfos = linkedChainInfosByChainKey.get(linkedChainKey);
         if (linkedChainInfos) {
@@ -334,97 +320,53 @@ export class ChainStore extends BaseChainStore<ChainInfoWithCoreTypes> {
           linkedChainInfosByChainKey.set(linkedChainKey, [modularChainInfo]);
         }
       } else {
-        groupedModularChainInfos.push(modularChainInfo);
+        grouped.push({ modularChainInfo });
       }
     }
 
     for (const linkedChainInfos of linkedChainInfosByChainKey.values()) {
-      // 하나의 체인 키에 여러개의 체인이 연결되어 있으면 하나의 체인만 남기고 나머지는 버린다
-      // CHECK: 어떤 것이 primary 체인인지 결정할 필요가 있는지? 우선 첫번째 체인을 primary로 설정
       if (linkedChainInfos.length > 1) {
-        groupedModularChainInfos.push({
-          ...linkedChainInfos[0],
+        grouped.push({
+          modularChainInfo: linkedChainInfos[0],
           linkedModularChainInfos: linkedChainInfos.slice(1),
         });
       }
     }
 
-    return groupedModularChainInfos;
-  }
-
-  get enabledChainIdentifiers(): string[] {
-    return this._enabledChainIdentifiers;
-  }
-
-  @computed
-  get chainInfosInUI() {
-    return this.chainInfos.filter((chainInfo) => {
-      if (chainInfo.hideInUI) {
-        return false;
-      }
-      const chainIdentifier = ChainIdHelper.parse(chainInfo.chainId).identifier;
-      return this.enabledChainIdentifiesMap.get(chainIdentifier);
-    });
-  }
-
-  @computed
-  get modularChainInfosInUI() {
-    return this.modularChainInfos.filter((modularChainInfo) => {
-      if ("cosmos" in modularChainInfo && modularChainInfo.cosmos.hideInUI) {
-        return false;
-      }
-      const chainIdentifier = ChainIdHelper.parse(
-        modularChainInfo.chainId
-      ).identifier;
-
-      return this.enabledChainIdentifiesMap.get(chainIdentifier);
-    });
+    return grouped;
   }
 
   @computed
   get groupedModularChainInfosInUI() {
-    return this.groupedModularChainInfos.filter((modularChainInfo) => {
-      if ("cosmos" in modularChainInfo && modularChainInfo.cosmos.hideInUI) {
+    return this.groupedModularChainInfos.filter((group) => {
+      if (group.modularChainInfo.hideInUI) {
         return false;
       }
 
       const chainIdentifier = ChainIdHelper.parse(
-        modularChainInfo.chainId
+        group.modularChainInfo.chainId
       ).identifier;
 
       return this.enabledChainIdentifiesMap.get(chainIdentifier);
     });
   }
 
-  // chain info들을 list로 보여줄때 hideInUI인 얘들은 빼고 보여줘야한다
-  // property 이름이 얘매해서 일단 이렇게 지었다.
   @computed
-  get chainInfosInListUI() {
-    return this.chainInfos.filter((chainInfo) => {
-      return !chainInfo.hideInUI;
-    });
-  }
-
-  @computed
-  get modularChainInfosInListUI() {
+  get modularChainInfosInListUI(): IModularChainInfoImpl[] {
     return this.modularChainInfos.filter((modularChainInfo) => {
-      if ("cosmos" in modularChainInfo && modularChainInfo.cosmos.hideInUI) {
-        return false;
-      }
-
-      return true;
+      return !modularChainInfo.hideInUI;
     });
   }
 
   @computed
   get groupedModularChainInfosInListUI() {
-    return this.groupedModularChainInfos.filter((modularChainInfo) => {
-      if ("cosmos" in modularChainInfo && modularChainInfo.cosmos.hideInUI) {
-        return false;
-      }
-
-      return true;
+    return this.groupedModularChainInfos.filter((group) => {
+      return !group.modularChainInfo.hideInUI;
     });
+  }
+
+  get enabledChainIdentifiers(): string[] {
+    return this._enabledChainIdentifiers;
   }
 
   isEnabledChain(chainId: string): boolean {
@@ -435,8 +377,8 @@ export class ChainStore extends BaseChainStore<ChainInfoWithCoreTypes> {
   @computed
   protected get chainInfosInListUIMap(): Map<string, true> {
     const map = new Map<string, true>();
-    for (const chainInfo of this.chainInfosInListUI) {
-      map.set(chainInfo.chainIdentifier, true);
+    for (const chainInfo of this.modularChainInfosInListUI) {
+      map.set(ChainIdHelper.parse(chainInfo.chainId).identifier, true);
     }
     return map;
   }
@@ -613,10 +555,7 @@ export class ChainStore extends BaseChainStore<ChainInfoWithCoreTypes> {
     const result = yield* toGenerator(
       this.requester.sendMessage(BACKGROUND_PORT, msg)
     );
-    this.setEmbeddedChainInfosV2({
-      chainInfos: result.chainInfos,
-      modulrChainInfos: result.modulrChainInfos,
-    });
+    this.setEmbeddedChainInfos(result.modularChainInfos);
   }
 
   @flow
@@ -748,10 +687,7 @@ export class ChainStore extends BaseChainStore<ChainInfoWithCoreTypes> {
       this.requester.sendMessage(BACKGROUND_PORT, msg)
     );
 
-    this.setEmbeddedChainInfosV2({
-      chainInfos: res.chainInfos,
-      modulrChainInfos: res.modularChainInfos,
-    });
+    this.setEmbeddedChainInfos(res.modularChainInfos);
   }
 
   @flow
@@ -766,10 +702,7 @@ export class ChainStore extends BaseChainStore<ChainInfoWithCoreTypes> {
       this.requester.sendMessage(BACKGROUND_PORT, msg)
     );
 
-    this.setEmbeddedChainInfosV2({
-      chainInfos: res.chainInfos,
-      modulrChainInfos: res.modularChainInfos,
-    });
+    this.setEmbeddedChainInfos(res.modularChainInfos);
   }
 
   @flow
@@ -779,10 +712,7 @@ export class ChainStore extends BaseChainStore<ChainInfoWithCoreTypes> {
       this.requester.sendMessage(BACKGROUND_PORT, msg)
     );
 
-    this.setEmbeddedChainInfosV2({
-      chainInfos: res.chainInfos,
-      modulrChainInfos: res.modularChainInfos,
-    });
+    this.setEmbeddedChainInfos(res.modularChainInfos);
   }
 
   // I use Async, Await because it doesn't change the state value.

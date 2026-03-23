@@ -10,7 +10,6 @@ import { Stack } from "../stack";
 import { observer } from "mobx-react-lite";
 import { useStore } from "../../stores";
 import { AppCurrency, Key } from "@keplr-wallet/types";
-import { IMemoConfig, IRecipientConfig } from "@keplr-wallet/hooks";
 import { Bleed } from "../bleed";
 import { RecentSendHistory } from "@keplr-wallet/background";
 import { AddressItem } from "../address-item";
@@ -30,14 +29,18 @@ const AltTypography = styled(BaseTypography)`
   margin-left: 0.25rem;
 `;
 
+function isEvmRecipientAddress(address: string): boolean {
+  return address.startsWith("0x") || address.includes(".");
+}
+
 export const AddressBookModal: FunctionComponent<{
   isOpen: boolean;
   close: () => void;
 
   historyType: string;
-  recipientConfig: IRecipientConfig;
-  memoConfig: IMemoConfig;
-  currency: AppCurrency;
+  recipientConfig: { chainId: string; setValue(value: string): void };
+  memoConfig?: { setValue(value: string): void };
+  currency?: AppCurrency;
 
   permitSelfKeyInfo?: boolean;
 }> = observer(
@@ -122,10 +125,15 @@ export const AddressBookModal: FunctionComponent<{
       debounceTrimmedSearchText,
     ]);
 
-    const chainInfo = chainStore.getChain(recipientConfig.chainId);
-    const isEVMChain = chainStore.isEvmChain(chainInfo.chainId);
-    const isEVMOnlyChain = chainStore.isEvmOnlyChain(chainInfo.chainId);
-    const isERC20 = new DenomHelper(currency.coinMinimalDenom).type === "erc20";
+    const modularChainInfo = chainStore.getModularChain(
+      recipientConfig.chainId
+    );
+    const chainType = modularChainInfo.type;
+    const isERC20 = currency
+      ? new DenomHelper(currency.coinMinimalDenom).type === "erc20"
+      : false;
+    const isEvmOnly = chainType === "evm";
+    const shouldFilterForEvmRecipient = isERC20 || isEvmOnly;
 
     const datas: {
       timestamp?: number;
@@ -146,7 +154,10 @@ export const AddressBookModal: FunctionComponent<{
               };
             })
             .filter((recent) => {
-              if (isERC20 && !recent.address.startsWith("0x")) {
+              if (
+                shouldFilterForEvmRecipient &&
+                !isEvmRecipientAddress(recent.address)
+              ) {
                 return false;
               }
 
@@ -168,7 +179,10 @@ export const AddressBookModal: FunctionComponent<{
               };
             })
             .filter((contact) => {
-              if (isERC20 && !contact.address.startsWith("0x")) {
+              if (
+                shouldFilterForEvmRecipient &&
+                !isEvmRecipientAddress(contact.address)
+              ) {
                 return false;
               }
 
@@ -188,7 +202,10 @@ export const AddressBookModal: FunctionComponent<{
           >((acc, account) => {
             const isSelf = keyRingStore.selectedKeyInfo?.id === account.vaultId;
 
-            if (!isERC20 && !isEVMOnlyChain) {
+            if (
+              (chainType === "cosmos" || chainType === "ethermint") &&
+              !isERC20
+            ) {
               acc.push({
                 name: account.name,
                 address: account.bech32Address,
@@ -196,7 +213,7 @@ export const AddressBookModal: FunctionComponent<{
               });
             }
 
-            if (isEVMChain) {
+            if (chainType === "evm" || chainType === "ethermint") {
               acc.push({
                 name: account.name,
                 address: account.ethereumHexAddress,
@@ -299,11 +316,13 @@ export const AddressBookModal: FunctionComponent<{
                           timestamp={data.timestamp}
                           name={data.name}
                           address={data.address}
-                          memo={data.memo}
-                          isShowMemo={type !== "accounts"}
+                          memo={memoConfig ? data.memo : undefined}
+                          isShowMemo={type !== "accounts" && !!memoConfig}
                           onClick={() => {
                             recipientConfig.setValue(data.address);
-                            memoConfig.setValue(data.memo ?? "");
+                            if (memoConfig) {
+                              memoConfig.setValue(data.memo ?? "");
+                            }
                             close();
                           }}
                         />

@@ -3,7 +3,7 @@ import {
   ObservableChainQuery,
   ObservableChainQueryMap,
 } from "../../chain-query";
-import { ChainGetter } from "../../../chain";
+import { ChainGetter, requireCosmosInfo } from "../../../chain";
 import { computed, makeObservable } from "mobx";
 import { CoinPretty, Dec, Int } from "@keplr-wallet/unit";
 import {
@@ -35,7 +35,10 @@ export class ObservableQueryRewardsInner extends ObservableChainQuery<Rewards> {
   }
 
   protected override canFetch(): boolean {
-    if (!this.chainGetter.getChain(this.chainId).stakeCurrency) {
+    if (
+      !requireCosmosInfo(this.chainGetter.getModularChain(this.chainId))
+        .stakeCurrency
+    ) {
       return false;
     }
     // If bech32 address is empty, it will always fail, so don't need to fetch it.
@@ -44,7 +47,7 @@ export class ObservableQueryRewardsInner extends ObservableChainQuery<Rewards> {
 
   @computed
   get rewards(): CoinPretty[] {
-    const chainInfo = this.chainGetter.getChain(this.chainId);
+    const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
 
     if (!this.response || !this.response.data.rewards) {
       return [];
@@ -70,12 +73,12 @@ export class ObservableQueryRewardsInner extends ObservableChainQuery<Rewards> {
       }
     }
 
-    return StoreUtils.toCoinPretties(chainInfo, Array.from(map.values()));
+    return StoreUtils.toCoinPretties(mcInfo2, Array.from(map.values()));
   }
 
   readonly getRewardsOf = computedFn(
     (validatorAddress: string): CoinPretty[] => {
-      const chainInfo = this.chainGetter.getChain(this.chainId);
+      const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
 
       const rewards = this.response?.data.rewards?.find((r) => {
         return r.validator_address === validatorAddress;
@@ -103,33 +106,37 @@ export class ObservableQueryRewardsInner extends ObservableChainQuery<Rewards> {
         }
       }
 
-      return StoreUtils.toCoinPretties(chainInfo, Array.from(map.values()));
+      return StoreUtils.toCoinPretties(mcInfo2, Array.from(map.values()));
     }
   );
 
   @computed
   get stakableReward(): CoinPretty | undefined {
-    const chainInfo = this.chainGetter.getChain(this.chainId);
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
 
-    if (!chainInfo.stakeCurrency) {
+    if (!cosmosInfo.stakeCurrency) {
       return;
     }
 
     const r = this.rewards.find((r) => {
       return (
         r.currency.coinMinimalDenom ===
-        chainInfo.stakeCurrency?.coinMinimalDenom
+        cosmosInfo.stakeCurrency?.coinMinimalDenom
       );
     });
 
-    return r ?? new CoinPretty(chainInfo.stakeCurrency, new Int(0));
+    return r ?? new CoinPretty(cosmosInfo.stakeCurrency, new Int(0));
   }
 
   readonly getStakableRewardOf = computedFn(
     (validatorAddress: string): CoinPretty | undefined => {
-      const chainInfo = this.chainGetter.getChain(this.chainId);
+      const cosmosInfo = requireCosmosInfo(
+        this.chainGetter.getModularChain(this.chainId)
+      );
 
-      if (!chainInfo.stakeCurrency) {
+      if (!cosmosInfo.stakeCurrency) {
         return;
       }
 
@@ -137,22 +144,24 @@ export class ObservableQueryRewardsInner extends ObservableChainQuery<Rewards> {
       const r = valRewards.find((r) => {
         return (
           r.currency.coinMinimalDenom ===
-          chainInfo.stakeCurrency?.coinMinimalDenom
+          cosmosInfo.stakeCurrency?.coinMinimalDenom
         );
       });
 
-      return r ?? new CoinPretty(chainInfo.stakeCurrency, new Int(0));
+      return r ?? new CoinPretty(cosmosInfo.stakeCurrency, new Int(0));
     }
   );
 
   @computed
   get unstakableRewards(): CoinPretty[] {
-    const chainInfo = this.chainGetter.getChain(this.chainId);
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
 
     return this.rewards.filter((r) => {
       return (
         r.currency.coinMinimalDenom !==
-        chainInfo.stakeCurrency?.coinMinimalDenom
+        cosmosInfo.stakeCurrency?.coinMinimalDenom
       );
     });
   }
@@ -162,8 +171,8 @@ export class ObservableQueryRewardsInner extends ObservableChainQuery<Rewards> {
       return this.getRewardsOf(validatorAddress).filter((r) => {
         return (
           r.currency.coinMinimalDenom !==
-          this.chainGetter.getChain(this.chainId).stakeCurrency
-            ?.coinMinimalDenom
+          requireCosmosInfo(this.chainGetter.getModularChain(this.chainId))
+            .stakeCurrency?.coinMinimalDenom
         );
       });
     }
@@ -202,21 +211,23 @@ export class ObservableQueryRewardsInner extends ObservableChainQuery<Rewards> {
         return [];
       }
 
-      const chainInfo = this.chainGetter.getChain(this.chainId);
+      const cosmosInfo = requireCosmosInfo(
+        this.chainGetter.getModularChain(this.chainId)
+      );
 
-      if (!chainInfo.stakeCurrency) {
+      if (!cosmosInfo.stakeCurrency) {
         return [];
       }
 
       const rewards = this.response.data.rewards?.slice() ?? [];
       rewards.sort((reward1, reward2) => {
         const amount1 = StoreUtils.getBalanceFromCurrency(
-          chainInfo.stakeCurrency!,
+          cosmosInfo.stakeCurrency!,
           reward1.reward ?? []
         );
 
         const amount2 = StoreUtils.getBalanceFromCurrency(
-          chainInfo.stakeCurrency!,
+          cosmosInfo.stakeCurrency!,
           reward2.reward ?? []
         );
 
@@ -251,7 +262,7 @@ export class ObservableQueryRewardsInner extends ObservableChainQuery<Rewards> {
     super.onReceiveResponse(response);
 
     const denoms: Set<string> = new Set();
-    const chainInfo = this.chainGetter.getChain(this.chainId);
+    const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
     if (response.data.total) {
       response.data.total.forEach((coin) => {
         denoms.add(coin.denom);
@@ -267,7 +278,7 @@ export class ObservableQueryRewardsInner extends ObservableChainQuery<Rewards> {
       });
     }
 
-    chainInfo.addUnknownDenoms(...denoms);
+    mcInfo2.addUnknownDenoms(...denoms);
   }
 }
 

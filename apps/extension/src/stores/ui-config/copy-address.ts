@@ -39,8 +39,8 @@ export class CopyAddressConfig {
     // Sync and clear the config if the chain is removed.
     autorun(() => {
       const chainIdentifierMap = new Map<string, boolean>();
-      for (const chainInfo of this.chainStore.chainInfos) {
-        chainIdentifierMap.set(chainInfo.chainIdentifier, true);
+      for (const mc of this.chainStore.modularChainInfos) {
+        chainIdentifierMap.set(mc.chainIdentifier, true);
       }
 
       runInAction(() => {
@@ -59,12 +59,12 @@ export class CopyAddressConfig {
     // Sync and clear the config if the chain is hidden.
     autorun(() => {
       const chainIdentifierMap = new Map<string, boolean>();
-      for (const chainInfo of this.chainStore.chainInfosInUI) {
-        chainIdentifierMap.set(chainInfo.chainIdentifier, true);
+      for (const mc of this.chainStore.modularChainInfosInUI) {
+        chainIdentifierMap.set(mc.chainIdentifier, true);
       }
 
       // 이 로직이 위에 로직보다 밑에 있어야함.
-      // this.chainStore.chainInfosInUI가 observed되는 걸 명확하게 하기 위해서임.
+      // this.chainStore.modularChainInfosInUI가 observed되는 걸 명확하게 하기 위해서임.
       if (!this.chainStore.isEnabledChainsSynced) {
         return;
       }

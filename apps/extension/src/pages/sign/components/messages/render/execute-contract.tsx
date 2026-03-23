@@ -84,13 +84,17 @@ const ExecuteContractMessagePretty: FunctionComponent<{
 }> = observer(({ chainId, funds, contract, msg }) => {
   const { chainStore } = useStore();
 
+  const mcInfo2 = chainStore.getModularChain(chainId);
   const coins = funds.map((coin) => {
-    const currency = chainStore.getChain(chainId).forceFindCurrency(coin.denom);
+    const currency = mcInfo2.forceFindCurrency(coin.denom);
 
     return new CoinPretty(currency, coin.amount);
   });
 
-  const isSecretWasm = chainStore.getChain(chainId).hasFeature("secretwasm");
+  const u = mcInfo2.unwrapped;
+  const isSecretWasm =
+    (u.type === "cosmos" || u.type === "ethermint") &&
+    !!u.cosmos.features?.includes("secretwasm");
 
   return (
     <React.Fragment>

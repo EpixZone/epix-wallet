@@ -1,11 +1,19 @@
 import { useEffect, useState, useMemo } from "react";
 import { useStore } from "../stores";
-import { ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
+import { ChainInfo } from "@keplr-wallet/types";
 import { autorun } from "mobx";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
+import { isChainSupportedByKeyType } from "../utils/is-chain-supported-by-key-type";
 
 type SearchOption = "all" | "cosmos" | "evm";
 type FilterOption = "all" | "chain" | "token" | "chainNameAndToken";
+
+interface SearchedChainInfo {
+  chainId: string;
+  chainName: string;
+  chainSymbolImageUrl?: string;
+  suggestChainInfo?: ChainInfo;
+}
 
 interface UseGetSearchChainsBaseParams {
   search: string;
@@ -15,7 +23,7 @@ interface UseGetSearchChainsBaseParams {
 }
 
 interface WithInitialChainInfos {
-  initialChainInfos: (ChainInfo | ModularChainInfo)[];
+  initialChainInfos: SearchedChainInfo[];
   clearResultsOnEmptyQuery?: never;
 }
 
@@ -34,9 +42,9 @@ type GetSearchChainsParams =
 
 /**
  * Returns the searched chain infos and the normalized search term.
- * @returns {Object} { trimSearch: string, searchedChainInfos: ChainInfo[] }
+ * @returns {Object} { trimSearch: string, searchedChainInfos: SearchedChainInfo[] }
  * @property {string} trimSearch The lowercase trimmed search string.
- * @property {ChainInfo[]} searchedChainInfos The filtered chain information.
+ * @property {SearchedChainInfo[]} searchedChainInfos The filtered chain information.
  */
 export const useGetSearchChains = ({
   search,
@@ -47,9 +55,9 @@ export const useGetSearchChains = ({
   clearResultsOnEmptyQuery,
 }: GetSearchChainsParams): {
   trimSearch: string;
-  searchedChainInfos: (ChainInfo | ModularChainInfo)[];
+  searchedChainInfos: SearchedChainInfo[];
 } => {
-  const { queriesStore, chainStore } = useStore();
+  const { queriesStore, chainStore, keyRingStore } = useStore();
 
   const trimSearch = search.trim().toLowerCase();
 
@@ -69,29 +77,63 @@ export const useGetSearchChains = ({
       : null;
 
   const [searchedChainInfos, setSearchedChainInfos] = useState<
-    (ChainInfo | ModularChainInfo)[]
+    SearchedChainInfo[]
   >([]);
 
   const disabledChainInfosSearched = useMemo(() => {
-    return chainStore.chainInfosInListUI
+    return chainStore.groupedModularChainInfosInListUI
+      .map((group) => group.modularChainInfo)
       .filter(
         (modularChainInfo) =>
-          !chainStore.isEnabledChain(modularChainInfo.chainId)
+          !chainStore.isEnabledChain(modularChainInfo.chainId) &&
+          isChainSupportedByKeyType(
+            keyRingStore.selectedKeyInfo?.type,
+            modularChainInfo
+          )
       )
-      .filter((chainInfo) => {
-        const chainId = chainInfo.chainId.toLowerCase();
-        const chainName = chainInfo.chainName.toLowerCase();
-        const mainCurrencyDenom =
-          chainInfo.currencies[0].coinDenom.toLowerCase();
-        const stakeCurrencyDenom =
-          chainInfo.stakeCurrency?.coinDenom.toLowerCase();
-        const tokenDenom = chainStore.isEvmOnlyChain(chainInfo.chainId)
-          ? mainCurrencyDenom
-          : stakeCurrencyDenom || mainCurrencyDenom;
+      .filter((modularChainInfo) => {
+        const chainId = modularChainInfo.chainId.toLowerCase();
+        const chainName = modularChainInfo.chainName.toLowerCase();
+
+        const u = modularChainInfo.unwrapped;
+        let tokenDenom: string;
+        switch (u.type) {
+          case "cosmos":
+            tokenDenom = (
+              u.cosmos.stakeCurrency?.coinDenom ||
+              u.cosmos.currencies[0]?.coinDenom ||
+              ""
+            ).toLowerCase();
+            break;
+          case "ethermint":
+            tokenDenom = (
+              u.cosmos.stakeCurrency?.coinDenom ||
+              u.cosmos.currencies[0]?.coinDenom ||
+              ""
+            ).toLowerCase();
+            break;
+          case "evm":
+            tokenDenom = (u.evm.nativeCurrency?.coinDenom || "").toLowerCase();
+            break;
+          case "starknet":
+            tokenDenom = (
+              u.starknet.currencies[0]?.coinDenom || ""
+            ).toLowerCase();
+            break;
+          case "bitcoin":
+            tokenDenom = (
+              u.bitcoin.currencies[0]?.coinDenom || ""
+            ).toLowerCase();
+            break;
+          default:
+            tokenDenom = "";
+        }
 
         // search text가 eth 또는 eth~ethereum일 경우 evm 체인은 모두 보여준다.
         if (trimSearch.startsWith("eth")) {
-          const isEVM = !("bech32Config" in chainInfo);
+          const isEVM =
+            modularChainInfo.type === "evm" ||
+            modularChainInfo.type === "ethermint";
 
           if (isEVM) {
             return true;
@@ -118,9 +160,19 @@ export const useGetSearchChains = ({
           default:
             return false;
         }
-      });
+      })
+      .map((modularChainInfo) => ({
+        chainId: modularChainInfo.chainId,
+        chainName: modularChainInfo.chainName,
+        chainSymbolImageUrl: modularChainInfo.chainSymbolImageUrl,
+      }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chainStore.chainInfosInListUI, filterOption, trimSearch]);
+  }, [
+    chainStore.groupedModularChainInfosInListUI,
+    filterOption,
+    keyRingStore.selectedKeyInfo?.type,
+    trimSearch,
+  ]);
 
   useEffect(() => {
     const disposer = autorun(() => {
@@ -139,14 +191,26 @@ export const useGetSearchChains = ({
           dupCheck.add(ChainIdHelper.parse(chain.chainId).identifier);
         }
 
-        const chains = queryChains.response.data.chains;
+        const chains: SearchedChainInfo[] = queryChains.response.data.chains
+          .filter((chainInfo) =>
+            isChainSupportedByKeyType(
+              keyRingStore.selectedKeyInfo?.type,
+              chainInfo
+            )
+          )
+          .map((c) => ({
+            chainId: c.chainId,
+            chainName: c.chainName,
+            chainSymbolImageUrl: c.chainSymbolImageUrl,
+            suggestChainInfo: c,
+          }));
         for (const disabledChainInfo of disabledChainInfosSearched) {
           if (
             !dupCheck.has(
               ChainIdHelper.parse(disabledChainInfo.chainId).identifier
             )
           ) {
-            chains.push(disabledChainInfo.embedded);
+            chains.push(disabledChainInfo);
           }
         }
 
@@ -166,6 +230,7 @@ export const useGetSearchChains = ({
   }, [
     clearResultsOnEmptyQuery,
     initialChainInfos,
+    keyRingStore.selectedKeyInfo?.type,
     queryChains,
     disabledChainInfosSearched,
   ]);

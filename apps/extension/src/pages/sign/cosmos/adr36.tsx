@@ -17,7 +17,7 @@ import { useIntl } from "react-intl";
 import { ErrModuleKeystoneSign, KeystoneUR } from "../utils/keystone";
 import { KeystoneSign } from "../components/keystone";
 import { useTheme } from "styled-components";
-import { KeyRingService } from "@keplr-wallet/background";
+
 import { handleExternalInteractionWithNoProceedNext } from "../../../utils";
 import { KeystoneUSBBox } from "../components/keystone-usb-box";
 import { useNavigate } from "react-router";
@@ -237,9 +237,14 @@ export const SignCosmosADR36Page: FunctionComponent = observer(() => {
                 signDocWrapper.mode !== "amino" ||
                 !checkAndValidateADR36AminoSignDoc(
                   signDocWrapper.aminoSignDoc,
-                  chainStore.getChain(
-                    signInteractionStore.waitingData.data.chainId
-                  ).bech32Config?.bech32PrefixAccAddr
+                  (() => {
+                    const u = chainStore.getModularChain(
+                      signInteractionStore.waitingData.data.chainId
+                    ).unwrapped;
+                    return u.type === "cosmos" || u.type === "ethermint"
+                      ? u.cosmos.bech32Config?.bech32PrefixAccAddr
+                      : undefined;
+                  })()
                 )
               ) {
                 throw new Error("Invalid sign doc for adr36");
@@ -251,20 +256,28 @@ export const SignCosmosADR36Page: FunctionComponent = observer(() => {
                 setLedgerInteractingError(undefined);
                 presignOptions = {
                   useWebHID: uiConfigStore.useWebHIDLedger,
-                  signEthPlainJSON: chainStore
-                    .getChain(signInteractionStore.waitingData.data.chainId)
-                    .hasFeature("evm-ledger-sign-plain-json"),
+                  signEthPlainJSON: (() => {
+                    const u = chainStore.getModularChain(
+                      signInteractionStore.waitingData.data.chainId
+                    ).unwrapped;
+                    return (
+                      (u.type === "cosmos" || u.type === "ethermint") &&
+                      (u.cosmos.features?.includes(
+                        "evm-ledger-sign-plain-json"
+                      ) ??
+                        false)
+                    );
+                  })(),
                 };
               } else if (
                 signInteractionStore.waitingData.data.keyType === "keystone"
               ) {
                 setIsKeystoneInteracting(true);
                 setKeystoneInteractingError(undefined);
-                const isEthSigning = KeyRingService.isEthermintLike(
-                  chainStore.getChain(
+                const isEthSigning =
+                  chainStore.getModularChain(
                     signInteractionStore.waitingData.data.chainId
-                  )
-                );
+                  ).type === "ethermint";
                 presignOptions = {
                   isEthSigning,
                   displayQRCode: async (ur: KeystoneUR) => {
@@ -342,7 +355,7 @@ export const SignCosmosADR36Page: FunctionComponent = observer(() => {
         {chainId && (
           <ArbitraryMsgWalletDetails
             walletName={signerInfo.name}
-            chainInfo={chainStore.getChain(chainId)}
+            chainInfo={chainStore.getModularChain(chainId)}
             addressInfo={{
               type: "bech32",
               address: signerInfo.address,

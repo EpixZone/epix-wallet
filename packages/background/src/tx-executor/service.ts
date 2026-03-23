@@ -586,18 +586,16 @@ export class BackgroundTxExecutorService {
       typeof browser !== "undefined"
         ? new URL(browser.runtime.getURL("/")).origin
         : "extension";
-    const chainInfo = this.chainsService.getChainInfoOrThrow(tx.chainId);
-    const evmInfo = ChainsService.getEVMInfo(chainInfo);
-    if (!evmInfo) {
-      throw new KeplrError("direct-tx-executor", 142, "Not EVM chain");
-    }
+    const evmInfo = this.chainsService.getEVMInfoOrThrow(tx.chainId);
 
     const unsignedTx = await fillUnsignedEVMTx(
       origin,
       evmInfo,
       signer,
       tx.txData,
-      tx.feeType ?? "average"
+      tx.feeType ?? "average",
+      tx.customPriorityFee,
+      tx.customGasPrice
     );
 
     const result = await this.keyRingEthereumService.signEthereumPreAuthorized(

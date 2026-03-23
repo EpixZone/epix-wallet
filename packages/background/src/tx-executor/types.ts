@@ -42,9 +42,17 @@ interface BackgroundTxBase {
   error?: string;
 }
 
-export interface EVMBackgroundTx extends BackgroundTxBase {
+export type EVMBackgroundTxFeeType = BackgroundTxFeeType | "custom";
+
+interface EVMBackgroundTxBase extends Omit<BackgroundTxBase, "feeType"> {
+  feeType?: EVMBackgroundTxFeeType;
+}
+
+export interface EVMBackgroundTx extends EVMBackgroundTxBase {
   readonly type: BackgroundTxType.EVM;
   txData: UnsignedTransaction;
+  customPriorityFee?: string;
+  customGasPrice?: string;
 }
 
 export interface CosmosBackgroundTx extends BackgroundTxBase {

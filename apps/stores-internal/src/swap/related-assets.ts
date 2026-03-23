@@ -1,6 +1,6 @@
 import {
   HasMapStore,
-  IChainInfoImpl,
+  IModularChainInfoImpl,
   IChainStore,
   ObservableQuery,
   QuerySharedContext,
@@ -66,11 +66,11 @@ export class ObservableQueryRelatedAssetsInner extends ObservableQuery<RelatedAs
         token.type === SwapChainType.EVM
           ? `eip155:${token.chain_id}`
           : token.chain_id;
-      if (this.chainStore.hasChain(chainId) && token.decimals <= 18) {
+      if (this.chainStore.hasModularChain(chainId) && token.decimals <= 18) {
         const denom = (() => {
           if (token.type === SwapChainType.EVM) {
             if (token.denom === "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee") {
-              return this.chainStore.getChain(chainId).currencies[0]
+              return this.chainStore.getModularChain(chainId).currencies[0]
                 .coinMinimalDenom;
             }
             return `erc20:${token.denom}`;
@@ -96,7 +96,7 @@ export class ObservableQueryRelatedAssetsInner extends ObservableQuery<RelatedAs
   get currenciesMap(): Map<
     string,
     {
-      chainInfo: IChainInfoImpl;
+      chainInfo: IModularChainInfoImpl;
       currencies: Currency[];
     }
   > {
@@ -105,7 +105,7 @@ export class ObservableQueryRelatedAssetsInner extends ObservableQuery<RelatedAs
     const map = new Map<
       string,
       {
-        chainInfo: IChainInfoImpl;
+        chainInfo: IModularChainInfoImpl;
         currencies: Currency[];
       }
     >();
@@ -114,7 +114,7 @@ export class ObservableQueryRelatedAssetsInner extends ObservableQuery<RelatedAs
       const chainIdentifier = ChainIdHelper.parse(chainId).identifier;
       if (!map.has(chainIdentifier)) {
         map.set(chainIdentifier, {
-          chainInfo: this.chainStore.getChain(chainId),
+          chainInfo: this.chainStore.getModularChain(chainId),
           currencies: [],
         });
       }

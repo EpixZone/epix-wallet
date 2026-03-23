@@ -77,7 +77,11 @@ export class ERC20CurrencyRegistrar {
         done: boolean;
       }
     | undefined {
-    if (!this.chainStore.hasChain(chainId)) {
+    if (!this.chainStore.hasModularChain(chainId)) {
+      return;
+    }
+    const mcInfo2 = this.chainStore.getModularChain(chainId);
+    if (mcInfo2.type !== "evm" && mcInfo2.type !== "ethermint") {
       return;
     }
 

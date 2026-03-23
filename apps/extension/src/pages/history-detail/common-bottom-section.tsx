@@ -33,7 +33,9 @@ export const HistoryDetailCommonBottomSection: FunctionComponent<{
   const theme = useTheme();
 
   const fee: string | undefined = (() => {
-    if (chainStore.isEvmOnlyChain(msg.chainId)) {
+    const modularChainInfo = chainStore.getModularChain(msg.chainId);
+    const u = modularChainInfo.unwrapped;
+    if (u.type === "evm") {
       // EVM 트랜잭션의 수수료 계산 로직
       const res = queriesStore.simpleQuery.queryGet<{
         tx_fee?: string;
@@ -50,11 +52,7 @@ export const HistoryDetailCommonBottomSection: FunctionComponent<{
         }
 
         const amt = new Int(txData.tx_fee);
-        const chainInfo = chainStore.getChain(msg.chainId);
-        if (chainInfo.feeCurrencies.length === 0) {
-          return "-";
-        }
-        const feeCurrency = chainInfo.feeCurrencies[0];
+        const feeCurrency = u.evm.nativeCurrency;
         const pretty = new CoinPretty(feeCurrency, amt);
         return pretty
           .maxDecimals(5)
@@ -96,7 +94,7 @@ export const HistoryDetailCommonBottomSection: FunctionComponent<{
         const pretties: CoinPretty[] = [];
         for (const amt of feeAmountRaw) {
           const curreny = chainStore
-            .getChain(msg.chainIdentifier)
+            .getModularChain(msg.chainIdentifier)
             .findCurrency(amt.denom);
           if (!curreny) {
             return "Unknown";
@@ -254,10 +252,7 @@ export const HistoryDetailCommonBottomSection: FunctionComponent<{
             >
               {(() => {
                 if (chainStore.hasModularChain(msg.chainId)) {
-                  const modularChainInfo = chainStore.getModularChain(
-                    msg.chainId
-                  );
-                  return modularChainInfo.chainName;
+                  return chainStore.getModularChain(msg.chainId).chainName;
                 }
 
                 return "Unknown";

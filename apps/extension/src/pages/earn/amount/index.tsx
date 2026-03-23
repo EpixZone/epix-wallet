@@ -47,9 +47,9 @@ export const EarnAmountPage: FunctionComponent = observer(() => {
   const chainId = searchParams.get("chainId") || NOBLE_CHAIN_ID;
   const coinMinimalDenom = searchParams.get("coinMinimalDenom") || "uusdc";
 
-  const chainInfo = chainStore.getChain(chainId);
+  const modularChainInfo = chainStore.getModularChain(chainId);
   const account = accountStore.getAccount(chainId);
-  const currency = chainInfo.forceFindCurrency(coinMinimalDenom);
+  const currency = modularChainInfo.forceFindCurrency(coinMinimalDenom);
 
   const balanceQuery = queriesStore
     .get(chainId)
@@ -57,7 +57,7 @@ export const EarnAmountPage: FunctionComponent = observer(() => {
     .getBalance(currency);
 
   const sender = account.bech32Address;
-  const outCurrency = chainInfo.forceFindCurrency(
+  const outCurrency = modularChainInfo.forceFindCurrency(
     NOBLE_EARN_DEPOSIT_OUT_COIN_MINIMAL_DENOM
   );
 
@@ -292,7 +292,7 @@ export const EarnAmountPage: FunctionComponent = observer(() => {
             <Subtitle3 color={ColorPalette["gray-300"]}>
               {intl.formatMessage(
                 { id: "page.earn.amount.balance.current-chain" },
-                { chain: chainInfo.chainName }
+                { chain: modularChainInfo.chainName }
               )}
             </Subtitle3>
           </XAxis>

@@ -98,37 +98,15 @@ export const TokenDetailModal: FunctionComponent<{
 
   const account = accountStore.getAccount(chainId);
   const modularChainInfo = chainStore.getModularChain(chainId);
-  const currency = (() => {
-    if ("cosmos" in modularChainInfo) {
-      return chainStore.getChain(chainId).forceFindCurrency(coinMinimalDenom);
-    }
-    // TODO: 일단 cosmos가 아니면 대충에기에다가 force currency 로직을 박아놓는다...
-    //       나중에 이런 기능을 chain store 자체에다가 만들어야한다.
-    const modularChainInfoImpl = chainStore.getModularChainInfoImpl(chainId);
-    const currencies =
-      "bitcoin" in modularChainInfo
-        ? modularChainInfoImpl.getCurrencies("bitcoin")
-        : modularChainInfoImpl.getCurrencies("starknet");
-    const res = currencies.find(
-      (cur) => cur.coinMinimalDenom === coinMinimalDenom
-    );
-    if (res) {
-      return res;
-    }
-    return {
-      coinMinimalDenom,
-      coinDenom: coinMinimalDenom,
-      coinDecimals: 0,
-    };
-  })();
+  const currency = modularChainInfo.forceFindCurrency(coinMinimalDenom);
   const denomHelper = new DenomHelper(currency.coinMinimalDenom);
   const isERC20 = denomHelper.type === "erc20";
   const isMainCurrency = (() => {
-    if ("cosmos" in modularChainInfo) {
-      const chainInfo = chainStore.getChain(chainId);
+    const u = modularChainInfo.unwrapped;
+    if (u.type === "cosmos" || u.type === "ethermint") {
       return (
-        (chainInfo.stakeCurrency || chainInfo.currencies[0])
-          .coinMinimalDenom === currency.coinMinimalDenom
+        (u.cosmos.stakeCurrency || u.cosmos.currencies[0]).coinMinimalDenom ===
+        currency.coinMinimalDenom
       );
     }
     return false;
@@ -147,9 +125,11 @@ export const TokenDetailModal: FunctionComponent<{
     (serviceInfo) => !!serviceInfo.getBuyUrl
   );
   const balance = (() => {
-    if ("cosmos" in modularChainInfo) {
+    const u = modularChainInfo.unwrapped;
+    if (u.type === "cosmos" || u.type === "ethermint") {
       const queryBalances = queriesStore.get(chainId).queryBalances;
-      return chainStore.isEvmChain(chainId) && (isMainCurrency || isERC20)
+      const isEvm = u.type === "ethermint";
+      return isEvm && (isMainCurrency || isERC20)
         ? queryBalances
             .getQueryEthereumHexAddress(account.ethereumHexAddress)
             .getBalance(currency)
@@ -158,7 +138,14 @@ export const TokenDetailModal: FunctionComponent<{
             .getBalance(currency);
     }
 
-    if ("starknet" in modularChainInfo) {
+    if (u.type === "evm") {
+      const queryBalances = queriesStore.get(chainId).queryBalances;
+      return queryBalances
+        .getQueryEthereumHexAddress(account.ethereumHexAddress)
+        .getBalance(currency);
+    }
+
+    if (u.type === "starknet") {
       return starknetQueriesStore
         .get(chainId)
         .queryStarknetERC20Balance.getBalance(
@@ -169,7 +156,7 @@ export const TokenDetailModal: FunctionComponent<{
         );
     }
 
-    if ("bitcoin" in modularChainInfo) {
+    if (u.type === "bitcoin") {
       return bitcoinQueriesStore
         .get(chainId)
         .queryBitcoinBalance.getBalance(
@@ -198,7 +185,8 @@ export const TokenDetailModal: FunctionComponent<{
   );
 
   const isSupported: boolean = useMemo(() => {
-    if ("cosmos" in modularChainInfo) {
+    const u = modularChainInfo.unwrapped;
+    if (u.type === "cosmos" || u.type === "ethermint" || u.type === "evm") {
       if (
         chainId.startsWith("eip155:") &&
         coinMinimalDenom !== "ethereum-native"
@@ -207,22 +195,15 @@ export const TokenDetailModal: FunctionComponent<{
         return false;
       }
 
-      const chainInfo = chainStore.getChain(modularChainInfo.chainId);
       const map = new Map<string, boolean>();
       for (const chainIdentifier of querySupported.response?.data ?? []) {
         map.set(chainIdentifier, true);
       }
 
-      return map.get(chainInfo.chainIdentifier) ?? false;
+      return map.get(modularChainInfo.chainIdentifier) ?? false;
     }
     return false;
-  }, [
-    chainStore,
-    modularChainInfo,
-    querySupported.response,
-    chainId,
-    coinMinimalDenom,
-  ]);
+  }, [modularChainInfo, querySupported.response, chainId, coinMinimalDenom]);
 
   const buttons: {
     icon: React.ReactElement;
@@ -300,7 +281,7 @@ export const TokenDetailModal: FunctionComponent<{
       onClick: () => {
         navigate(
           `/ibc-swap?chainId=${chainId}&coinMinimalDenom=${coinMinimalDenom}&outChainId=${
-            chainStore.getChain("noble").chainId
+            chainStore.getModularChain("noble").chainId
           }&outCoinMinimalDenom=uusdc&entryPoint=token_detail`
         );
       },
@@ -329,17 +310,20 @@ export const TokenDetailModal: FunctionComponent<{
       ),
       text: "Send",
       onClick: () => {
-        if ("cosmos" in modularChainInfo) {
+        const uSend = modularChainInfo.unwrapped;
+        if (
+          uSend.type === "cosmos" ||
+          uSend.type === "ethermint" ||
+          uSend.type === "evm"
+        ) {
           navigate(
             `/send?chainId=${chainId}&coinMinimalDenom=${coinMinimalDenom}`
           );
-        }
-        if ("starknet" in modularChainInfo) {
+        } else if (uSend.type === "starknet") {
           navigate(
             `/starknet/send?chainId=${chainId}&coinMinimalDenom=${coinMinimalDenom}`
           );
-        }
-        if ("bitcoin" in modularChainInfo) {
+        } else if (uSend.type === "bitcoin") {
           navigate(
             `/bitcoin/send?chainId=${chainId}&coinMinimalDenom=${coinMinimalDenom}`
           );
@@ -354,15 +338,20 @@ export const TokenDetailModal: FunctionComponent<{
       return `/history/v2/msgs/${
         ChainIdHelper.parse(chainId).identifier
       }/${(() => {
-        if ("cosmos" in modularChainInfo) {
+        const uAddr = modularChainInfo.unwrapped;
+        if (
+          uAddr.type === "cosmos" ||
+          uAddr.type === "ethermint" ||
+          uAddr.type === "evm"
+        ) {
           return account.hasEthereumHexAddress
             ? account.ethereumHexAddress
             : Bech32Address.fromBech32(account.bech32Address).toHex();
         }
-        if ("starknet" in modularChainInfo) {
+        if (uAddr.type === "starknet") {
           return accountStore.getAccount(chainId).starknetHexAddress;
         }
-        if ("bitcoin" in modularChainInfo) {
+        if (uAddr.type === "bitcoin") {
           return (
             accountStore.getAccount(chainId).bitcoinAddress?.bech32Address ?? ""
           );
@@ -534,7 +523,10 @@ export const TokenDetailModal: FunctionComponent<{
               <Gutter size="0.25rem" />
               <YAxis alignX="center">
                 <XAxis alignY="center">
-                  <AddressChip chainId={chainId} />
+                  <AddressChip
+                    chainId={chainId}
+                    coinMinimalDenom={coinMinimalDenom}
+                  />
                   <Gutter size="0.25rem" />
                   <QRCodeChip
                     onClick={() => {
@@ -621,19 +613,18 @@ export const TokenDetailModal: FunctionComponent<{
           </YAxis>
 
           {(() => {
-            if ("cosmos" in modularChainInfo) {
-              const chainInfo = chainStore.getChain(chainId);
-
+            const uStake = modularChainInfo.unwrapped;
+            if (uStake.type === "cosmos" || uStake.type === "ethermint") {
               if (validateIsUsdcFromNoble(currency, chainId)) {
                 return <EarnApyBanner chainId={NOBLE_CHAIN_ID} />;
               }
 
               const isStakeCurrency =
-                chainInfo.stakeCurrency?.coinMinimalDenom ===
+                uStake.cosmos.stakeCurrency?.coinMinimalDenom ===
                 currency.coinMinimalDenom;
               const hasNativeStaking =
-                chainInfo.embedded.embedded &&
-                chainInfo.embedded.walletUrlForStaking;
+                modularChainInfo.embedded.isBuiltInChain &&
+                uStake.cosmos.walletUrlForStaking;
 
               if (
                 isStakeCurrency &&
@@ -646,7 +637,7 @@ export const TokenDetailModal: FunctionComponent<{
                   </React.Fragment>
                 );
               }
-            } else if ("starknet" in modularChainInfo) {
+            } else if (uStake.type === "starknet") {
               if (modularChainInfo.chainId === "starknet:SN_SEPOLIA")
                 return null;
 
@@ -737,8 +728,8 @@ export const TokenDetailModal: FunctionComponent<{
             if ("paths" in currency && currency.paths.length > 0) {
               const path = currency.paths[currency.paths.length - 1];
               if (path.clientChainId) {
-                const chainName = chainStore.hasChain(path.clientChainId)
-                  ? chainStore.getChain(path.clientChainId).chainName
+                const chainName = chainStore.hasModularChain(path.clientChainId)
+                  ? chainStore.getModularChain(path.clientChainId).chainName
                   : path.clientChainId;
                 infos.push({
                   title: "Channel",
@@ -829,12 +820,10 @@ export const TokenDetailModal: FunctionComponent<{
             }
 
             if (msgHistory.pages[0].response?.isUnsupported || !isSupported) {
-              // TODO: 아직 cosmos 체인이 아니면 embedded인지 아닌지 구분할 수 없다.
               if (
-                ("cosmos" in modularChainInfo &&
-                  chainStore.getChain(chainId).embedded.embedded) ||
-                "starknet" in modularChainInfo ||
-                "bitcoin" in modularChainInfo
+                modularChainInfo.embedded.isBuiltInChain ||
+                modularChainInfo.type === "starknet" ||
+                modularChainInfo.type === "bitcoin"
               ) {
                 return (
                   <EmptyView>
@@ -902,7 +891,11 @@ export const TokenDetailModal: FunctionComponent<{
         align="bottom"
         close={() => setIsReceiveOpen(false)}
       >
-        <ReceiveModal chainId={chainId} close={() => setIsReceiveOpen(false)} />
+        <ReceiveModal
+          chainId={chainId}
+          coinMinimalDenom={coinMinimalDenom}
+          close={() => setIsReceiveOpen(false)}
+        />
       </Modal>
     </Styles.Container>
   );

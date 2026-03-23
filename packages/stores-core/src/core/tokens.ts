@@ -11,7 +11,11 @@ import {
 } from "@keplr-wallet/background";
 import { action, autorun, makeObservable, observable, runInAction } from "mobx";
 import { AppCurrency } from "@keplr-wallet/types";
-import { IChainStore, IAccountStore } from "@keplr-wallet/stores";
+import {
+  IChainStore,
+  IAccountStore,
+  getCosmosInfo,
+} from "@keplr-wallet/stores";
 import { InteractionStore } from "./interaction";
 import { Bech32Address, ChainIdHelper } from "@keplr-wallet/cosmos";
 import { Buffer } from "buffer/";
@@ -89,46 +93,30 @@ export class TokensStore {
 
   @action
   protected clearTokensFromChainInfos() {
-    const chainInfos = this.chainStore.chainInfos;
-    for (const chainInfo of chainInfos) {
-      const chainIdentifier = ChainIdHelper.parse(chainInfo.chainId);
+    const modularChainInfos = this.chainStore.modularChainInfos;
+    for (const mcInfo2 of modularChainInfos) {
+      const chainIdentifier = ChainIdHelper.parse(mcInfo2.chainId);
 
       // Tokens should be changed whenever the account changed.
       // But, the added currencies are not removed automatically.
       // So, we should remove the prev token currencies from the chain info.
       const prevTokens =
         this.prevTokenMap.get(chainIdentifier.identifier) ?? [];
-      chainInfo.removeCurrencies(
+      mcInfo2.removeCurrencies(
         ...prevTokens.map((token) => token.currency.coinMinimalDenom)
       );
-    }
-
-    const modularChainInfoImpls = this.chainStore.modularChainInfoImpls;
-    for (const modularChainInfoImpl of modularChainInfoImpls) {
-      const chainIdentifier = ChainIdHelper.parse(modularChainInfoImpl.chainId);
-
-      const prevTokens =
-        this.prevTokenMap.get(chainIdentifier.identifier) ?? [];
-
-      if (
-        "starknet" in modularChainInfoImpl &&
-        modularChainInfoImpl.starknet != null
-      ) {
-        modularChainInfoImpl.removeCurrencies(
-          "starknet",
-          ...prevTokens.map((token) => token.currency.coinMinimalDenom)
-        );
-      }
     }
   }
 
   protected updateChainInfos() {
-    const modularChainInfoImpls = this.chainStore.modularChainInfoImpls;
-    for (const modularChainInfoImpl of modularChainInfoImpls) {
-      if ("cosmos" in modularChainInfoImpl.embedded) {
-        const chainIdentifier = ChainIdHelper.parse(
-          modularChainInfoImpl.chainId
-        );
+    const modularChainInfos = this.chainStore.modularChainInfos;
+    for (const mcInfo2 of modularChainInfos) {
+      if (
+        mcInfo2.type === "cosmos" ||
+        mcInfo2.type === "ethermint" ||
+        mcInfo2.type === "evm"
+      ) {
+        const chainIdentifier = ChainIdHelper.parse(mcInfo2.chainId);
 
         const tokens = this.tokenMap.get(chainIdentifier.identifier) ?? [];
 
@@ -139,14 +127,12 @@ export class TokensStore {
             adds.push(token.currency);
           } else if (
             this.keyRingStore.status === "unlocked" &&
-            this.accountStore.getAccount(modularChainInfoImpl.chainId)
-              .bech32Address
+            this.accountStore.getAccount(mcInfo2.chainId).bech32Address
           ) {
             if (
               Buffer.from(
                 Bech32Address.fromBech32(
-                  this.accountStore.getAccount(modularChainInfoImpl.chainId)
-                    .bech32Address
+                  this.accountStore.getAccount(mcInfo2.chainId).bech32Address
                 ).address
               ).toString("hex") === token.associatedAccountAddress
             ) {
@@ -155,25 +141,19 @@ export class TokensStore {
           }
         }
 
-        this.chainStore
-          .getChain(modularChainInfoImpl.chainId)
-          .addCurrencies(...adds);
-      } else if ("starknet" in modularChainInfoImpl.embedded) {
-        if ("starknet" in modularChainInfoImpl.embedded) {
-          const chainIdentifier = ChainIdHelper.parse(
-            modularChainInfoImpl.chainId
-          );
+        mcInfo2.addCurrencies(...adds);
+      } else if (mcInfo2.type === "starknet") {
+        const chainIdentifier = ChainIdHelper.parse(mcInfo2.chainId);
 
-          const tokens = this.tokenMap.get(chainIdentifier.identifier) ?? [];
+        const tokens = this.tokenMap.get(chainIdentifier.identifier) ?? [];
 
-          const adds: AppCurrency[] = [];
+        const adds: AppCurrency[] = [];
 
-          for (const token of tokens) {
-            adds.push(token.currency);
-          }
-
-          modularChainInfoImpl.addCurrencies("starknet", ...adds);
+        for (const token of tokens) {
+          adds.push(token.currency);
         }
+
+        mcInfo2.addCurrencies(...adds);
       }
     }
 
@@ -204,17 +184,21 @@ export class TokensStore {
 
   getTokens(chainId: string): ReadonlyArray<TokenInfo> {
     const bech32Address = this.accountStore.getAccount(chainId).bech32Address;
-    const modularChainInfo = this.chainStore.getModularChain(chainId);
-    if ("cosmos" in modularChainInfo) {
-      const chainInfo = this.chainStore.getChain(chainId);
+    const mcInfo2 = this.chainStore.getModularChain(chainId);
+    if (
+      mcInfo2.type === "cosmos" ||
+      mcInfo2.type === "ethermint" ||
+      mcInfo2.type === "evm"
+    ) {
+      const cosmosInfo = getCosmosInfo(mcInfo2);
 
-      const hasBech32Config = chainInfo.bech32Config != null;
+      const hasBech32Config = cosmosInfo?.bech32Config != null;
       const associatedAccountAddress =
         hasBech32Config && bech32Address
           ? Buffer.from(
               Bech32Address.fromBech32(
                 bech32Address,
-                chainInfo.bech32Config.bech32PrefixAccAddr
+                cosmosInfo!.bech32Config!.bech32PrefixAccAddr
               ).address
             ).toString("hex")
           : undefined;
@@ -233,7 +217,7 @@ export class TokensStore {
 
         return true;
       });
-    } else if ("starknet" in modularChainInfo) {
+    } else if (mcInfo2.type === "starknet") {
       return this.tokenMap.get(chainId) ?? [];
     } else {
       throw new Error(`Unsupported chain: ${chainId}`);
@@ -256,21 +240,25 @@ export class TokensStore {
   }
 
   async addToken(chainId: string, currency: AppCurrency): Promise<void> {
-    const modularChainInfo = this.chainStore.getModularChain(chainId);
-    if ("cosmos" in modularChainInfo) {
+    const mcInfo2 = this.chainStore.getModularChain(chainId);
+    if (
+      mcInfo2.type === "cosmos" ||
+      mcInfo2.type === "ethermint" ||
+      mcInfo2.type === "evm"
+    ) {
       const bech32Address = this.accountStore.getAccount(chainId).bech32Address;
       if (!bech32Address) {
         throw new Error("Account not initialized");
       }
 
-      const chainInfo = this.chainStore.getChain(chainId);
-      const isEvmChain = chainInfo.evm != null;
-      const hasBech32Config = chainInfo.bech32Config != null;
+      const cosmosInfo = getCosmosInfo(mcInfo2);
+      const isEvmChain = mcInfo2.type === "evm" || mcInfo2.type === "ethermint";
+      const hasBech32Config = cosmosInfo?.bech32Config != null;
       const associatedAccountAddress = hasBech32Config
         ? Buffer.from(
             Bech32Address.fromBech32(
               bech32Address,
-              chainInfo.bech32Config.bech32PrefixAccAddr
+              cosmosInfo!.bech32Config!.bech32PrefixAccAddr
             ).address
           ).toString("hex")
         : "";
@@ -281,7 +269,7 @@ export class TokensStore {
       const res = await this.requester.sendMessage(BACKGROUND_PORT, msg);
       runInAction(() => {
         const newTokenMap = new Map(this.tokenMap);
-        const chainIdentifier = ChainIdHelper.parse(chainInfo.chainId);
+        const chainIdentifier = ChainIdHelper.parse(mcInfo2.chainId);
         const newTokens = res[chainIdentifier.identifier];
         if (newTokens) {
           newTokenMap.set(chainIdentifier.identifier, newTokens);
@@ -289,12 +277,12 @@ export class TokensStore {
 
         this.tokenMap = newTokenMap;
       });
-    } else if ("starknet" in modularChainInfo) {
+    } else if (mcInfo2.type === "starknet") {
       const msg = new AddERC20TokenMsg(chainId, currency);
       const res = await this.requester.sendMessage(BACKGROUND_PORT, msg);
       runInAction(() => {
         const newTokenMap = new Map(this.tokenMap);
-        const chainIdentifier = ChainIdHelper.parse(modularChainInfo.chainId);
+        const chainIdentifier = ChainIdHelper.parse(mcInfo2.chainId);
         const newTokens = res[chainIdentifier.identifier];
         if (newTokens) {
           newTokenMap.set(chainIdentifier.identifier, newTokens);
@@ -316,10 +304,13 @@ export class TokensStore {
       throw new Error("Token info is not for contract");
     })();
 
-    const modularChainInfo = this.chainStore.getModularChain(chainId);
-    if ("cosmos" in modularChainInfo) {
-      const chainInfo = this.chainStore.getChain(chainId);
-      const isEvmChain = chainInfo.evm !== undefined;
+    const mcInfo2 = this.chainStore.getModularChain(chainId);
+    if (
+      mcInfo2.type === "cosmos" ||
+      mcInfo2.type === "ethermint" ||
+      mcInfo2.type === "evm"
+    ) {
+      const isEvmChain = mcInfo2.type === "evm" || mcInfo2.type === "ethermint";
 
       const msg = isEvmChain
         ? new RemoveERC20TokenMsg(chainId, contractAddress)
@@ -335,7 +326,7 @@ export class TokensStore {
         this.clearTokensFromChainInfos();
 
         const newTokenMap = new Map(this.tokenMap);
-        const chainIdentifier = ChainIdHelper.parse(chainInfo.chainId);
+        const chainIdentifier = ChainIdHelper.parse(mcInfo2.chainId);
         const newTokens = res[chainIdentifier.identifier];
         if (newTokens) {
           newTokenMap.set(chainIdentifier.identifier, newTokens);
@@ -343,7 +334,7 @@ export class TokensStore {
 
         this.tokenMap = newTokenMap;
       });
-    } else if ("starknet" in modularChainInfo) {
+    } else if (mcInfo2.type === "starknet") {
       const msg = new RemoveERC20TokenMsg(chainId, contractAddress);
 
       const res = await this.requester.sendMessage(BACKGROUND_PORT, msg);
@@ -353,7 +344,7 @@ export class TokensStore {
         this.clearTokensFromChainInfos();
 
         const newTokenMap = new Map(this.tokenMap);
-        const chainIdentifier = ChainIdHelper.parse(modularChainInfo.chainId);
+        const chainIdentifier = ChainIdHelper.parse(mcInfo2.chainId);
         const newTokens = res[chainIdentifier.identifier];
         if (newTokens) {
           newTokenMap.set(chainIdentifier.identifier, newTokens);

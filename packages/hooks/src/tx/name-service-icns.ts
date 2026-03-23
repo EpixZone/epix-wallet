@@ -53,7 +53,7 @@ export class ICNSNameService implements NameService {
     makeObservable(this);
 
     autorun(() => {
-      noop(this.base.chainInfo, this._icns, this.isEnabled, this.value);
+      noop(this.base.modularChainInfo, this._icns, this.isEnabled, this.value);
       // 위의 값에 변경이 있으면 새로고침
       this.fetch();
     });
@@ -84,9 +84,13 @@ export class ICNSNameService implements NameService {
 
   get value(): string {
     let v = this._value;
-    const chainInfo = this.base.chainInfo;
-    if (this.isEnabled && chainInfo.bech32Config) {
-      const suffix = chainInfo.bech32Config.bech32PrefixAccAddr;
+    const u = this.base.modularChainInfo.unwrapped;
+    if (
+      this.isEnabled &&
+      (u.type === "cosmos" || u.type === "ethermint") &&
+      u.cosmos.bech32Config
+    ) {
+      const suffix = u.cosmos.bech32Config.bech32PrefixAccAddr;
       const i = v.lastIndexOf(".");
       if (i >= 0) {
         const tld = v.slice(i + 1);
@@ -120,12 +124,13 @@ export class ICNSNameService implements NameService {
   }
 
   protected async fetch(): Promise<void> {
-    const chainInfo = this.base.chainInfo;
+    const u = this.base.modularChainInfo.unwrapped;
     if (
       !this.isEnabled ||
       this.value.trim().length === 0 ||
       !this._icns ||
-      !chainInfo.bech32Config ||
+      !(u.type === "cosmos" || u.type === "ethermint") ||
+      !u.cosmos.bech32Config ||
       // 글자수가 길어지면 공격자가 실제 온체인 상의 주소로 이름을 생성해서
       // 사용자가 실수로 그 주소로 트랜잭션을 보내게 할 수 있으므로 글자수를 제한한다.
       this.value.length > 20
@@ -143,8 +148,12 @@ export class ICNSNameService implements NameService {
   protected async fetchInternal(): Promise<void> {
     const prevValue = this.value;
     try {
-      const chainInfo = this.base.chainInfo;
-      if (!this._icns || !chainInfo.bech32Config) {
+      const u = this.base.modularChainInfo.unwrapped;
+      if (
+        !this._icns ||
+        !(u.type === "cosmos" || u.type === "ethermint") ||
+        !u.cosmos.bech32Config
+      ) {
         throw new Error("ICNS or bech32 config is not set");
       }
 
@@ -152,11 +161,11 @@ export class ICNSNameService implements NameService {
         this._isFetching = true;
       });
 
-      if (!this.chainGetter.hasChain(this._icns.chainId)) {
+      if (!this.chainGetter.hasModularChain(this._icns.chainId)) {
         throw new Error(`Can't find chain: ${this._icns.chainId}`);
       }
 
-      const suffix = chainInfo.bech32Config.bech32PrefixAccAddr;
+      const suffix = u.cosmos.bech32Config.bech32PrefixAccAddr;
       const domain = this.value;
       const username = domain + "." + suffix;
       const queryData = JSON.stringify({
@@ -165,8 +174,15 @@ export class ICNSNameService implements NameService {
         },
       });
 
+      const icnsU = this.chainGetter.getModularChain(
+        this._icns.chainId
+      ).unwrapped;
+      if (icnsU.type !== "cosmos" && icnsU.type !== "ethermint") {
+        throw new Error("ICNS chain must be a cosmos chain");
+      }
+
       const res = await simpleFetch<{ data?: { bech32_address: string } }>(
-        this.chainGetter.getChain(this._icns.chainId).rest,
+        icnsU.cosmos.rest,
         `/cosmwasm/wasm/v1/contract/${
           this._icns.resolverContractAddress
         }/smart/${Buffer.from(queryData).toString("base64")}`

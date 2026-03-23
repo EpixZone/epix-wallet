@@ -25,12 +25,12 @@ export const MsgRelationMergedClaimRewards: FunctionComponent<{
 }> = observer(({ msg, prices, targetDenom, isInAllActivitiesPage }) => {
   const { chainStore } = useStore();
 
-  const chainInfo = chainStore.getChain(msg.chainId);
+  const modularChainInfo = chainStore.getModularChain(msg.chainId);
 
   const isNobleClaimMessage = msg.relation === "noble-claim-yield";
 
   const amountPretty = useMemo(() => {
-    const currency = chainInfo.forceFindCurrency(targetDenom);
+    const currency = modularChainInfo.forceFindCurrency(targetDenom);
 
     const rewards = isNobleClaimMessage
       ? msg.meta["yields"]
@@ -52,14 +52,14 @@ export const MsgRelationMergedClaimRewards: FunctionComponent<{
     }
 
     return new CoinPretty(currency, "0");
-  }, [isNobleClaimMessage, chainInfo, msg.meta, targetDenom]);
+  }, [isNobleClaimMessage, modularChainInfo, msg.meta, targetDenom]);
 
   const otherKnownCurrencies = (() => {
     const res: AppCurrency[] = [];
     if (msg.denoms) {
       for (const denom of msg.denoms) {
         if (denom !== targetDenom) {
-          const currency = chainInfo.findCurrency(denom);
+          const currency = modularChainInfo.findCurrency(denom);
           if (currency) {
             if (
               currency.coinMinimalDenom.startsWith("ibc/") &&

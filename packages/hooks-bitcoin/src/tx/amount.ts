@@ -138,13 +138,13 @@ export class AmountConfig extends TxChainSetter implements IAmountConfig {
 
   @computed
   get currency(): AppCurrency {
-    const modularChainInfo = this.modularChainInfo;
-    if (!("bitcoin" in modularChainInfo)) {
+    const u = this.modularChainInfo.unwrapped;
+    if (u.type !== "bitcoin") {
       throw new Error("Chain doesn't support the bitcoin");
     }
 
     if (this._currency) {
-      const find = modularChainInfo.bitcoin.currencies.find(
+      const find = u.bitcoin.currencies.find(
         (cur) => cur.coinMinimalDenom === this._currency!.coinMinimalDenom
       );
       if (find) {
@@ -152,7 +152,7 @@ export class AmountConfig extends TxChainSetter implements IAmountConfig {
       }
     }
 
-    return modularChainInfo.bitcoin.currencies[0];
+    return u.bitcoin.currencies[0];
   }
 
   @action
@@ -175,13 +175,13 @@ export class AmountConfig extends TxChainSetter implements IAmountConfig {
   }
 
   canUseCurrency(currency: AppCurrency): boolean {
-    const modularChainInfo = this.modularChainInfo;
-    if (!("bitcoin" in modularChainInfo)) {
+    const u = this.modularChainInfo.unwrapped;
+    if (u.type !== "bitcoin") {
       throw new Error("Chain doesn't support the bitcoin");
     }
 
     return (
-      modularChainInfo.bitcoin.currencies.find(
+      u.bitcoin.currencies.find(
         (cur) => cur.coinMinimalDenom === currency.coinMinimalDenom
       ) != null
     );

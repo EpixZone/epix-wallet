@@ -26,6 +26,8 @@
       "@keplr-wallet/hooks-bitcoin/build/*": [
         "../../packages/hooks-bitcoin/src/*"
       ],
+      "@keplr-wallet/hooks-evm": ["../../packages/hooks-evm/src"],
+      "@keplr-wallet/hooks-evm/build/*": ["../../packages/hooks-evm/src/*"],
       "@keplr-wallet/hooks-starknet": ["../../packages/hooks-starknet/src"],
       "@keplr-wallet/hooks-starknet/build/*": [
         "../../packages/hooks-starknet/src/*"

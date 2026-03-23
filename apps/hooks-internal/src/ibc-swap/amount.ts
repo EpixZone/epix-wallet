@@ -1,5 +1,5 @@
 import { AmountConfig, ISenderConfig, UIProperties } from "@keplr-wallet/hooks";
-import { AppCurrency } from "@keplr-wallet/types";
+import { AppCurrency, isEthSignChain } from "@keplr-wallet/types";
 import { CoinPretty, Dec, Int, RatePretty } from "@keplr-wallet/unit";
 import {
   ChainGetter,
@@ -360,16 +360,13 @@ export class IBCSwapAmountConfig extends AmountConfig {
             ? !swapAccount.ethereumHexAddress
             : !swapAccount.bech32Address
         ) {
-          const swapVenueChainInfo =
-            this.chainGetter.hasChain(swapVenueChainId) &&
-            this.chainGetter.getChain(swapVenueChainId);
+          const swapVenueMcInfo2 =
+            this.chainGetter.hasModularChain(swapVenueChainId) &&
+            this.chainGetter.getModularChain(swapVenueChainId);
           if (
             swapAccount.isNanoLedger &&
-            swapVenueChainInfo &&
-            (swapVenueChainInfo.bip44.coinType === 60 ||
-              swapVenueChainInfo.features.includes("eth-address-gen") ||
-              swapVenueChainInfo.features.includes("eth-key-sign") ||
-              swapVenueChainInfo.evm != null)
+            swapVenueMcInfo2 &&
+            isEthSignChain(swapVenueMcInfo2.unwrapped)
           ) {
             throw new Error(
               "Please connect Ethereum app on Ledger with Keplr to get the address"
@@ -904,8 +901,8 @@ export class IBCSwapAmountConfig extends AmountConfig {
       this.amount.length > 0 &&
       this.amount[0].currency.coinMinimalDenom ===
         this.outAmount.currency.coinMinimalDenom &&
-      this.chainGetter.getChain(this.chainId).chainIdentifier ===
-        this.chainGetter.getChain(this.outChainId).chainIdentifier
+      this.chainGetter.getModularChain(this.chainId).chainIdentifier ===
+        this.chainGetter.getModularChain(this.outChainId).chainIdentifier
     ) {
       return {
         ...prev,

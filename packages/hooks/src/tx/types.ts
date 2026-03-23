@@ -6,12 +6,12 @@ import {
 } from "@keplr-wallet/types";
 import { CoinPretty, Dec } from "@keplr-wallet/unit";
 import { NameService } from "./name-service";
-import { IChainInfoImpl } from "@keplr-wallet/stores";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 
 export interface ITxChainSetter {
   chainId: string;
-  chainInfo: IChainInfoImpl;
   setChain(chainId: string): void;
+  modularChainInfo: IModularChainInfoImpl;
 }
 
 export interface UIProperties {
@@ -52,12 +52,12 @@ export interface ISenderConfig extends ITxChainSetter {
 }
 
 export interface IFeeConfig extends ITxChainSetter {
-  type: FeeType | "manual";
+  type: FeeType | "manual" | "custom";
 
   setFee(
     fee:
       | {
-          type: FeeType;
+          type: FeeType | "custom";
           currency: FeeCurrency;
         }
       | CoinPretty
@@ -72,7 +72,7 @@ export interface IFeeConfig extends ITxChainSetter {
 
   getFeeTypePrettyForFeeCurrency(
     currency: FeeCurrency,
-    feeType: FeeType
+    feeType: FeeType | "custom"
   ): CoinPretty;
 
   l1DataFee: Dec | undefined;

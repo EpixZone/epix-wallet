@@ -3,7 +3,7 @@ import {
   CoinGeckoPriceStore,
   CosmosQueries,
   IAccountStore,
-  IChainInfoImpl,
+  IModularChainInfoImpl,
   IQueriesStore,
   QueryError,
 } from "@keplr-wallet/stores";
@@ -14,7 +14,6 @@ import { computedFn } from "mobx-utils";
 import { BinarySortArray } from "./sort";
 import { StarknetQueriesStore } from "@keplr-wallet/stores-starknet";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
-import { ModularChainInfo } from "@keplr-wallet/types";
 import { BitcoinQueriesStore } from "@keplr-wallet/stores-bitcoin";
 import { UIConfigStore } from "../ui-config";
 import { KeyRingStore, TokensStore } from "@keplr-wallet/stores-core";
@@ -25,7 +24,7 @@ import { INITIA_CHAIN_ID } from "../../config.ui";
 import { sortByPrice } from "../../utils/token-sort";
 
 interface ViewToken {
-  chainInfo: IChainInfoImpl | ModularChainInfo;
+  chainInfo: IModularChainInfoImpl;
   token: CoinPretty;
   price: PricePretty | undefined;
   isFetching: boolean;
@@ -153,28 +152,34 @@ export class HugeQueriesStore {
 
     for (const modularChainInfo of this.chainStore.modularChainInfosInUI) {
       const account = this.accountStore.getAccount(modularChainInfo.chainId);
-      if ("cosmos" in modularChainInfo) {
-        const chainInfo = this.chainStore.getChain(modularChainInfo.chainId);
+      const u = modularChainInfo.unwrapped;
 
-        const mainCurrency = chainInfo.stakeCurrency || chainInfo.currencies[0];
+      if (u.type === "cosmos" || u.type === "ethermint") {
+        const isEvm = u.type === "ethermint";
+
+        const mainCurrency = u.cosmos.stakeCurrency || u.cosmos.currencies[0];
 
         if (account.bech32Address === "") {
           continue;
         }
-        const queries = this.queriesStore.get(chainInfo.chainId);
+        const queries = this.queriesStore.get(modularChainInfo.chainId);
 
-        const currencies = [...chainInfo.currencies];
-        if (chainInfo.stakeCurrency) {
-          currencies.push(chainInfo.stakeCurrency);
+        const currencies = [...u.cosmos.currencies];
+        if (u.cosmos.stakeCurrency) {
+          currencies.push(u.cosmos.stakeCurrency);
         }
+        // For ethermint, also include evm tokens (erc20)
+        if (isEvm) {
+          currencies.push(...u.evm.tokens);
+        }
+
         for (const currency of currencies) {
           const denomHelper = new DenomHelper(currency.coinMinimalDenom);
           const isERC20 = denomHelper.type === "erc20";
           const isMainCurrency =
             mainCurrency.coinMinimalDenom === currency.coinMinimalDenom;
           const queryBalance =
-            this.chainStore.isEvmChain(chainInfo.chainId) &&
-            (isMainCurrency || isERC20)
+            isEvm && (isMainCurrency || isERC20)
               ? queries.queryBalances.getQueryEthereumHexAddress(
                   account.ethereumHexAddress
                 )
@@ -182,7 +187,7 @@ export class HugeQueriesStore {
                   account.bech32Address
                 );
 
-          if (this.chainStore.getChain(chainInfo.chainId).bech32Config) {
+          if (isEvm) {
             // ethermint 계열의 체인인 경우 ibc token을 보여주기 위해서 native 토큰에 대해서
             // cosmos 방식의 쿼리를 꼭 발생시켜야 한다.
             for (const bal of queries.queryBalances.getQueryBech32Address(
@@ -197,10 +202,10 @@ export class HugeQueriesStore {
             }
           }
 
-          const key = `${chainInfo.chainIdentifier}/${currency.coinMinimalDenom}`;
+          const key = `${modularChainInfo.chainIdentifier}/${currency.coinMinimalDenom}`;
           if (!keysUsed.get(key)) {
             if (
-              chainInfo.stakeCurrency?.coinMinimalDenom ===
+              u.cosmos.stakeCurrency?.coinMinimalDenom ===
               currency.coinMinimalDenom
             ) {
               const balance = queryBalance.stakable?.balance;
@@ -216,7 +221,7 @@ export class HugeQueriesStore {
               keysUsed.set(key, true);
               prevKeyMap.delete(key);
               this.balanceBinarySort.pushAndSort(key, {
-                chainInfo,
+                chainInfo: modularChainInfo,
                 token: balance,
                 price: currency.coinGeckoId
                   ? this.priceStore.calculatePrice(balance)
@@ -236,15 +241,15 @@ export class HugeQueriesStore {
                     denomHelper.type === "native" ||
                     (denomHelper.type === "erc20" &&
                       !this.tokensStore.tokenIsRegistered(
-                        chainInfo.chainId,
+                        modularChainInfo.chainId,
                         denomHelper.denom
                       ))
                   ) {
                     // However, if currency is native currency and not ibc, and same with currencies[0],
                     // just show it as 0 balance.
                     if (
-                      chainInfo.currencies.length > 0 &&
-                      chainInfo.currencies[0].coinMinimalDenom ===
+                      u.cosmos.currencies.length > 0 &&
+                      u.cosmos.currencies[0].coinMinimalDenom ===
                         currency.coinMinimalDenom &&
                       !currency.coinMinimalDenom.startsWith("ibc/")
                     ) {
@@ -258,7 +263,7 @@ export class HugeQueriesStore {
                 keysUsed.set(key, true);
                 prevKeyMap.delete(key);
                 this.balanceBinarySort.pushAndSort(key, {
-                  chainInfo,
+                  chainInfo: modularChainInfo,
                   token: balance.balance,
                   price: currency.coinGeckoId
                     ? this.priceStore.calculatePrice(balance.balance)
@@ -272,16 +277,67 @@ export class HugeQueriesStore {
         }
       }
 
-      if ("starknet" in modularChainInfo) {
+      if (u.type === "evm") {
+        if (account.ethereumHexAddress === "") {
+          continue;
+        }
+        const queries = this.queriesStore.get(modularChainInfo.chainId);
+
+        const currencies = [u.evm.nativeCurrency, ...u.evm.tokens];
+
+        for (const currency of currencies) {
+          const queryBalance = queries.queryBalances.getQueryEthereumHexAddress(
+            account.ethereumHexAddress
+          );
+
+          const key = `${modularChainInfo.chainIdentifier}/${currency.coinMinimalDenom}`;
+          if (!keysUsed.get(key)) {
+            const denomHelper = new DenomHelper(currency.coinMinimalDenom);
+            const isERC20 = denomHelper.type === "erc20";
+            const isNativeCurrency =
+              u.evm.nativeCurrency.coinMinimalDenom ===
+              currency.coinMinimalDenom;
+
+            const balance = queryBalance.getBalance(currency);
+            if (balance) {
+              if (balance.balance.toDec().equals(HugeQueriesStore.zeroDec)) {
+                if (isNativeCurrency) {
+                  // Native currency always shown even at 0 balance
+                } else if (
+                  denomHelper.type === "native" ||
+                  (isERC20 &&
+                    !this.tokensStore.tokenIsRegistered(
+                      modularChainInfo.chainId,
+                      denomHelper.denom
+                    ))
+                ) {
+                  continue;
+                }
+              }
+
+              keysUsed.set(key, true);
+              prevKeyMap.delete(key);
+              this.balanceBinarySort.pushAndSort(key, {
+                chainInfo: modularChainInfo,
+                token: balance.balance,
+                price: currency.coinGeckoId
+                  ? this.priceStore.calculatePrice(balance.balance)
+                  : undefined,
+                isFetching: balance.isFetching,
+                error: balance.error,
+              });
+            }
+          }
+        }
+      }
+
+      if (u.type === "starknet") {
         if (account.starknetHexAddress === "") {
           continue;
         }
 
-        const modularChainInfoImpl = this.chainStore.getModularChainInfoImpl(
-          modularChainInfo.chainId
-        );
         const queries = this.starknetQueriesStore.get(modularChainInfo.chainId);
-        const currencies = modularChainInfoImpl.getCurrencies("starknet");
+        const currencies = u.starknet.currencies;
 
         for (const currency of currencies) {
           const queryBalance = queries.queryStarknetERC20Balance.getBalance(
@@ -301,9 +357,9 @@ export class HugeQueriesStore {
           if (!keysUsed.get(key)) {
             const isNative =
               currency.coinMinimalDenom ===
-                `erc20:${modularChainInfo.starknet.strkContractAddress}` ||
+                `erc20:${u.starknet.strkContractAddress}` ||
               currency.coinMinimalDenom ===
-                `erc20:${modularChainInfo.starknet.ethContractAddress}`;
+                `erc20:${u.starknet.ethContractAddress}`;
             if (
               !isNative &&
               queryBalance.balance.toDec().equals(HugeQueriesStore.zeroDec) &&
@@ -330,16 +386,13 @@ export class HugeQueriesStore {
         }
       }
 
-      if ("bitcoin" in modularChainInfo) {
+      if (u.type === "bitcoin") {
         if (!account.bitcoinAddress) {
           continue;
         }
 
-        const modularChainInfoImpl = this.chainStore.getModularChainInfoImpl(
-          modularChainInfo.chainId
-        );
         const queries = this.bitcoinQueriesStore.get(modularChainInfo.chainId);
-        const currencies = modularChainInfoImpl.getCurrencies("bitcoin");
+        const currencies = u.bitcoin.currencies;
 
         const currency = currencies[0];
 
@@ -385,20 +438,21 @@ export class HugeQueriesStore {
   @action
   protected getAllTokenMapByChainIdentifier() {
     const tokensByChainId = new Map<string, ViewToken[]>();
-    const modularChainInfos = this.chainStore.groupedModularChainInfos.filter(
-      (chainInfo) => {
-        if ("cosmos" in chainInfo && chainInfo.cosmos.hideInUI) {
+    const groupedChainInfos = this.chainStore.groupedModularChainInfos.filter(
+      (group) => {
+        if (group.modularChainInfo.hideInUI) {
           return false;
         }
         return true;
       }
     );
 
-    for (const modularChainInfo of modularChainInfos) {
+    for (const group of groupedChainInfos) {
+      const modularChainInfo = group.modularChainInfo;
+      const u = modularChainInfo.unwrapped;
+
       const baseChainId =
-        "bitcoin" in modularChainInfo
-          ? modularChainInfo.bitcoin.chainId
-          : modularChainInfo.chainId;
+        u.type === "bitcoin" ? u.bitcoin.chainId : modularChainInfo.chainId;
 
       const chainIdentifier = ChainIdHelper.parse(baseChainId).identifier;
 
@@ -407,19 +461,23 @@ export class HugeQueriesStore {
       }
 
       const account = this.accountStore.getAccount(modularChainInfo.chainId);
-      if ("cosmos" in modularChainInfo) {
-        const chainInfo = this.chainStore.getChain(modularChainInfo.chainId);
 
-        const mainCurrency = chainInfo.stakeCurrency || chainInfo.currencies[0];
+      if (u.type === "cosmos" || u.type === "ethermint") {
+        const isEvm = u.type === "ethermint";
+
+        const mainCurrency = u.cosmos.stakeCurrency || u.cosmos.currencies[0];
 
         if (account.bech32Address === "") {
           continue;
         }
-        const queries = this.queriesStore.get(chainInfo.chainId);
+        const queries = this.queriesStore.get(modularChainInfo.chainId);
 
-        const currencies = [...chainInfo.currencies];
-        if (chainInfo.stakeCurrency) {
-          currencies.push(chainInfo.stakeCurrency);
+        const currencies = [...u.cosmos.currencies];
+        if (u.cosmos.stakeCurrency) {
+          currencies.push(u.cosmos.stakeCurrency);
+        }
+        if (isEvm) {
+          currencies.push(...u.evm.tokens);
         }
 
         for (const currency of currencies) {
@@ -428,8 +486,7 @@ export class HugeQueriesStore {
           const isMainCurrency =
             mainCurrency.coinMinimalDenom === currency.coinMinimalDenom;
           const queryBalance =
-            this.chainStore.isEvmChain(chainInfo.chainId) &&
-            (isMainCurrency || isERC20)
+            isEvm && (isMainCurrency || isERC20)
               ? queries.queryBalances.getQueryEthereumHexAddress(
                   account.ethereumHexAddress
                 )
@@ -438,7 +495,7 @@ export class HugeQueriesStore {
                 );
 
           if (
-            chainInfo.stakeCurrency?.coinMinimalDenom ===
+            u.cosmos.stakeCurrency?.coinMinimalDenom ===
             currency.coinMinimalDenom
           ) {
             const balance = queryBalance.stakable?.balance;
@@ -459,7 +516,7 @@ export class HugeQueriesStore {
             }
 
             tokensByChainId.get(chainIdentifier)!.push({
-              chainInfo,
+              chainInfo: modularChainInfo,
               token: balance,
               price: currency.coinGeckoId
                 ? this.priceStore.calculatePrice(balance)
@@ -480,8 +537,8 @@ export class HugeQueriesStore {
                   // However, if currency is native currency and not ibc, and same with currencies[0],
                   // just show it as 0 balance.
                   if (
-                    chainInfo.currencies.length > 0 &&
-                    chainInfo.currencies[0].coinMinimalDenom ===
+                    u.cosmos.currencies.length > 0 &&
+                    u.cosmos.currencies[0].coinMinimalDenom ===
                       currency.coinMinimalDenom &&
                     !currency.coinMinimalDenom.startsWith("ibc/")
                   ) {
@@ -493,7 +550,7 @@ export class HugeQueriesStore {
               }
 
               tokensByChainId.get(chainIdentifier)!.push({
-                chainInfo,
+                chainInfo: modularChainInfo,
                 token: balance.balance,
                 price: currency.coinGeckoId
                   ? this.priceStore.calculatePrice(balance.balance)
@@ -506,16 +563,70 @@ export class HugeQueriesStore {
         }
       }
 
-      if ("starknet" in modularChainInfo) {
+      if (u.type === "evm") {
+        if (account.ethereumHexAddress === "") {
+          continue;
+        }
+        const queries = this.queriesStore.get(modularChainInfo.chainId);
+
+        const currencies = [u.evm.nativeCurrency, ...u.evm.tokens];
+
+        for (const currency of currencies) {
+          const queryBalance = queries.queryBalances.getQueryEthereumHexAddress(
+            account.ethereumHexAddress
+          );
+
+          const isNativeCurrency =
+            u.evm.nativeCurrency.coinMinimalDenom === currency.coinMinimalDenom;
+
+          const balance = queryBalance.getBalance(currency);
+          if (balance) {
+            if (balance.balance.toDec().equals(HugeQueriesStore.zeroDec)) {
+              if (isNativeCurrency) {
+                // Native currency always shown even at 0 balance
+              } else {
+                const denomHelper = new DenomHelper(currency.coinMinimalDenom);
+                if (
+                  denomHelper.type === "native" ||
+                  denomHelper.type === "erc20"
+                ) {
+                  continue;
+                }
+              }
+            }
+
+            if (
+              tokensByChainId
+                .get(chainIdentifier)!
+                .find(
+                  (token) =>
+                    token.token.currency.coinMinimalDenom ===
+                    currency.coinMinimalDenom
+                )
+            ) {
+              continue;
+            }
+
+            tokensByChainId.get(chainIdentifier)!.push({
+              chainInfo: modularChainInfo,
+              token: balance.balance,
+              price: currency.coinGeckoId
+                ? this.priceStore.calculatePrice(balance.balance)
+                : undefined,
+              isFetching: balance.isFetching,
+              error: balance.error,
+            });
+          }
+        }
+      }
+
+      if (u.type === "starknet") {
         if (account.starknetHexAddress === "") {
           continue;
         }
 
-        const modularChainInfoImpl = this.chainStore.getModularChainInfoImpl(
-          modularChainInfo.chainId
-        );
         const queries = this.starknetQueriesStore.get(modularChainInfo.chainId);
-        const currencies = modularChainInfoImpl.getCurrencies("starknet");
+        const currencies = u.starknet.currencies;
 
         for (const currency of currencies) {
           const queryBalance = queries.queryStarknetERC20Balance.getBalance(
@@ -531,9 +642,9 @@ export class HugeQueriesStore {
 
           const isNative =
             currency.coinMinimalDenom ===
-              `erc20:${modularChainInfo.starknet.strkContractAddress}` ||
+              `erc20:${u.starknet.strkContractAddress}` ||
             currency.coinMinimalDenom ===
-              `erc20:${modularChainInfo.starknet.ethContractAddress}`;
+              `erc20:${u.starknet.ethContractAddress}`;
           if (
             !isNative &&
             queryBalance.balance.toDec().equals(HugeQueriesStore.zeroDec)
@@ -553,9 +664,9 @@ export class HugeQueriesStore {
         }
       }
 
-      if ("bitcoin" in modularChainInfo) {
+      if (u.type === "bitcoin") {
         if (account.bitcoinAddress) {
-          const currency = modularChainInfo.bitcoin.currencies[0];
+          const currency = u.bitcoin.currencies[0];
           const balance = this.bitcoinQueriesStore
             .get(modularChainInfo.chainId)
             .queryBitcoinBalance.getBalance(
@@ -574,8 +685,8 @@ export class HugeQueriesStore {
             });
           }
 
-          if (modularChainInfo.linkedModularChainInfos) {
-            for (const linkedChain of modularChainInfo.linkedModularChainInfos) {
+          if (group.linkedModularChainInfos) {
+            for (const linkedChain of group.linkedModularChainInfos) {
               const linkedAccount = this.accountStore.getAccount(
                 linkedChain.chainId
               );
@@ -583,11 +694,12 @@ export class HugeQueriesStore {
                 continue;
               }
 
-              if (!("bitcoin" in linkedChain)) {
+              const linkedU = linkedChain.unwrapped;
+              if (linkedU.type !== "bitcoin") {
                 continue;
               }
 
-              const linkedCurrency = linkedChain.bitcoin.currencies[0];
+              const linkedCurrency = linkedU.bitcoin.currencies[0];
 
               const balance = this.bitcoinQueriesStore
                 .get(linkedChain.chainId)
@@ -644,9 +756,10 @@ export class HugeQueriesStore {
           this.keyRingStore.selectedKeyInfo?.id ?? ""
         );
       for (const modularChainInfo of this.chainStore.modularChainInfosInUI) {
-        if ("cosmos" in modularChainInfo) {
-          const chainInfo = this.chainStore.getChain(modularChainInfo.chainId);
-          for (const currency of chainInfo.currencies) {
+        const u = modularChainInfo.unwrapped;
+
+        if (u.type === "cosmos" || u.type === "ethermint") {
+          for (const currency of u.cosmos.currencies) {
             const denomHelper = new DenomHelper(currency.coinMinimalDenom);
             if (
               !allowIBCToken &&
@@ -656,18 +769,35 @@ export class HugeQueriesStore {
               continue;
             }
 
-            const key = `${chainInfo.chainIdentifier}/${currency.coinMinimalDenom}`;
+            const key = `${modularChainInfo.chainIdentifier}/${currency.coinMinimalDenom}`;
+            keys.set(key, true);
+          }
+          if (u.type === "ethermint") {
+            for (const currency of u.evm.tokens) {
+              const key = `${modularChainInfo.chainIdentifier}/${currency.coinMinimalDenom}`;
+              keys.set(key, true);
+            }
+          }
+          if (u.cosmos.stakeCurrency) {
+            const key = `${modularChainInfo.chainIdentifier}/${u.cosmos.stakeCurrency.coinMinimalDenom}`;
             keys.set(key, true);
           }
         }
-        if ("starknet" in modularChainInfo || "bitcoin" in modularChainInfo) {
-          const module =
-            "starknet" in modularChainInfo ? "starknet" : "bitcoin";
-
-          const modularChainInfoImpl = this.chainStore.getModularChainInfoImpl(
-            modularChainInfo.chainId
-          );
-          for (const currency of modularChainInfoImpl.getCurrencies(module)) {
+        if (u.type === "evm") {
+          const key = `${modularChainInfo.chainIdentifier}/${u.evm.nativeCurrency.coinMinimalDenom}`;
+          keys.set(key, true);
+          for (const currency of u.evm.tokens) {
+            const tokenKey = `${modularChainInfo.chainIdentifier}/${currency.coinMinimalDenom}`;
+            keys.set(tokenKey, true);
+          }
+        }
+        if (u.type === "starknet" || u.type === "bitcoin") {
+          const module = u.type;
+          const currencies =
+            module === "starknet"
+              ? u.starknet.currencies
+              : u.bitcoin.currencies;
+          for (const currency of currencies) {
             const key = `${
               ChainIdHelper.parse(modularChainInfo.chainId).identifier
             }/${currency.coinMinimalDenom}`;
@@ -727,10 +857,7 @@ export class HugeQueriesStore {
         }
 
         // Else, if testnet hide all tokens
-        if (
-          "isTestnet" in viewToken.chainInfo &&
-          viewToken.chainInfo.isTestnet
-        ) {
+        if (viewToken.chainInfo.isTestnet) {
           lowBalanceTokens.push(viewToken);
           return false;
         }
@@ -757,21 +884,20 @@ export class HugeQueriesStore {
   @computed
   get stakables(): ViewToken[] {
     const keys: Map<string, boolean> = new Map();
-    for (const chainInfo of this.chainStore.chainInfosInUI) {
-      if (!chainInfo.stakeCurrency) {
-        continue;
-      }
-      const key = `${chainInfo.chainIdentifier}/${chainInfo.stakeCurrency.coinMinimalDenom}`;
-      keys.set(key, true);
-    }
-
     for (const modularChainInfo of this.chainStore.modularChainInfosInUI) {
-      if ("starknet" in modularChainInfo) {
+      const u = modularChainInfo.unwrapped;
+      if (u.type === "cosmos" || u.type === "ethermint") {
+        if (!u.cosmos.stakeCurrency) {
+          continue;
+        }
+        const key = `${modularChainInfo.chainIdentifier}/${u.cosmos.stakeCurrency.coinMinimalDenom}`;
+        keys.set(key, true);
+      }
+      if (u.type === "starknet") {
         const chainIdentifier = ChainIdHelper.parse(
           modularChainInfo.chainId
         ).identifier;
-        const strkContractAddress =
-          modularChainInfo.starknet.strkContractAddress;
+        const strkContractAddress = u.starknet.strkContractAddress;
         const strkKey = `${chainIdentifier}/erc20:${strkContractAddress.toLowerCase()}`;
         keys.set(strkKey, true);
       }
@@ -784,26 +910,42 @@ export class HugeQueriesStore {
   }
 
   @computed
+  // XXX: Dead code — unused anywhere. Also has a typo ("Stakbles").
   get notStakbles(): ViewToken[] {
     const keys: Map<string, boolean> = new Map();
-    for (const chainInfo of this.chainStore.chainInfosInUI) {
-      for (const currency of chainInfo.currencies) {
-        if (
-          currency.coinMinimalDenom ===
-          chainInfo.stakeCurrency?.coinMinimalDenom
-        ) {
-          continue;
-        }
-        const denomHelper = new DenomHelper(currency.coinMinimalDenom);
-        if (
-          denomHelper.type === "native" &&
-          denomHelper.denom.startsWith("ibc/")
-        ) {
-          continue;
-        }
+    for (const modularChainInfo of this.chainStore.modularChainInfosInUI) {
+      const u = modularChainInfo.unwrapped;
+      if (u.type === "cosmos" || u.type === "ethermint") {
+        for (const currency of u.cosmos.currencies) {
+          if (
+            currency.coinMinimalDenom ===
+            u.cosmos.stakeCurrency?.coinMinimalDenom
+          ) {
+            continue;
+          }
+          const denomHelper = new DenomHelper(currency.coinMinimalDenom);
+          if (
+            denomHelper.type === "native" &&
+            denomHelper.denom.startsWith("ibc/")
+          ) {
+            continue;
+          }
 
-        const key = `${chainInfo.chainIdentifier}/${currency.coinMinimalDenom}`;
-        keys.set(key, true);
+          const key = `${modularChainInfo.chainIdentifier}/${currency.coinMinimalDenom}`;
+          keys.set(key, true);
+        }
+        if (u.type === "ethermint") {
+          for (const currency of u.evm.tokens) {
+            const key = `${modularChainInfo.chainIdentifier}/${currency.coinMinimalDenom}`;
+            keys.set(key, true);
+          }
+        }
+      }
+      if (u.type === "evm") {
+        for (const currency of u.evm.tokens) {
+          const key = `${modularChainInfo.chainIdentifier}/${currency.coinMinimalDenom}`;
+          keys.set(key, true);
+        }
       }
     }
     return this.balanceBinarySort.arr.filter((viewToken) => {
@@ -815,15 +957,18 @@ export class HugeQueriesStore {
   @computed
   get ibcTokens(): ViewToken[] {
     const keys: Map<string, boolean> = new Map();
-    for (const chainInfo of this.chainStore.chainInfosInUI) {
-      for (const currency of chainInfo.currencies) {
-        const denomHelper = new DenomHelper(currency.coinMinimalDenom);
-        if (
-          denomHelper.type === "native" &&
-          denomHelper.denom.startsWith("ibc/")
-        ) {
-          const key = `${chainInfo.chainIdentifier}/${currency.coinMinimalDenom}`;
-          keys.set(key, true);
+    for (const modularChainInfo of this.chainStore.modularChainInfosInUI) {
+      const u = modularChainInfo.unwrapped;
+      if (u.type === "cosmos" || u.type === "ethermint") {
+        for (const currency of u.cosmos.currencies) {
+          const denomHelper = new DenomHelper(currency.coinMinimalDenom);
+          if (
+            denomHelper.type === "native" &&
+            denomHelper.denom.startsWith("ibc/")
+          ) {
+            const key = `${modularChainInfo.chainIdentifier}/${currency.coinMinimalDenom}`;
+            keys.set(key, true);
+          }
         }
       }
     }
@@ -839,12 +984,10 @@ export class HugeQueriesStore {
 
     for (const modularChainInfo of this.chainStore.modularChainInfosInUI) {
       const account = this.accountStore.getAccount(modularChainInfo.chainId);
+      const u = modularChainInfo.unwrapped;
 
-      if ("cosmos" in modularChainInfo) {
-        const isEVMOnly = this.chainStore.isEvmOnlyChain(
-          modularChainInfo.chainId
-        );
-        if (isEVMOnly || account.bech32Address === "") {
+      if (u.type === "cosmos" || u.type === "ethermint") {
+        if (account.bech32Address === "") {
           continue;
         }
 
@@ -861,21 +1004,19 @@ export class HugeQueriesStore {
           continue;
         }
 
-        const chainInfo = this.chainStore.getChain(modularChainInfo.chainId);
-
         const key = `${modularChainInfo.chainId}/${account.bech32Address}`;
         prevKeyMap.delete(key);
         this.delegationBinarySort.pushAndSort(key, {
-          chainInfo,
+          chainInfo: modularChainInfo,
           token: queryDelegation.total,
           price: this.priceStore.calculatePrice(queryDelegation.total),
           isFetching: queryDelegation.isFetching,
           error: queryDelegation.error,
-          stakingUrl: chainInfo.walletUrlForStaking,
+          stakingUrl: u.cosmos.walletUrlForStaking,
         });
       }
 
-      if ("starknet" in modularChainInfo) {
+      if (u.type === "starknet") {
         if (account.starknetHexAddress === "") {
           continue;
         }
@@ -919,22 +1060,19 @@ export class HugeQueriesStore {
 
     for (const modularChainInfo of this.chainStore.modularChainInfosInUI) {
       const account = this.accountStore.getAccount(modularChainInfo.chainId);
+      const u = modularChainInfo.unwrapped;
 
-      if ("cosmos" in modularChainInfo) {
-        const isEVMOnly = this.chainStore.isEvmOnlyChain(
-          modularChainInfo.chainId
-        );
-        if (isEVMOnly || account.bech32Address === "") {
+      if (u.type === "cosmos" || u.type === "ethermint") {
+        if (account.bech32Address === "") {
           continue;
         }
 
-        const chainInfo = this.chainStore.getChain(modularChainInfo.chainId);
         const isBabylon =
-          ChainIdHelper.parse(chainInfo.chainId).identifier === "bbn";
+          ChainIdHelper.parse(modularChainInfo.chainId).identifier === "bbn";
 
         const queries = this.queriesStore.get(modularChainInfo.chainId);
         const queryUnbonding =
-          chainInfo.chainId === INITIA_CHAIN_ID
+          modularChainInfo.chainId === INITIA_CHAIN_ID
             ? queries.cosmos.queryInitiaUnbondingDelegations.getQueryBech32Address(
                 account.bech32Address
               )
@@ -946,18 +1084,18 @@ export class HugeQueriesStore {
           const unbonding = queryUnbonding.unbondings[i];
           for (let j = 0; j < unbonding.entries.length; j++) {
             const entry = unbonding.entries[j];
-            if (!chainInfo.stakeCurrency) {
+            if (!u.cosmos.stakeCurrency) {
               continue;
             }
             const balance = new CoinPretty(
-              chainInfo.stakeCurrency,
+              u.cosmos.stakeCurrency,
               entry.balance
             );
 
-            const key = `${chainInfo.chainId}/${account.bech32Address}/${i}/${j}`;
+            const key = `${modularChainInfo.chainId}/${account.bech32Address}/${i}/${j}`;
             prevKeyMap.delete(key);
             this.unbondingBinarySort.pushAndSort(key, {
-              chainInfo,
+              chainInfo: modularChainInfo,
               token: balance,
               price: this.priceStore.calculatePrice(balance),
               isFetching: queryUnbonding.isFetching,
@@ -965,17 +1103,17 @@ export class HugeQueriesStore {
               completeTime: isBabylon
                 ? getBabylonUnbondingRemainingTime(
                     this.queriesStore.simpleQuery,
-                    chainInfo.rest,
+                    u.cosmos.rest,
                     entry.creation_height
                   )
                 : entry.completion_time,
-              stakingUrl: chainInfo.walletUrlForStaking,
+              stakingUrl: u.cosmos.walletUrlForStaking,
             });
           }
         }
       }
 
-      if ("starknet" in modularChainInfo) {
+      if (u.type === "starknet") {
         if (account.starknetHexAddress === "") {
           continue;
         }
@@ -1023,13 +1161,19 @@ export class HugeQueriesStore {
       this.claimableRewardsBinarySort.indexForKeyMap()
     );
 
-    for (const chainInfo of this.chainStore.chainInfosInUI) {
-      const account = this.accountStore.getAccount(chainInfo.chainId);
-      const isEVMOnly = this.chainStore.isEvmOnlyChain(chainInfo.chainId);
-      if (isEVMOnly || account.bech32Address === "") {
+    for (const modularChainInfo of this.chainStore.modularChainInfosInUI) {
+      const u = modularChainInfo.unwrapped;
+
+      // Only cosmos/ethermint chains have staking rewards (skip evm-only)
+      if (u.type !== "cosmos" && u.type !== "ethermint") {
         continue;
       }
-      const queries = this.queriesStore.get(chainInfo.chainId);
+
+      const account = this.accountStore.getAccount(modularChainInfo.chainId);
+      if (account.bech32Address === "") {
+        continue;
+      }
+      const queries = this.queriesStore.get(modularChainInfo.chainId);
       const queryRewards = queries.cosmos.queryRewards.getQueryBech32Address(
         account.bech32Address
       );
@@ -1038,10 +1182,10 @@ export class HugeQueriesStore {
         queryRewards.stakableReward &&
         queryRewards.stakableReward.toDec().gt(new Dec(0))
       ) {
-        const key = `${chainInfo.chainId}/${account.bech32Address}`;
+        const key = `${modularChainInfo.chainId}/${account.bech32Address}`;
         prevKeyMap.delete(key);
         this.claimableRewardsBinarySort.pushAndSort(key, {
-          chainInfo,
+          chainInfo: modularChainInfo,
           token: queryRewards.stakableReward,
           price: this.priceStore.calculatePrice(queryRewards.stakableReward),
           isFetching: queryRewards.isFetching,
@@ -1142,7 +1286,7 @@ export class HugeQueriesStore {
       }
 
       const modularChainInfo = viewToken.chainInfo;
-      if ("bitcoin" in modularChainInfo) {
+      if (modularChainInfo.type === "bitcoin") {
         const groupKey = this.findBitcoinGroupKey(modularChainInfo.chainId);
 
         if (groupKey) {
@@ -1164,7 +1308,7 @@ export class HugeQueriesStore {
 
       const modularChainInfo = viewToken.chainInfo;
 
-      if ("starknet" in modularChainInfo && !modularChainInfo.isTestnet) {
+      if (modularChainInfo.type === "starknet" && !modularChainInfo.isTestnet) {
         const currency = viewToken.token.currency;
 
         if (currency.coinGeckoId) {
@@ -1268,9 +1412,8 @@ export class HugeQueriesStore {
       const groupedModularChainInfo =
         this.chainStore.groupedModularChainInfos.find(
           (group) =>
-            "linkedChainKey" in group &&
-            group.linkedChainKey &&
-            (group.chainId === chainId ||
+            group.modularChainInfo.linkedChainKey &&
+            (group.modularChainInfo.chainId === chainId ||
               (group.linkedModularChainInfos &&
                 group.linkedModularChainInfos.some(
                   (linkedChain) => linkedChain.chainId === chainId
@@ -1279,9 +1422,9 @@ export class HugeQueriesStore {
 
       if (
         groupedModularChainInfo &&
-        "linkedChainKey" in groupedModularChainInfo
+        groupedModularChainInfo.modularChainInfo.linkedChainKey
       ) {
-        return `btc:${groupedModularChainInfo.linkedChainKey}`;
+        return `btc:${groupedModularChainInfo.modularChainInfo.linkedChainKey}`;
       }
 
       return undefined;

@@ -35,6 +35,7 @@
     "@keplr-wallet/crypto": "0.13.14",
     "@keplr-wallet/hooks": "0.13.14",
     "@keplr-wallet/hooks-bitcoin": "0.13.14",
+    "@keplr-wallet/hooks-evm": "0.13.14",
     "@keplr-wallet/hooks-internal": "0.13.14",
     "@keplr-wallet/hooks-starknet": "0.13.14",
     "@keplr-wallet/ledger-cosmos": "0.13.14",

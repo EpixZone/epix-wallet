@@ -111,10 +111,11 @@ const UnknownMessageContent: FunctionComponent<{
       try {
         setLoading(true);
 
-        const chainInfo = chainStore.getModularChain(chainId);
+        const mcInfo2 = chainStore.getModularChain(chainId);
+        const u = mcInfo2.unwrapped;
         const bech32Prefix =
-          "cosmos" in chainInfo
-            ? chainInfo.cosmos.bech32Config?.bech32PrefixAccAddr ?? ""
+          u.type === "cosmos" || u.type === "ethermint"
+            ? u.cosmos.bech32Config?.bech32PrefixAccAddr ?? ""
             : "";
         const keplrETCQueries = queriesStore.get(chainId).keplrETC;
 

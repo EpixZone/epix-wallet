@@ -11,11 +11,15 @@ export const useGetUTXOs = (chainId: string, address: string) => {
   const { chainStore, bitcoinQueriesStore } = useStore();
 
   const modularChainInfo = chainStore.getModularChain(chainId);
-  if (!("bitcoin" in modularChainInfo)) {
+  if (modularChainInfo.type !== "bitcoin") {
     throw new Error("Unsupported chain");
   }
 
-  const currency = modularChainInfo.bitcoin.currencies[0];
+  const u = modularChainInfo.unwrapped;
+  if (u.type !== "bitcoin") {
+    throw new Error("Unsupported chain");
+  }
+  const currency = u.bitcoin.currencies[0];
   if (!currency) {
     throw new Error("Bitcoin currency not found");
   }

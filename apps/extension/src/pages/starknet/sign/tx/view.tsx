@@ -66,10 +66,14 @@ export const SignStarknetTxView: FunctionComponent<{
   const chainId = interactionData.data.chainId;
 
   const modularChainInfo = chainStore.getModularChain(chainId);
-  if (!("starknet" in modularChainInfo)) {
+  if (modularChainInfo.type !== "starknet") {
     throw new Error(`${modularChainInfo.chainId} is not starknet chain`);
   }
-  const starknet = modularChainInfo.starknet;
+  const uStarknet = modularChainInfo.unwrapped;
+  if (uStarknet.type !== "starknet") {
+    throw new Error(`${modularChainInfo.chainId} is not starknet chain`);
+  }
+  const starknet = uStarknet.starknet;
 
   const senderConfig = useSenderConfig(
     chainStore,
@@ -142,10 +146,9 @@ export const SignStarknetTxView: FunctionComponent<{
       // observed되어야 하므로 꼭 여기서 참조 해야함.
       // const type = feeConfig.type;
       const feeContractAddress = starknet.strkContractAddress;
-      const feeCurrency = chainStore
-        .getModularChainInfoImpl(chainId)
-        .getCurrencies("starknet")
-        .find((cur) => cur.coinMinimalDenom === `erc20:${feeContractAddress}`);
+      const feeCurrency = modularChainInfo.currencies.find(
+        (cur) => cur.coinMinimalDenom === `erc20:${feeContractAddress}`
+      );
       if (!feeCurrency) {
         throw new Error("Can't find fee currency");
       }
@@ -270,10 +273,9 @@ export const SignStarknetTxView: FunctionComponent<{
       }
 
       const feeContractAddress = starknet.strkContractAddress;
-      const feeCurrency = chainStore
-        .getModularChainInfoImpl(chainId)
-        .getCurrencies("starknet")
-        .find((cur) => cur.coinMinimalDenom === `erc20:${feeContractAddress}`);
+      const feeCurrency = modularChainInfo.currencies.find(
+        (cur) => cur.coinMinimalDenom === `erc20:${feeContractAddress}`
+      );
       if (!feeCurrency) {
         throw new Error("Can't find fee currency");
       }

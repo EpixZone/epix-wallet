@@ -76,7 +76,8 @@ export const SelectDerivationPathScene: FunctionComponent<{
   const sceneTransition = useSceneTransition();
 
   const chainId = chainIds[0];
-  const chainInfo = chainStore.getChain(chainId);
+  const mcInfo2 = chainStore.getModularChain(chainId);
+  const u2 = mcInfo2.unwrapped;
 
   const _goToNext = () => {
     if (chainIds.length > 1) {
@@ -119,8 +120,7 @@ export const SelectDerivationPathScene: FunctionComponent<{
 
         if (res.length === 1) {
           (async () => {
-            const chainInfo = chainStore.getChain(chainId);
-            if (keyRingStore.needKeyCoinTypeFinalize(vaultId, chainInfo)) {
+            if (keyRingStore.needKeyCoinTypeFinalize(vaultId, chainId)) {
               await keyRingStore.finalizeKeyCoinType(
                 vaultId,
                 chainId,
@@ -144,7 +144,15 @@ export const SelectDerivationPathScene: FunctionComponent<{
       });
   }, [chainId, chainStore, keyRingStore, vaultId]);
 
-  const currency = chainInfo.stakeCurrency || chainInfo.currencies[0];
+  const currency = (() => {
+    if (u2.type === "cosmos" || u2.type === "ethermint") {
+      return u2.cosmos.stakeCurrency || u2.cosmos.currencies[0];
+    }
+    if (u2.type === "evm") return u2.evm.nativeCurrency;
+    throw new Error(
+      `Unexpected chain type "${u2.type}" for SelectDerivationPathPage (${mcInfo2.chainId})`
+    );
+  })();
 
   return (
     <RegisterSceneBox>
@@ -182,7 +190,7 @@ export const SelectDerivationPathScene: FunctionComponent<{
         >
           <Columns sum={1} gutter="0.5rem">
             <Box width="2.75rem" height="2.75rem">
-              <ChainImageFallback chainInfo={chainInfo} size="2.75rem" />
+              <ChainImageFallback chainInfo={mcInfo2} size="2.75rem" />
             </Box>
 
             <Stack gutter="0.25rem">
@@ -193,7 +201,7 @@ export const SelectDerivationPathScene: FunctionComponent<{
                     : ColorPalette.white
                 }
               >
-                {chainInfo.chainName}
+                {mcInfo2.chainName}
               </H3>
               <Body2
                 color={
@@ -235,7 +243,7 @@ export const SelectDerivationPathScene: FunctionComponent<{
             })}
             size="large"
             disabled={
-              !keyRingStore.needKeyCoinTypeFinalize(vaultId, chainInfo) ||
+              !keyRingStore.needKeyCoinTypeFinalize(vaultId, chainId) ||
               selectedCoinType < 0
             }
             onClick={async () => {

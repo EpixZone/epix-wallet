@@ -9,27 +9,25 @@ import { Bech32Address } from "@keplr-wallet/cosmos";
 import { Gutter } from "../../../../components/gutter";
 import { useTheme } from "styled-components";
 import { CopyCheckAnim } from "../../components";
+import { DenomHelper } from "@keplr-wallet/common";
 
 export const AddressChip: FunctionComponent<{
   chainId: string;
+  coinMinimalDenom?: string;
 
   // modal 안에서는 색상 문제로 안보여서
   // modal 안에서는 배경색을 바꿈
   inModal?: boolean;
-}> = observer(({ chainId, inModal }) => {
+}> = observer(({ chainId, coinMinimalDenom, inModal }) => {
   const { accountStore, chainStore } = useStore();
 
   const modularChainInfo = chainStore.getModularChain(chainId);
-  const isEVMOnlyChain = (() => {
-    if ("cosmos" in modularChainInfo) {
-      return chainStore.isEvmOnlyChain(chainId);
-    }
-    return false;
-  })();
 
   const theme = useTheme();
 
   const account = accountStore.getAccount(chainId);
+  const isERC20 =
+    !!coinMinimalDenom && new DenomHelper(coinMinimalDenom).type === "erc20";
 
   const [isHover, setIsHover] = useState(false);
   const [animCheck, setAnimCheck] = useState(false);
@@ -79,16 +77,19 @@ export const AddressChip: FunctionComponent<{
       onClick={(e) => {
         e.preventDefault();
 
-        if ("cosmos" in modularChainInfo) {
-          // copy address
-          navigator.clipboard.writeText(
-            isEVMOnlyChain ? account.ethereumHexAddress : account.bech32Address
-          );
-        } else if ("starknet" in modularChainInfo) {
-          // copy address
+        if (
+          modularChainInfo.type === "cosmos" ||
+          (modularChainInfo.type === "ethermint" && !isERC20)
+        ) {
+          navigator.clipboard.writeText(account.bech32Address);
+        } else if (
+          modularChainInfo.type === "evm" ||
+          (modularChainInfo.type === "ethermint" && isERC20)
+        ) {
+          navigator.clipboard.writeText(account.ethereumHexAddress);
+        } else if (modularChainInfo.type === "starknet") {
           navigator.clipboard.writeText(account.starknetHexAddress);
-        } else if ("bitcoin" in modularChainInfo) {
-          // copy address
+        } else if (modularChainInfo.type === "bitcoin") {
           navigator.clipboard.writeText(
             account.bitcoinAddress?.bech32Address ?? ""
           );
@@ -106,19 +107,25 @@ export const AddressChip: FunctionComponent<{
           }
         >
           {(() => {
-            if ("cosmos" in modularChainInfo) {
-              return isEVMOnlyChain
-                ? `${account.ethereumHexAddress.slice(
-                    0,
-                    10
-                  )}...${account.ethereumHexAddress.slice(32)}`
-                : Bech32Address.shortenAddress(account.bech32Address, 16);
-            } else if ("starknet" in modularChainInfo) {
+            if (
+              modularChainInfo.type === "cosmos" ||
+              (modularChainInfo.type === "ethermint" && !isERC20)
+            ) {
+              return Bech32Address.shortenAddress(account.bech32Address, 16);
+            } else if (
+              modularChainInfo.type === "evm" ||
+              (modularChainInfo.type === "ethermint" && isERC20)
+            ) {
+              return `${account.ethereumHexAddress.slice(
+                0,
+                10
+              )}...${account.ethereumHexAddress.slice(32)}`;
+            } else if (modularChainInfo.type === "starknet") {
               return `${account.starknetHexAddress.slice(
                 0,
                 10
               )}...${account.starknetHexAddress.slice(56)}`;
-            } else if ("bitcoin" in modularChainInfo) {
+            } else if (modularChainInfo.type === "bitcoin") {
               return Bech32Address.shortenAddress(
                 account.bitcoinAddress?.bech32Address ?? "",
                 16

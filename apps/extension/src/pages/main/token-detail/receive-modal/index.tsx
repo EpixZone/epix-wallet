@@ -20,38 +20,41 @@ import {
   GenesisHash,
   Network,
 } from "@keplr-wallet/types";
+import { DenomHelper } from "@keplr-wallet/common";
 
 export const ReceiveModal: FunctionComponent<{
   chainId: string;
+  coinMinimalDenom?: string;
   close: () => void;
-}> = observer(({ chainId, close }) => {
+}> = observer(({ chainId, coinMinimalDenom, close }) => {
   const { chainStore, accountStore } = useStore();
 
   const theme = useTheme();
 
   const modularChainInfo = chainStore.getModularChain(chainId);
   const account = accountStore.getAccount(chainId);
-  const isStarknetChain =
-    "starknet" in modularChainInfo && modularChainInfo.starknet != null;
-  const isEVMOnlyChain =
-    "cosmos" in modularChainInfo &&
-    modularChainInfo.cosmos != null &&
-    chainStore.isEvmOnlyChain(chainId);
-  const isBitcoin =
-    "bitcoin" in modularChainInfo && modularChainInfo.bitcoin != null;
+  const chainType = modularChainInfo.type;
+  const isERC20 =
+    !!coinMinimalDenom && new DenomHelper(coinMinimalDenom).type === "erc20";
 
   const addressQRdata = (() => {
-    if (isStarknetChain) {
-      const prefix = modularChainInfo.starknet?.chainId.split(":")[1];
+    const u = modularChainInfo.unwrapped;
+    if (u.type === "starknet") {
+      const prefix = u.starknet.chainId.split(":")[1];
       return `${prefix}:${account.starknetHexAddress}`;
     }
 
-    if (isEVMOnlyChain) {
-      const hex = `0x${modularChainInfo.cosmos.evm?.chainId.toString(16)}`;
+    if (u.type === "evm") {
+      const hex = `0x${u.evm.chainId.toString(16)}`;
       return `ethereum:${account.ethereumHexAddress}@${hex}`;
     }
 
-    if (isBitcoin) {
+    if (u.type === "ethermint" && isERC20) {
+      const hex = `0x${u.evm.chainId.toString(16)}`;
+      return `ethereum:${account.ethereumHexAddress}@${hex}`;
+    }
+
+    if (chainType === "bitcoin") {
       const genesisHash = modularChainInfo.chainId
         .split("bip122:")[1]
         .split(":")[0];
@@ -159,7 +162,11 @@ export const ReceiveModal: FunctionComponent<{
         </Box>
 
         <Gutter size="1.25rem" />
-        <AddressChip chainId={chainId} inModal={true} />
+        <AddressChip
+          chainId={chainId}
+          coinMinimalDenom={coinMinimalDenom}
+          inModal={true}
+        />
         <Gutter size="1.25rem" />
       </Box>
 

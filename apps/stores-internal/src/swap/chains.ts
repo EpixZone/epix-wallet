@@ -1,5 +1,5 @@
 import {
-  IChainInfoImpl,
+  IModularChainInfoImpl,
   ObservableQuery,
   QuerySharedContext,
 } from "@keplr-wallet/stores";
@@ -68,7 +68,7 @@ export class ObservableQueryChainsV2 extends ObservableQuery<ChainsResponseV2> {
 
   @computed
   get chains(): {
-    chainInfo: IChainInfoImpl;
+    chainInfo: IModularChainInfoImpl;
     pfmEnabled: boolean;
     supportsMemo: boolean;
     chainType: string;
@@ -84,7 +84,7 @@ export class ObservableQueryChainsV2 extends ObservableQuery<ChainsResponseV2> {
           ? `eip155:${chain.chain_id}`
           : chain.chain_id;
 
-        return this.chainStore.hasChain(chainId);
+        return this.chainStore.hasModularChain(chainId);
       })
       .filter((chain) => {
         const isEVMChain = chain.chain_type === "evm";
@@ -101,7 +101,7 @@ export class ObservableQueryChainsV2 extends ObservableQuery<ChainsResponseV2> {
           : chain.chain_id;
 
         return {
-          chainInfo: this.chainStore.getChain(chainId),
+          chainInfo: this.chainStore.getModularChain(chainId),
           pfmEnabled: chain.pfm_enabled,
           supportsMemo: chain.supports_memo ?? false,
           chainType: chain.chain_type,

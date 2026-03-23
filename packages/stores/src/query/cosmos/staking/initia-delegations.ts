@@ -3,7 +3,7 @@ import {
   ObservableChainQueryMap,
 } from "../../chain-query";
 import { Delegation, InitiaDelegations } from "./types";
-import { ChainGetter } from "../../../chain";
+import { ChainGetter, requireCosmosInfo } from "../../../chain";
 import { CoinPretty, Dec, Int } from "@keplr-wallet/unit";
 import { computed, makeObservable } from "mobx";
 import { computedFn } from "mobx-utils";
@@ -34,15 +34,17 @@ export class ObservableQueryInitiaDelegationsInner extends ObservableChainQuery<
     // If bech32 address is empty, it will always fail, so don't need to fetch it.
     return (
       this.bech32Address.length > 0 ||
-      this.chainGetter.getChain(this.chainId).stakeCurrency != null
+      requireCosmosInfo(this.chainGetter.getModularChain(this.chainId))
+        .stakeCurrency != null
     );
   }
 
   // a function to extract amount from delegation balance
   // For Initia chain, the balance is an array of Coin
   protected getAmountFromBalanceArray(balance: Coin[]): string {
-    const stakeDenom = this.chainGetter.getChain(this.chainId).stakeCurrency
-      ?.coinMinimalDenom;
+    const stakeDenom = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    ).stakeCurrency?.coinMinimalDenom;
 
     if (!stakeDenom) {
       return "0";
@@ -54,7 +56,10 @@ export class ObservableQueryInitiaDelegationsInner extends ObservableChainQuery<
 
   @computed
   get total(): CoinPretty | undefined {
-    const stakeCurrency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+    const stakeCurrency = cosmosInfo.stakeCurrency;
 
     if (!stakeCurrency) {
       return;
@@ -86,7 +91,10 @@ export class ObservableQueryInitiaDelegationsInner extends ObservableChainQuery<
       return [];
     }
 
-    const stakeCurrency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+    const stakeCurrency = cosmosInfo.stakeCurrency;
 
     if (!stakeCurrency) {
       return [];
@@ -116,7 +124,10 @@ export class ObservableQueryInitiaDelegationsInner extends ObservableChainQuery<
       return [];
     }
 
-    const stakeCurrency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+    const stakeCurrency = cosmosInfo.stakeCurrency;
 
     return this.response.data.delegation_responses
       .filter((del) => {
@@ -138,9 +149,10 @@ export class ObservableQueryInitiaDelegationsInner extends ObservableChainQuery<
     (validatorAddress: string): CoinPretty | undefined => {
       const delegations = this.delegations;
 
-      const stakeCurrency = this.chainGetter.getChain(
-        this.chainId
-      ).stakeCurrency;
+      const cosmosInfo = requireCosmosInfo(
+        this.chainGetter.getModularChain(this.chainId)
+      );
+      const stakeCurrency = cosmosInfo.stakeCurrency;
 
       if (!stakeCurrency) {
         return;

@@ -13,10 +13,10 @@ export class StarknetAccountStore extends HasMapStore<StarknetAccountBase> {
   }
 
   getAccount(chainId: string): StarknetAccountBase {
-    const modularChainInfo = this.chainGetter.getModularChain(chainId);
-    if (!("starknet" in modularChainInfo)) {
+    const mcInfo2 = this.chainGetter.getModularChain(chainId);
+    if (mcInfo2.type !== "starknet") {
       throw new Error(`${chainId} is not starknet chain`);
     }
-    return this.get(modularChainInfo.chainId);
+    return this.get(mcInfo2.chainId);
   }
 }

@@ -7,7 +7,7 @@ import { ViewToken } from "../../main";
 const zeroDec = new Dec(0);
 
 export const useStakableTokens = () => {
-  const { chainStore, hugeQueriesStore, priceStore } = useStore();
+  const { hugeQueriesStore, priceStore } = useStore();
   const { getKcrStakingUrl, hasKcrStakingUrl } = useKcrStakingUrls();
 
   const stakableTokens = useMemo(() => {
@@ -16,19 +16,23 @@ export const useStakableTokens = () => {
         if (!token.token.toDec().gt(zeroDec)) {
           return false;
         }
-        if ("starknet" in token.chainInfo) {
+        if (token.chainInfo.type === "starknet") {
           if (token.chainInfo.chainId === "starknet:SN_SEPOLIA") {
             return false;
           }
           return true;
         }
-        if ("bitcoin" in token.chainInfo) {
+        if (token.chainInfo.type === "bitcoin") {
           return false;
         }
-        const chainInfo = chainStore.getChain(token.chainInfo.chainId);
-        const hasNativeUrl =
-          !!chainInfo.embedded.embedded &&
-          !!chainInfo.embedded.walletUrlForStaking;
+        const hasNativeUrl = (() => {
+          if (!token.chainInfo.embedded.isBuiltInChain) return false;
+          const u = token.chainInfo.unwrapped;
+          if (u.type === "cosmos" || u.type === "ethermint") {
+            return !!u.cosmos.walletUrlForStaking;
+          }
+          return false;
+        })();
         return hasNativeUrl || hasKcrStakingUrl(token.chainInfo.chainId);
       })
       .sort((a, b) => {
@@ -40,17 +44,18 @@ export const useStakableTokens = () => {
         }
         return aPrice.gt(bPrice) ? -1 : 1;
       });
-  }, [chainStore, hugeQueriesStore.stakables, priceStore, hasKcrStakingUrl]);
+  }, [hugeQueriesStore.stakables, priceStore, hasKcrStakingUrl]);
 
   const getStakingUrl = (viewToken: ViewToken): string | undefined => {
-    if ("starknet" in viewToken.chainInfo) {
+    if (viewToken.chainInfo.type === "starknet") {
       return "https://voyager.online/staking";
     }
-    const chainInfo = chainStore.getChain(viewToken.chainInfo.chainId);
-    return (
-      chainInfo.embedded.walletUrlForStaking ||
-      getKcrStakingUrl(viewToken.chainInfo.chainId)
-    );
+    const u = viewToken.chainInfo.unwrapped;
+    const walletUrlForStaking =
+      u.type === "cosmos" || u.type === "ethermint"
+        ? u.cosmos.walletUrlForStaking
+        : undefined;
+    return walletUrlForStaking || getKcrStakingUrl(viewToken.chainInfo.chainId);
   };
 
   return {

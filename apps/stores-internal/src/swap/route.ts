@@ -111,14 +111,16 @@ export class ObservableQueryRouteInnerV2 extends ObservableQuery<RouteResponseV2
     if (!this.response) {
       return new CoinPretty(
         this.chainStore
-          .getChain(this.toChainId)
+          .getModularChain(this.toChainId)
           .forceFindCurrency(this.toDenom),
         "0"
       );
     }
 
     return new CoinPretty(
-      this.chainStore.getChain(this.toChainId).forceFindCurrency(this.toDenom),
+      this.chainStore
+        .getModularChain(this.toChainId)
+        .forceFindCurrency(this.toDenom),
       this.response.data.amount_out
     );
   }
@@ -149,7 +151,7 @@ export class ObservableQueryRouteInnerV2 extends ObservableQuery<RouteResponseV2
           if (
             fee.fee_token.denom === "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
           ) {
-            return this.chainStore.getChain(chainId).currencies[0]
+            return this.chainStore.getModularChain(chainId).currencies[0]
               .coinMinimalDenom;
           }
           return `erc20:${fee.fee_token.denom}`;
@@ -158,9 +160,9 @@ export class ObservableQueryRouteInnerV2 extends ObservableQuery<RouteResponseV2
         }
       })();
 
-      const coinPretty = this.chainStore.hasChain(chainId)
+      const coinPretty = this.chainStore.hasModularChain(chainId)
         ? (() => {
-            const chainInfo = this.chainStore.getChain(chainId);
+            const chainInfo = this.chainStore.getModularChain(chainId);
             const currency = chainInfo.findCurrency(denom) || {
               coinMinimalDenom: denom,
               coinDenom: fee.fee_token.symbol,
@@ -173,7 +175,7 @@ export class ObservableQueryRouteInnerV2 extends ObservableQuery<RouteResponseV2
         : undefined;
       if (coinPretty) {
         if (feeMap.has(denom)) {
-          feeMap.get(denom)!.add(coinPretty);
+          feeMap.set(denom, feeMap.get(denom)!.add(coinPretty));
         } else {
           feeMap.set(denom, coinPretty);
         }

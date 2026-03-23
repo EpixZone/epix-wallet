@@ -2,7 +2,7 @@ import {
   ObservableChainQuery,
   ObservableChainQueryMap,
 } from "../../chain-query";
-import { ChainGetter } from "../../../chain";
+import { ChainGetter, requireCosmosInfo } from "../../../chain";
 import { DenomTraceResponse, DenomTraceV2Response } from "./types";
 import { autorun, computed } from "mobx";
 import { QuerySharedContext } from "../../../common";
@@ -30,11 +30,12 @@ export class ObservableChainQueryDenomTrace extends ObservableChainQuery<
     super.onStart();
 
     this.disposer = autorun(() => {
-      const chainInfo = this.chainGetter.getChain(this.chainId);
-      if (chainInfo.features) {
-        if (chainInfo.features.includes("ibc-v2")) {
+      const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
+      const cosmosInfo = requireCosmosInfo(mcInfo2);
+      if (cosmosInfo.features) {
+        if (cosmosInfo.features.includes("ibc-v2")) {
           this.setUrl(`/ibc/apps/transfer/v1/denoms/${this.hash}`);
-        } else if (chainInfo.features.includes("ibc-go")) {
+        } else if (cosmosInfo.features.includes("ibc-go")) {
           this.setUrl(`/ibc/apps/transfer/v1/denom_traces/${this.hash}`);
         }
       }

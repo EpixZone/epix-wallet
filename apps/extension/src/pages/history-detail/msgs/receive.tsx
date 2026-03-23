@@ -14,7 +14,7 @@ export const HistoryDetailReceive: FunctionComponent<{
 }> = observer(({ msg, targetDenom }) => {
   const { chainStore, accountStore } = useStore();
 
-  const chainInfo = chainStore.getChain(msg.chainId);
+  const chainInfo = chainStore.getModularChain(msg.chainId);
   const account = accountStore.getAccount(msg.chainId);
 
   const sendAmountPretty = useMemo(() => {

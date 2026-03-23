@@ -49,7 +49,11 @@ export const useCosmosClaimRewards = () => {
     rewardToken: CoinPretty,
     state: ClaimAllEachState
   ) => {
-    const chainInfo = chainStore.getChain(chainId);
+    const modularChainInfo = chainStore.getModularChain(chainId);
+    const u = modularChainInfo.unwrapped;
+    if (u.type !== "cosmos" && u.type !== "ethermint") {
+      return;
+    }
     const account = accountStore.getAccount(chainId);
     if (!account.bech32Address) {
       return;
@@ -118,15 +122,15 @@ export const useCosmosClaimRewards = () => {
 
     (async () => {
       // feemarket feature가 있는 경우 이후의 로직에서 사용할 수 있는 fee currency를 찾아야하기 때문에 undefined로 시작시킨다.
-      let feeCurrency = chainInfo.hasFeature("feemarket")
+      let feeCurrency = u.cosmos.features?.includes("feemarket")
         ? undefined
-        : chainInfo.feeCurrencies.find(
+        : u.cosmos.feeCurrencies.find(
             (cur) =>
-              cur.coinMinimalDenom === chainInfo.stakeCurrency?.coinMinimalDenom
+              cur.coinMinimalDenom === u.cosmos.stakeCurrency?.coinMinimalDenom
           );
 
-      if (chainInfo.hasFeature("osmosis-base-fee-beta") && feeCurrency) {
-        const queryBaseFee = queriesStore.get(chainInfo.chainId).osmosis
+      if (u.cosmos.features?.includes("osmosis-base-fee-beta") && feeCurrency) {
+        const queryBaseFee = queriesStore.get(modularChainInfo.chainId).osmosis
           .queryBaseFee;
         const queryRemoteBaseFeeStep = queriesStore.simpleQuery.queryGet<{
           low?: number;
@@ -187,7 +191,7 @@ export const useCosmosClaimRewards = () => {
 
         const feeCurrencies = (
           await (async () => {
-            if (chainInfo.hasFeature("feemarket")) {
+            if (u.cosmos.features?.includes("feemarket")) {
               const queryFeeMarketGasPrices =
                 queriesStore.get(chainId).cosmos.queryFeeMarketGasPrices;
               await queryFeeMarketGasPrices.waitFreshResponse();
@@ -201,7 +205,7 @@ export const useCosmosClaimRewards = () => {
                   continue;
                 }
 
-                const currency = await chainInfo.findCurrencyAsync(
+                const currency = await modularChainInfo.findCurrencyAsync(
                   gasPrice.denom
                 );
                 if (currency) {
@@ -246,7 +250,7 @@ export const useCosmosClaimRewards = () => {
                     }
                     const specific =
                       multificationConfig.response.data[
-                        chainInfo.chainIdentifier
+                        modularChainInfo.chainIdentifier
                       ];
                     if (
                       specific &&
@@ -290,18 +294,18 @@ export const useCosmosClaimRewards = () => {
 
               return result;
             } else {
-              return chainInfo.feeCurrencies;
+              return u.cosmos.feeCurrencies;
             }
           })()
         ).filter((feeCurrency) => {
-          if (chainInfo.chainId.startsWith("atomone-")) {
+          if (modularChainInfo.chainId.startsWith("atomone-")) {
             return feeCurrency.coinMinimalDenom === "uphoton";
           }
           return true;
         });
 
         for (const chainFeeCurrency of feeCurrencies) {
-          const currency = await chainInfo.findCurrencyAsync(
+          const currency = await modularChainInfo.findCurrencyAsync(
             chainFeeCurrency.coinMinimalDenom
           );
           if (currency) {
@@ -391,7 +395,7 @@ export const useCosmosClaimRewards = () => {
           }
 
           // Ensure fee currency fetched before querying balance
-          const feeCurrencyFetched = await chainInfo.findCurrencyAsync(
+          const feeCurrencyFetched = await modularChainInfo.findCurrencyAsync(
             feeCurrency.coinMinimalDenom
           );
           if (!feeCurrencyFetched) {
@@ -533,8 +537,8 @@ export const useCosmosClaimRewards = () => {
             {
               onBroadcasted: () => {
                 analyticsStore.logEvent("complete_claim_all", {
-                  chainId: chainInfo.chainId,
-                  chainName: chainInfo.chainName,
+                  chainId: modularChainInfo.chainId,
+                  chainName: modularChainInfo.chainName,
                 });
 
                 if (chainId === NOBLE_CHAIN_ID) {
@@ -601,15 +605,15 @@ export const useCosmosClaimRewards = () => {
     chainId: string,
     state: ClaimAllEachState
   ) => {
-    const cosmosChainInfo = chainStore.getChain(chainId);
+    const modularChainInfo = chainStore.getModularChain(chainId);
     const account = accountStore.getAccount(chainId);
     if (!account.bech32Address) {
       return;
     }
 
     analyticsStore.logEvent("click_claim", {
-      chainId: cosmosChainInfo.chainId,
-      chainName: cosmosChainInfo.chainName,
+      chainId: modularChainInfo.chainId,
+      chainName: modularChainInfo.chainName,
     });
 
     if (state.failedReason) {
@@ -726,8 +730,8 @@ export const useCosmosClaimRewards = () => {
         {
           onBroadcasted: () => {
             analyticsStore.logEvent("complete_claim", {
-              chainId: cosmosChainInfo.chainId,
-              chainName: cosmosChainInfo.chainName,
+              chainId: modularChainInfo.chainId,
+              chainName: modularChainInfo.chainName,
             });
 
             if (chainId === NOBLE_CHAIN_ID) {

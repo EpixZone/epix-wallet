@@ -20,8 +20,7 @@ export class RecipientConfig extends TxChainSetter implements IRecipientConfig {
   get recipient(): string {
     const rawRecipient = this.value.trim();
 
-    const modularChainInfo = this.modularChainInfo;
-    if (!("bitcoin" in modularChainInfo)) {
+    if (this.modularChainInfo.type !== "bitcoin") {
       throw new Error("Chain doesn't support the bitcoin");
     }
 

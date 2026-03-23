@@ -25,11 +25,13 @@ import {
   SenderConfig,
   useGasSimulator,
   useIBCChannelConfig,
-  useSendMixedIBCTransferConfig,
   useTxConfigsValidate,
   IBCRecipientConfig,
   useIBCRecipientConfig,
 } from "@keplr-wallet/hooks";
+import { SendType } from "./types";
+import { useCosmosTransferTxSubmit } from "./cosmos";
+import { useRefreshEIP1559TxFee, useEvmTransferTxSubmit } from "./evm";
 import { useNavigate } from "react-router";
 import { AmountInput, RecipientInput } from "../../../components/input";
 import { TokenItem } from "../../main/components";
@@ -46,14 +48,11 @@ import { CoinPretty, Dec, DecUtils, Int } from "@keplr-wallet/unit";
 import { ColorPalette } from "../../../styles";
 import { openPopupWindow } from "@keplr-wallet/popup";
 import { InExtensionMessageRequester } from "@keplr-wallet/router-extension";
-import { BACKGROUND_PORT, Message } from "@keplr-wallet/router";
+import { BACKGROUND_PORT } from "@keplr-wallet/router";
 import {
-  ChainInfoWithCoreTypes,
   LogAnalyticsEventMsg,
   RecordTxWithSkipSwapMsg,
-  SendTxAndRecordMsg,
   SendTxAndRecordWithIBCSwapMsg,
-  SendTxEthereumMsgAndRecordMsg,
 } from "@keplr-wallet/background";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useTxConfigsQueryString } from "../../../hooks/use-tx-config-query-string";
@@ -72,10 +71,11 @@ import {
   amountToAmbiguousString,
   isRunningInSidePanel,
 } from "../../../utils";
-import { AppCurrency, EthTxStatus } from "@keplr-wallet/types";
+import { AppCurrency, EthTxStatus, isEthSignChain } from "@keplr-wallet/types";
 import {
   IBCSwapAmountConfig,
   useIBCSwapConfig,
+  useSendConfig,
 } from "@keplr-wallet/hooks-internal";
 import {
   ObservableQueryRouteInner,
@@ -87,7 +87,7 @@ import {
   CosmosAccount,
   CosmwasmAccount,
   IAccountStoreWithInjects,
-  IChainInfoImpl,
+  IModularChainInfoImpl,
   IQueriesStore,
   MakeTxResponse,
   SecretAccount,
@@ -117,7 +117,29 @@ const Styles = {
   `,
 };
 
-export type SendType = "bridge" | "ibc-transfer" | "send";
+export type { SendType } from "./types";
+
+function getDefaultSendChainId(chainStore: ChainStore): string {
+  // The first visible chain can be unsupported here (for example bitcoin/starknet),
+  // so generic send must pick from chains that can resolve currencies and addresses.
+  const supportedChain =
+    chainStore.modularChainInfosInUI.find((ci) => {
+      return (
+        ci.type === "cosmos" || ci.type === "ethermint" || ci.type === "evm"
+      );
+    }) ??
+    chainStore.modularChainInfos.find((ci) => {
+      return (
+        ci.type === "cosmos" || ci.type === "ethermint" || ci.type === "evm"
+      );
+    });
+
+  if (!supportedChain) {
+    throw new Error("No supported chain available for generic send");
+  }
+
+  return supportedChain.chainId;
+}
 
 function useGetGasSimulatorOfNotBridge(
   isEvmTx: boolean,
@@ -249,7 +271,6 @@ function useGetGasSimulatorOfNotBridge(
 }
 
 function useChangeSenderAddressWhenEtherMintChainSendToHexAddress(
-  isEvmChain: boolean,
   sendConfigs: {
     amountConfig: IBCAmountConfig;
     memoConfig: MemoConfig;
@@ -259,30 +280,47 @@ function useChangeSenderAddressWhenEtherMintChainSendToHexAddress(
     channelConfig: IBCChannelConfig;
     senderConfig: SenderConfig;
   },
-  chainInfo: IChainInfoImpl<ChainInfoWithCoreTypes>,
-  isEVMOnlyChain: boolean,
+  modularChainInfo: IModularChainInfoImpl,
   account: AccountSetBase & CosmosAccount & CosmwasmAccount & SecretAccount,
   setIsEvmTx: React.Dispatch<React.SetStateAction<boolean>>,
   ethereumAccount: EthereumAccountBase,
   sendType: SendType
 ) {
+  const chainType = modularChainInfo.type;
+  const u = modularChainInfo.unwrapped;
+  const stakeCurrencyDenom =
+    u.type === "cosmos" || u.type === "ethermint"
+      ? u.cosmos.stakeCurrency?.coinMinimalDenom
+      : undefined;
+  const firstCurrencyDenom = (() => {
+    if (u.type === "cosmos" || u.type === "ethermint") {
+      return u.cosmos.currencies[0]?.coinMinimalDenom;
+    }
+    if (u.type === "evm") {
+      return u.evm.nativeCurrency.coinMinimalDenom;
+    }
+    return undefined;
+  })();
+
   useEffect(() => {
-    if (isEvmChain && sendType === "send") {
+    if (
+      (chainType === "evm" || chainType === "ethermint") &&
+      sendType === "send"
+    ) {
       const sendingDenomHelper = new DenomHelper(
         sendConfigs.amountConfig.currency.coinMinimalDenom
       );
       const isERC20 = sendingDenomHelper.type === "erc20";
       const isSendingNativeToken =
         sendingDenomHelper.type === "native" &&
-        (chainInfo.stakeCurrency?.coinMinimalDenom ??
-          chainInfo.currencies[0].coinMinimalDenom) ===
-          sendingDenomHelper.denom;
+        (stakeCurrencyDenom ?? firstCurrencyDenom) === sendingDenomHelper.denom;
 
       const isSendToHexAddressAndNotIBCToken =
         sendConfigs.recipientConfig.isRecipientEthereumHexAddress &&
         (isERC20 || isSendingNativeToken);
 
-      const newIsEvmTx = isEVMOnlyChain || isSendToHexAddressAndNotIBCToken;
+      const newIsEvmTx =
+        chainType === "evm" || isSendToHexAddressAndNotIBCToken;
 
       const newSenderAddress = newIsEvmTx
         ? account.ethereumHexAddress
@@ -295,40 +333,14 @@ function useChangeSenderAddressWhenEtherMintChainSendToHexAddress(
   }, [
     account,
     ethereumAccount,
-    isEvmChain,
-    isEVMOnlyChain,
+    chainType,
     sendConfigs.amountConfig.currency.coinMinimalDenom,
     sendConfigs.recipientConfig.isRecipientEthereumHexAddress,
     sendConfigs.senderConfig,
-    chainInfo.stakeCurrency?.coinMinimalDenom,
-    chainInfo.currencies,
+    stakeCurrencyDenom,
+    firstCurrencyDenom,
     setIsEvmTx,
   ]);
-}
-
-const REFRESH_EIP1559_TX_FEE_INTERVAL_TIME_MS = 12000;
-function useRefreshEIP1559TxFee(
-  isEvmTx: boolean,
-  sendConfigs: {
-    amountConfig: IBCAmountConfig;
-    memoConfig: MemoConfig;
-    gasConfig: GasConfig;
-    feeConfig: FeeConfig;
-    recipientConfig: IBCRecipientConfig;
-    channelConfig: IBCChannelConfig;
-    senderConfig: SenderConfig;
-  }
-) {
-  useEffect(() => {
-    if (isEvmTx) {
-      // Refresh EIP-1559 fee every 12 seconds.
-      const intervalId = setInterval(() => {
-        sendConfigs.feeConfig.refreshEIP1559TxFees();
-      }, REFRESH_EIP1559_TX_FEE_INTERVAL_TIME_MS);
-
-      return () => clearInterval(intervalId);
-    }
-  }, [isEvmTx, sendConfigs.feeConfig]);
 }
 
 const QUERY_ROUTE_FETCH_TIMEOUT_MS = 10000;
@@ -370,6 +382,7 @@ const useIBCSwapConfigWithRecipientConfig = (
   outCurrency: AppCurrency,
   disableSubFeeFromFaction: boolean,
   swapFeeBps: number,
+  isEvmTx?: boolean,
   options: {
     allowHexAddressToBech32Address?: boolean;
     allowHexAddressOnly?: boolean;
@@ -395,7 +408,8 @@ const useIBCSwapConfigWithRecipientConfig = (
     outChainId,
     outCurrency,
     disableSubFeeFromFaction,
-    swapFeeBps
+    swapFeeBps,
+    isEvmTx
   );
   const channelConfig = useIBCChannelConfig(false);
 
@@ -434,15 +448,24 @@ export const SendAmountPage: FunctionComponent = observer(() => {
   const initialChainId = searchParams.get("chainId");
   const initialCoinMinimalDenom = searchParams.get("coinMinimalDenom");
 
-  const chainId = initialChainId || chainStore.chainInfosInUI[0].chainId;
-  const chainInfo = chainStore.getChain(chainId);
-  const isEvmChain = chainStore.isEvmChain(chainId);
-  const isEVMOnlyChain = chainStore.isEvmOnlyChain(chainId);
+  const chainId = initialChainId || getDefaultSendChainId(chainStore);
+  const modularChainInfo = chainStore.getModularChain(chainId);
+  const chainType = modularChainInfo.type;
 
   const coinMinimalDenom =
     initialCoinMinimalDenom ||
-    chainStore.getChain(chainId).currencies[0].coinMinimalDenom;
-  const currency = chainInfo.forceFindCurrency(coinMinimalDenom);
+    (() => {
+      const u = modularChainInfo.unwrapped;
+      if (u.type === "cosmos" || u.type === "ethermint") {
+        return u.cosmos.currencies[0].coinMinimalDenom;
+      }
+      if (u.type === "evm") {
+        return u.evm.nativeCurrency.coinMinimalDenom;
+      }
+      // fallback for starknet/bitcoin
+      return "";
+    })();
+  const currency = modularChainInfo.forceFindCurrency(coinMinimalDenom);
   const isErc20 = new DenomHelper(currency.coinMinimalDenom).type === "erc20";
   const [isExpectedAmountTooSmall, setIsExpectedAmountTooSmall] =
     useState(false);
@@ -481,7 +504,7 @@ export const SendAmountPage: FunctionComponent = observer(() => {
     }
   }, [navigate, initialChainId, initialCoinMinimalDenom]);
 
-  const [isEvmTx, setIsEvmTx] = useState(isErc20 || isEVMOnlyChain);
+  const [isEvmTx, setIsEvmTx] = useState(isErc20 || chainType === "evm");
   const [nonceMethod, setNonceMethod] = useState<"latest" | "pending">(
     "pending"
   );
@@ -501,10 +524,7 @@ export const SendAmountPage: FunctionComponent = observer(() => {
     ? queryBalances.getQueryEthereumHexAddress(sender).getBalance(currency)
     : queryBalances.getQueryBech32Address(sender).getBalance(currency);
 
-  const isDestinationEvmChain = chainStore.isEvmChain(
-    destinationChainInfoOfBridge.chainId
-  );
-  const isDestinationEvmOnlyChain = chainStore.isEvmOnlyChain(
+  const destModularChainInfo = chainStore.getModularChain(
     destinationChainInfoOfBridge.chainId
   );
 
@@ -519,19 +539,19 @@ export const SendAmountPage: FunctionComponent = observer(() => {
     ethereumAccountStore,
     skipQueriesStore,
     chainId,
-    isEVMOnlyChain ? account.ethereumHexAddress : account.bech32Address,
+    isEvmTx ? account.ethereumHexAddress : account.bech32Address,
     200000,
     destinationChainInfoOfBridge.chainId,
     destinationChainInfoOfBridge.currency,
     topUpForDisableSubFeeFromFaction,
     //NOTE - when swap is used on send page, it use bridge so swap fee is 10
     10,
+    isEvmTx,
     {
       allowHexAddressToBech32Address:
-        isDestinationEvmChain &&
-        !isDestinationEvmOnlyChain &&
-        !chainStore.getChain(chainId).chainId.startsWith("injective"),
-      allowHexAddressOnly: isDestinationEvmOnlyChain,
+        destModularChainInfo.type === "ethermint" &&
+        !modularChainInfo.chainId.startsWith("injective"),
+      allowHexAddressOnly: destModularChainInfo.type === "evm",
       icns: ICNSInfo,
       ens: ENSInfo,
       computeTerraClassicTax: true,
@@ -559,7 +579,7 @@ export const SendAmountPage: FunctionComponent = observer(() => {
   const queryRoute = queryIBCSwap?.getQueryRoute();
   useFetchBridgeRouterPer10sec(queryRoute);
 
-  const sendConfigs = useSendMixedIBCTransferConfig(
+  const sendConfigs = useSendConfig(
     chainStore,
     queriesStore,
     chainId,
@@ -568,11 +588,13 @@ export const SendAmountPage: FunctionComponent = observer(() => {
     isEvmTx ? 21000 : 300000,
     topUpForDisableSubFeeFromFaction,
     sendType === "ibc-transfer",
+    isEvmTx,
     {
       allowHexAddressToBech32Address:
-        !isEvmChain &&
+        chainType !== "evm" &&
+        chainType !== "ethermint" &&
         !isEvmTx &&
-        !chainStore.getChain(chainId).chainId.startsWith("injective"),
+        !modularChainInfo.chainId.startsWith("injective"),
       allowHexAddressOnly: isEvmTx,
       icns: ICNSInfo,
       ens: ENSInfo,
@@ -595,12 +617,17 @@ export const SendAmountPage: FunctionComponent = observer(() => {
   const currentFeeCurrencyCoinMinimalDenom =
     sendConfigs.feeConfig.fees[0]?.currency.coinMinimalDenom;
   useEffect(() => {
-    const chainInfo = chainStore.getChain(chainId);
+    const u2 = chainStore.getModularChain(chainId).unwrapped;
+    const hasFeemarketFeature =
+      (u2.type === "cosmos" || u2.type === "ethermint") &&
+      u2.cosmos.features?.includes("feemarket");
     // feemarket 이상하게 만들어서 simulate하면 더 적은 gas가 나온다 귀찮아서 대충 처리.
-    if (chainInfo.hasFeature("feemarket")) {
+    if (hasFeemarketFeature) {
       if (
         currentFeeCurrencyCoinMinimalDenom !==
-        chainInfo.currencies[0].coinMinimalDenom
+        (u2.type === "cosmos" || u2.type === "ethermint"
+          ? u2.cosmos.currencies[0].coinMinimalDenom
+          : "")
       ) {
         gasSimulatorForNotBridgeSend.setGasAdjustmentValue("2");
       } else {
@@ -615,10 +642,8 @@ export const SendAmountPage: FunctionComponent = observer(() => {
   ]);
 
   useChangeSenderAddressWhenEtherMintChainSendToHexAddress(
-    isEvmChain,
     sendConfigs,
-    chainInfo,
-    isEVMOnlyChain,
+    modularChainInfo,
     account,
     setIsEvmTx,
     ethereumAccount,
@@ -631,9 +656,12 @@ export const SendAmountPage: FunctionComponent = observer(() => {
         return;
       }
 
-      if (chainInfo.features.includes("op-stack-l1-data-fee")) {
+      const hasOpStackFee = modularChainInfo.hasFeature("op-stack-l1-data-fee");
+      if (hasOpStackFee && sendConfigs.evmFeeConfig) {
         const { maxFeePerGas, maxPriorityFeePerGas, gasPrice } =
-          sendConfigs.feeConfig.getEIP1559TxFees(sendConfigs.feeConfig.type);
+          sendConfigs.evmFeeConfig.getEIP1559TxFees(
+            sendConfigs.evmFeeConfig.type
+          );
 
         const { to, gasLimit, value, data, chainId } =
           ethereumAccount.makeSendTokenTx({
@@ -653,20 +681,20 @@ export const SendAmountPage: FunctionComponent = observer(() => {
           data,
           chainId,
         });
-        sendConfigs.feeConfig.setL1DataFee(new Dec(BigInt(l1DataFee)));
+        sendConfigs.evmFeeConfig.setL1DataFee(new Dec(BigInt(l1DataFee)));
       }
     })();
   }, [
     sendType,
-    chainInfo.features,
+    modularChainInfo,
     ethereumAccount,
     sendConfigs.amountConfig.amount,
-    sendConfigs.feeConfig,
+    sendConfigs.evmFeeConfig,
     sendConfigs.gasConfig.gas,
     sendConfigs.recipientConfig.recipient,
   ]);
 
-  useRefreshEIP1559TxFee(isEvmTx, sendConfigs);
+  useRefreshEIP1559TxFee(isEvmTx, sendConfigs.evmFeeConfig);
 
   useEffect(() => {
     // To simulate secretwasm, we need to include the signature in the tx.
@@ -805,7 +833,7 @@ export const SendAmountPage: FunctionComponent = observer(() => {
         return undefined;
       }
 
-      return chainStore.getChain(
+      return chainStore.getModularChain(
         sendConfigs.channelConfig.channels[
           sendConfigs.channelConfig.channels.length - 1
         ].counterpartyChainId
@@ -813,7 +841,7 @@ export const SendAmountPage: FunctionComponent = observer(() => {
     }
 
     if (sendType === "bridge") {
-      return chainStore.getChain(
+      return chainStore.getModularChain(
         ibcSwapConfigsForBridge.amountConfig.outChainId
       );
     }
@@ -855,7 +883,7 @@ export const SendAmountPage: FunctionComponent = observer(() => {
 
   const outCurrencyFetched =
     chainStore
-      .getChain(ibcSwapConfigsForBridge.amountConfig.outChainId)
+      .getModularChain(ibcSwapConfigsForBridge.amountConfig.outChainId)
       .findCurrency(
         ibcSwapConfigsForBridge.amountConfig.outCurrency.coinMinimalDenom
       ) != null;
@@ -893,6 +921,33 @@ export const SendAmountPage: FunctionComponent = observer(() => {
   useEffect(() => {
     setTopUpForDisableSubFeeFromFaction(shouldTopUp);
   }, [shouldTopUp]);
+
+  const { handleSubmit: handleEvmSubmit } = useEvmTransferTxSubmit({
+    sender,
+    bech32Address: account.bech32Address,
+    coinMinimalDenom,
+    historyType,
+    ethereumAccount,
+    sendConfigs: {
+      feeConfig: sendConfigs.evmFeeConfig!,
+      gasConfig: sendConfigs.gasConfig,
+      amountConfig: sendConfigs.amountConfig,
+      recipientConfig: sendConfigs.recipientConfig,
+      senderConfig: sendConfigs.senderConfig,
+      memoConfig: sendConfigs.memoConfig,
+    },
+    queryBalances,
+    nonceMethod,
+  });
+
+  const { handleSubmit: handleCosmosSubmit } = useCosmosTransferTxSubmit({
+    chainId,
+    sendType,
+    historyType,
+    shouldTopUp,
+    ibcChannelFluent,
+    sendConfigs,
+  });
 
   return (
     <HeaderLayout
@@ -991,7 +1046,7 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                   const chainIdInKeplr = isOnlyEvm
                     ? `eip155:${chainId}`
                     : chainId;
-                  if (!chainStore.hasChain(chainIdInKeplr)) {
+                  if (!chainStore.hasModularChain(chainIdInKeplr)) {
                     continue;
                   }
 
@@ -1002,22 +1057,18 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                   }
 
                   if (isOnlyEvm && !receiverAccount.ethereumHexAddress) {
-                    const receiverChainInfo =
-                      chainStore.hasChain(chainId) &&
-                      chainStore.getChain(chainId);
+                    const receiverModularChainInfo =
+                      chainStore.hasModularChain(chainId) &&
+                      chainStore.getModularChain(chainId);
                     if (
                       receiverAccount.isNanoLedger &&
-                      receiverChainInfo &&
-                      (receiverChainInfo.bip44.coinType === 60 ||
-                        receiverChainInfo.features.includes(
-                          "eth-address-gen"
-                        ) ||
-                        receiverChainInfo.features.includes("eth-key-sign") ||
-                        receiverChainInfo.evm != null)
+                      receiverModularChainInfo
                     ) {
-                      throw new Error(
-                        "Please connect Ethereum app on Ledger with Keplr to get the address"
-                      );
+                      if (isEthSignChain(receiverModularChainInfo.unwrapped)) {
+                        throw new Error(
+                          "Please connect Ethereum app on Ledger with Keplr to get the address"
+                        );
+                      }
                     }
 
                     throw new Error(
@@ -1042,13 +1093,7 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                     priorOutAmount,
                     convertToBech32IfNeed(
                       ibcSwapConfigsForBridge.recipientConfig.recipient,
-                      chainStore.getChain(
-                        ibcSwapConfigsForBridge.recipientConfig.chainId
-                      ),
-                      chainStore.isEvmChain(
-                        ibcSwapConfigsForBridge.recipientConfig.chainId
-                      ),
-                      chainStore.isEvmOnlyChain(
+                      chainStore.getModularChain(
                         ibcSwapConfigsForBridge.recipientConfig.chainId
                       )
                     )
@@ -1067,7 +1112,7 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                 if ("send" in tx) {
                   await tx.send(
                     ibcSwapConfigsForBridge.feeConfig.topUpStatus
-                      .topUpOverrideStdFee ??
+                      ?.topUpOverrideStdFee ??
                       ibcSwapConfigsForBridge.feeConfig.toStdFee(),
                     ibcSwapConfigsForBridge.memoConfig.memo,
                     {
@@ -1112,7 +1157,7 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                           ibcSwapConfigsForBridge.memoConfig.memo,
                           {
                             currencies:
-                              chainStore.getChain(outChainId).currencies,
+                              chainStore.getModularChain(outChainId).currencies,
                           },
                           false // bridge의 경우 무조건 interChainSwap이므로 무조건 false, 정확히는 swap이 아니지만 swap 페이지에서 그렇게 적혀있어서 해당 용어로 사용
                         );
@@ -1148,7 +1193,7 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                           },
                           simpleRoute,
                           ibcSwapConfigsForBridge.senderConfig.sender,
-                          chainStore.isEvmOnlyChain(outChainId)
+                          chainStore.getModularChain(outChainId).type === "evm"
                             ? accountStore.getAccount(outChainId)
                                 .ethereumHexAddress
                             : accountStore.getAccount(outChainId).bech32Address,
@@ -1181,7 +1226,7 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                           ],
                           {
                             currencies:
-                              chainStore.getChain(outChainId).currencies,
+                              chainStore.getModularChain(outChainId).currencies,
                           },
                           routeDurationSeconds ?? 0,
                           Buffer.from(txHash).toString("hex"),
@@ -1368,20 +1413,22 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                         )
                       : undefined;
 
-                  const { maxFeePerGas, maxPriorityFeePerGas, gasPrice } =
-                    ibcSwapConfigsForBridge.feeConfig.getEIP1559TxFees(
-                      ibcSwapConfigsForBridge.feeConfig.type
+                  const eip1559Fees =
+                    ibcSwapConfigsForBridge.evmFeeConfig!.getEIP1559TxFees(
+                      ibcSwapConfigsForBridge.evmFeeConfig!.type
                     );
 
                   const feeObject =
-                    maxFeePerGas && maxPriorityFeePerGas
+                    eip1559Fees.maxFeePerGas && eip1559Fees.maxPriorityFeePerGas
                       ? {
                           type: 2,
                           maxFeePerGas: `0x${BigInt(
-                            maxFeePerGas.truncate().toString()
+                            eip1559Fees.maxFeePerGas.truncate().toString()
                           ).toString(16)}`,
                           maxPriorityFeePerGas: `0x${BigInt(
-                            maxPriorityFeePerGas.truncate().toString()
+                            eip1559Fees.maxPriorityFeePerGas
+                              .truncate()
+                              .toString()
                           ).toString(16)}`,
                           gasLimit: `0x${ibcSwapConfigsForBridge.gasConfig.gas.toString(
                             16
@@ -1389,7 +1436,9 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                         }
                       : {
                           gasPrice: `0x${BigInt(
-                            gasPrice.truncate().toString()
+                            (eip1559Fees.gasPrice ?? new Dec(0))
+                              .truncate()
+                              .toString()
                           ).toString(16)}`,
                           gasLimit: `0x${ibcSwapConfigsForBridge.gasConfig.gas.toString(
                             16
@@ -1424,7 +1473,8 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                             },
                             simpleRoute,
                             sender,
-                            chainStore.isEvmOnlyChain(outChainId)
+                            chainStore.getModularChain(outChainId).type ===
+                            "evm"
                               ? accountStore.getAccount(outChainId)
                                   .ethereumHexAddress
                               : accountStore.getAccount(outChainId)
@@ -1458,7 +1508,8 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                             ],
                             {
                               currencies:
-                                chainStore.getChain(outChainId).currencies,
+                                chainStore.getModularChain(outChainId)
+                                  .currencies,
                             },
                             routeDurationSeconds ?? 0,
                             txHash,
@@ -1514,23 +1565,22 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                             ethereumAccount
                               .simulateGas(sender, tx as UnsignedEVMTransaction)
                               .then(({ gasUsed }) => {
-                                const {
-                                  maxFeePerGas,
-                                  maxPriorityFeePerGas,
-                                  gasPrice,
-                                } =
-                                  ibcSwapConfigsForBridge.feeConfig.getEIP1559TxFees(
-                                    ibcSwapConfigsForBridge.feeConfig.type
+                                const eip1559Fees2 =
+                                  ibcSwapConfigsForBridge.evmFeeConfig!.getEIP1559TxFees(
+                                    ibcSwapConfigsForBridge.evmFeeConfig!.type
                                   );
                                 const feeObject =
-                                  maxFeePerGas && maxPriorityFeePerGas
+                                  eip1559Fees2.maxFeePerGas &&
+                                  eip1559Fees2.maxPriorityFeePerGas
                                     ? {
                                         type: 2,
                                         maxFeePerGas: `0x${BigInt(
-                                          maxFeePerGas.truncate().toString()
+                                          eip1559Fees2.maxFeePerGas
+                                            .truncate()
+                                            .toString()
                                         ).toString(16)}`,
                                         maxPriorityFeePerGas: `0x${BigInt(
-                                          maxPriorityFeePerGas
+                                          eip1559Fees2.maxPriorityFeePerGas
                                             .truncate()
                                             .toString()
                                         ).toString(16)}`,
@@ -1538,7 +1588,9 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                                       }
                                     : {
                                         gasPrice: `0x${BigInt(
-                                          gasPrice.truncate().toString()
+                                          (eip1559Fees2.gasPrice ?? new Dec(0))
+                                            .truncate()
+                                            .toString()
                                         ).toString(16)}`,
                                         gasLimit: `0x${gasUsed.toString(16)}`,
                                       };
@@ -1564,7 +1616,8 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                                         },
                                         simpleRoute,
                                         sender,
-                                        chainStore.isEvmOnlyChain(outChainId)
+                                        chainStore.getModularChain(outChainId)
+                                          .type === "evm"
                                           ? accountStore.getAccount(outChainId)
                                               .ethereumHexAddress
                                           : accountStore.getAccount(outChainId)
@@ -1603,8 +1656,9 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                                         ],
                                         {
                                           currencies:
-                                            chainStore.getChain(outChainId)
-                                              .currencies,
+                                            chainStore.getModularChain(
+                                              outChainId
+                                            ).currencies,
                                         },
                                         routeDurationSeconds ?? 0,
                                         txHash,
@@ -1714,328 +1768,9 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                 setIsTxLoading(false);
               }
             } else if (isEvmTx) {
-              ethereumAccount.setIsSendingTx(true);
-              const { maxFeePerGas, maxPriorityFeePerGas, gasPrice } =
-                sendConfigs.feeConfig.getEIP1559TxFees(
-                  sendConfigs.feeConfig.type
-                );
-
-              const unsignedTx = ethereumAccount.makeSendTokenTx({
-                currency: sendConfigs.amountConfig.amount[0].currency,
-                amount: sendConfigs.amountConfig.amount[0].toDec().toString(),
-                to: sendConfigs.recipientConfig.recipient,
-                gasLimit: sendConfigs.gasConfig.gas,
-                maxFeePerGas: maxFeePerGas?.toString(),
-                maxPriorityFeePerGas: maxPriorityFeePerGas?.toString(),
-                gasPrice: gasPrice?.toString(),
-              });
-              await ethereumAccount.sendEthereumTx(
-                sender,
-                unsignedTx,
-                {
-                  onFulfill: (txReceipt) => {
-                    queryBalances
-                      .getQueryEthereumHexAddress(sender)
-                      .balances.forEach((balance) => {
-                        if (
-                          balance.currency.coinMinimalDenom ===
-                            coinMinimalDenom ||
-                          sendConfigs.feeConfig.fees.some(
-                            (fee) =>
-                              fee.currency.coinMinimalDenom ===
-                              balance.currency.coinMinimalDenom
-                          )
-                        ) {
-                          balance.fetch();
-                        }
-                      });
-                    queryBalances
-                      .getQueryBech32Address(account.bech32Address)
-                      .balances.forEach((balance) => {
-                        if (
-                          balance.currency.coinMinimalDenom ===
-                            coinMinimalDenom ||
-                          sendConfigs.feeConfig.fees.some(
-                            (fee) =>
-                              fee.currency.coinMinimalDenom ===
-                              balance.currency.coinMinimalDenom
-                          )
-                        ) {
-                          balance.fetch();
-                        }
-                      });
-
-                    if (txReceipt.status === EthTxStatus.Success) {
-                      notification.show(
-                        "success",
-                        intl.formatMessage({
-                          id: "notification.transaction-success",
-                        }),
-                        ""
-                      );
-                    } else {
-                      notification.show(
-                        "failed",
-                        intl.formatMessage({ id: "error.transaction-failed" }),
-                        ""
-                      );
-                    }
-                  },
-                },
-                {
-                  sendTx: async (chainId, signedTx) => {
-                    const msg = new SendTxEthereumMsgAndRecordMsg(
-                      historyType,
-                      chainId,
-                      sendConfigs.recipientConfig.chainId,
-                      signedTx,
-                      sendConfigs.senderConfig.sender,
-                      sendConfigs.recipientConfig.recipient,
-                      sendConfigs.amountConfig.amount.map((amount) => {
-                        return {
-                          amount: DecUtils.getTenExponentN(
-                            amount.currency.coinDecimals
-                          )
-                            .mul(amount.toDec())
-                            .toString(),
-                          denom: amount.currency.coinMinimalDenom,
-                        };
-                      }),
-                      sendConfigs.memoConfig.memo
-                    );
-
-                    return await new InExtensionMessageRequester().sendMessage(
-                      BACKGROUND_PORT,
-                      msg
-                    );
-                  },
-                }
-              );
-              ethereumAccount.setIsSendingTx(false);
+              await handleEvmSubmit();
             } else {
-              const tx =
-                sendType === "ibc-transfer"
-                  ? accountStore
-                      .getAccount(chainId)
-                      .cosmos.makePacketForwardIBCTransferTx(
-                        accountStore,
-                        sendConfigs.channelConfig.channels,
-                        sendConfigs.amountConfig.amount[0].toDec().toString(),
-                        sendConfigs.amountConfig.amount[0].currency,
-                        sendConfigs.recipientConfig.recipient
-                      )
-                  : accountStore
-                      .getAccount(chainId)
-                      .makeSendTokenTx(
-                        sendConfigs.amountConfig.amount[0].toDec().toString(),
-                        sendConfigs.amountConfig.amount[0].currency,
-                        sendConfigs.recipientConfig.recipient
-                      );
-
-              await tx.send(
-                sendConfigs.feeConfig.topUpStatus.topUpOverrideStdFee ??
-                  sendConfigs.feeConfig.toStdFee(),
-                sendConfigs.memoConfig.memo,
-                {
-                  preferNoSetFee: true,
-                  preferNoSetMemo: true,
-                  ...(shouldTopUp ? getShouldTopUpSignOptions() : {}),
-                  sendTx: async (chainId, tx, mode) => {
-                    let msg: Message<Uint8Array> = new SendTxAndRecordMsg(
-                      historyType,
-                      chainId,
-                      sendConfigs.recipientConfig.chainId,
-                      tx,
-                      mode,
-                      false,
-                      sendConfigs.senderConfig.sender,
-                      sendConfigs.recipientConfig.recipient,
-                      sendConfigs.amountConfig.amount.map((amount) => {
-                        return {
-                          amount: DecUtils.getTenExponentN(
-                            amount.currency.coinDecimals
-                          )
-                            .mul(amount.toDec())
-                            .toString(),
-                          denom: amount.currency.coinMinimalDenom,
-                        };
-                      }),
-                      sendConfigs.memoConfig.memo
-                    );
-                    if (sendType === "ibc-transfer") {
-                      if (msg instanceof SendTxAndRecordMsg) {
-                        msg = msg.withIBCPacketForwarding(
-                          sendConfigs.channelConfig.channels,
-                          {
-                            currencies: chainStore.getChain(chainId).currencies,
-                          }
-                        );
-                      } else {
-                        throw new Error("Invalid message type");
-                      }
-                    }
-                    return await new InExtensionMessageRequester().sendMessage(
-                      BACKGROUND_PORT,
-                      msg
-                    );
-                  },
-                },
-                {
-                  onBroadcasted: async () => {
-                    chainStore.enableVaultsWithCosmosAddress(
-                      sendConfigs.recipientConfig.chainId,
-                      sendConfigs.recipientConfig.recipient
-                    );
-
-                    if (sendType === "send") {
-                      const inCurrencyPrice =
-                        await priceStore.waitCalculatePrice(
-                          sendConfigs.amountConfig.amount[0],
-                          "usd"
-                        );
-
-                      const params: Record<
-                        string,
-                        | number
-                        | string
-                        | boolean
-                        | number[]
-                        | string[]
-                        | undefined
-                      > = {
-                        denom:
-                          sendConfigs.amountConfig.amount[0].currency
-                            .coinMinimalDenom,
-                        commonDenom: (() => {
-                          const currency =
-                            sendConfigs.amountConfig.amount[0].currency;
-                          if ("paths" in currency && currency.originCurrency) {
-                            return currency.originCurrency.coinDenom;
-                          }
-                          return currency.coinDenom;
-                        })(),
-                        chainId: sendConfigs.recipientConfig.chainId,
-                        chainIdentifier: ChainIdHelper.parse(
-                          sendConfigs.recipientConfig.chainId
-                        ).identifier,
-                        inAvg: amountToAmbiguousAverage(
-                          sendConfigs.amountConfig.amount[0]
-                        ),
-                      };
-                      if (inCurrencyPrice) {
-                        params["inFiatAvg"] =
-                          amountToAmbiguousAverage(inCurrencyPrice);
-                      }
-                      new InExtensionMessageRequester().sendMessage(
-                        BACKGROUND_PORT,
-                        new LogAnalyticsEventMsg("send", params)
-                      );
-                    } else if (ibcChannelFluent != null) {
-                      const pathChainIds = [chainId].concat(
-                        ...ibcChannelFluent.channels.map(
-                          (channel) => channel.counterpartyChainId
-                        )
-                      );
-                      const intermediateChainIds: string[] = [];
-                      if (pathChainIds.length > 2) {
-                        intermediateChainIds.push(...pathChainIds.slice(1, -1));
-                      }
-
-                      const inCurrencyPrice =
-                        await priceStore.waitCalculatePrice(
-                          sendConfigs.amountConfig.amount[0],
-                          "usd"
-                        );
-
-                      const params: Record<
-                        string,
-                        | number
-                        | string
-                        | boolean
-                        | number[]
-                        | string[]
-                        | undefined
-                      > = {
-                        originDenom: ibcChannelFluent.originDenom,
-                        originCommonDenom: (() => {
-                          const currency = chainStore
-                            .getChain(ibcChannelFluent.originChainId)
-                            .forceFindCurrency(ibcChannelFluent.originDenom);
-                          if ("paths" in currency && currency.originCurrency) {
-                            return currency.originCurrency.coinDenom;
-                          }
-                          return currency.coinDenom;
-                        })(),
-                        originChainId: ibcChannelFluent.originChainId,
-                        originChainIdentifier: ChainIdHelper.parse(
-                          ibcChannelFluent.originChainId
-                        ).identifier,
-                        sourceChainId: chainId,
-                        sourceChainIdentifier:
-                          ChainIdHelper.parse(chainId).identifier,
-                        destinationChainId: ibcChannelFluent.destinationChainId,
-                        destinationChainIdentifier: ChainIdHelper.parse(
-                          ibcChannelFluent.destinationChainId
-                        ).identifier,
-                        pathChainIds,
-                        pathChainIdentifiers: pathChainIds.map(
-                          (chainId) => ChainIdHelper.parse(chainId).identifier
-                        ),
-                        intermediateChainIds,
-                        intermediateChainIdentifiers: intermediateChainIds.map(
-                          (chainId) => ChainIdHelper.parse(chainId).identifier
-                        ),
-                        isToOrigin:
-                          ibcChannelFluent.destinationChainId ===
-                          ibcChannelFluent.originChainId,
-                        inAvg: amountToAmbiguousAverage(
-                          sendConfigs.amountConfig.amount[0]
-                        ),
-                      };
-                      if (inCurrencyPrice) {
-                        params["inFiatAvg"] =
-                          amountToAmbiguousAverage(inCurrencyPrice);
-                      }
-                      new InExtensionMessageRequester().sendMessage(
-                        BACKGROUND_PORT,
-                        new LogAnalyticsEventMsg("ibc_send", params)
-                      );
-
-                      if (
-                        sendConfigs.recipientConfig.nameServiceResult.length > 0
-                      ) {
-                        new InExtensionMessageRequester().sendMessage(
-                          BACKGROUND_PORT,
-                          new LogAnalyticsEventMsg("send_with_name_service", {
-                            chainId: sendConfigs.recipientConfig.chainId,
-                            nameService:
-                              sendConfigs.recipientConfig.nameServiceResult[0]
-                                .type,
-                          })
-                        );
-                      }
-                    }
-                  },
-                  onFulfill: (tx: any) => {
-                    if (tx.code != null && tx.code !== 0) {
-                      console.log(tx.log ?? tx.raw_log);
-                      notification.show(
-                        "failed",
-                        intl.formatMessage({ id: "error.transaction-failed" }),
-                        ""
-                      );
-                      return;
-                    }
-                    notification.show(
-                      "success",
-                      intl.formatMessage({
-                        id: "notification.transaction-success",
-                      }),
-                      ""
-                    );
-                  },
-                }
-              );
+              await handleCosmosSubmit();
             }
 
             //NOTE - For evmTx on bridge, erc20 approve may be present, in which case evm tx processing will handle navigation,
@@ -2088,7 +1823,7 @@ export const SendAmountPage: FunctionComponent = observer(() => {
             <TokenItem
               viewToken={{
                 token: balance?.balance ?? new CoinPretty(currency, "0"),
-                chainInfo: chainStore.getChain(chainId),
+                chainInfo: modularChainInfo,
                 isFetching: balance?.isFetching ?? false,
                 error: balance?.error,
               }}
@@ -2211,13 +1946,13 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                           .hideIBCMetadata(true)
                           .toString(),
                         srcChain:
-                          ibcSwapConfigsForBridge.amountConfig.chainInfo
+                          ibcSwapConfigsForBridge.amountConfig.modularChainInfo
                             .chainName,
                         outAmount:
                           ibcSwapConfigsForBridge.amountConfig.outAmount
                             .hideIBCMetadata(true)
                             .toString(),
-                        dstChain: chainStore.getChain(
+                        dstChain: chainStore.getModularChain(
                           ibcSwapConfigsForBridge.amountConfig.outChainId
                         ).chainName,
                       }
@@ -2271,36 +2006,50 @@ export const SendAmountPage: FunctionComponent = observer(() => {
           <Styles.Flex1 />
           <Gutter size="0" />
 
-          <VerticalCollapseTransition collapsed={shouldTopUp}>
+          {!isEvmTx ? (
+            <React.Fragment>
+              <VerticalCollapseTransition collapsed={shouldTopUp}>
+                <FeeControl
+                  senderConfig={senderConfig}
+                  feeConfig={feeConfig}
+                  gasConfig={gasConfig}
+                  gasSimulator={gasSimulatorForNotBridgeSend}
+                  disableAutomaticFeeSet={shouldTopUp}
+                  isForEVMTx={false}
+                  nonceMethod={nonceMethod}
+                  setNonceMethod={setNonceMethod}
+                  shouldTopUp={shouldTopUp}
+                />
+              </VerticalCollapseTransition>
+              <Gutter size="0" />
+              <VerticalCollapseTransition collapsed={!shouldTopUp}>
+                <FeeCoverageDescription isTopUpAvailable={isTopUpAvailable} />
+              </VerticalCollapseTransition>
+              <VerticalCollapseTransition collapsed={requiredStaking == null}>
+                {requiredStaking != null &&
+                coinDenom != null &&
+                stakingChainId != null &&
+                validatorAddress != null ? (
+                  <StakingRequirementDescription
+                    requiredStaking={requiredStaking}
+                    coinDenom={coinDenom}
+                    stakingChainId={stakingChainId}
+                    validatorAddress={validatorAddress}
+                  />
+                ) : null}
+              </VerticalCollapseTransition>
+            </React.Fragment>
+          ) : (
             <FeeControl
               senderConfig={senderConfig}
               feeConfig={feeConfig}
               gasConfig={gasConfig}
               gasSimulator={gasSimulatorForNotBridgeSend}
-              disableAutomaticFeeSet={shouldTopUp}
-              isForEVMTx={isEvmTx}
+              isForEVMTx={true}
               nonceMethod={nonceMethod}
               setNonceMethod={setNonceMethod}
-              shouldTopUp={shouldTopUp}
             />
-          </VerticalCollapseTransition>
-          <Gutter size="0" />
-          <VerticalCollapseTransition collapsed={!shouldTopUp}>
-            <FeeCoverageDescription isTopUpAvailable={isTopUpAvailable} />
-          </VerticalCollapseTransition>
-          <VerticalCollapseTransition collapsed={requiredStaking == null}>
-            {requiredStaking != null &&
-            coinDenom != null &&
-            stakingChainId != null &&
-            validatorAddress != null ? (
-              <StakingRequirementDescription
-                requiredStaking={requiredStaking}
-                coinDenom={coinDenom}
-                stakingChainId={stakingChainId}
-                validatorAddress={validatorAddress}
-              />
-            ) : null}
-          </VerticalCollapseTransition>
+          )}
           <Gutter size="0" />
 
           {sendType === "bridge" && (
@@ -2479,8 +2228,9 @@ function useGetGasSimulationForBridge(
           })();
 
           if (
-            ibcSwapConfigsForBridge.amountConfig.chainInfo.chainIdentifier ===
-            chainStore.getChain(swapVenueChainId).chainIdentifier
+            ibcSwapConfigsForBridge.amountConfig.modularChainInfo
+              .chainIdentifier ===
+            chainStore.getModularChain(swapVenueChainId).chainIdentifier
           ) {
             type = `swap-1`;
           }
@@ -2554,11 +2304,7 @@ function useGetGasSimulationForBridge(
         swapFeeBpsReceiver[0],
         convertToBech32IfNeed(
           ibcSwapConfigsForBridge.recipientConfig.recipient,
-          chainStore.getChain(ibcSwapConfigsForBridge.recipientConfig.chainId),
-          chainStore.isEvmChain(
-            ibcSwapConfigsForBridge.recipientConfig.chainId
-          ),
-          chainStore.isEvmOnlyChain(
+          chainStore.getModularChain(
             ibcSwapConfigsForBridge.recipientConfig.chainId
           )
         )
@@ -2708,30 +2454,32 @@ const WarningGuideBox: FunctionComponent<{
 
 const convertToBech32IfNeed = (
   address: string,
-  chainInfo: IChainInfoImpl<ChainInfoWithCoreTypes>,
-  isEvmChain: boolean,
-  isEvmOnlyChain: boolean
+  modularChainInfo: IModularChainInfoImpl
 ) => {
   const isHexAddress = (value: string): boolean => {
     return value.startsWith("0x");
   };
 
-  if (!isHexAddress(address) || isEvmOnlyChain || !isEvmChain) {
+  if (!isHexAddress(address) || modularChainInfo.type !== "ethermint") {
     return {
-      chainId: chainInfo.chainId,
+      chainId: modularChainInfo.chainId,
       recipient: address,
     };
   }
 
+  const u = modularChainInfo.unwrapped;
+  const bech32Prefix =
+    u.type === "cosmos" || u.type === "ethermint"
+      ? u.cosmos.bech32Config?.bech32PrefixAccAddr ?? ""
+      : "";
+
   const hexAddress = Uint8Array.from(
     Buffer.from(address.replace("0x", ""), "hex")
   );
-  const bech32Address = new Bech32Address(hexAddress).toBech32(
-    chainInfo.bech32Config?.bech32PrefixAccAddr ?? ""
-  );
+  const bech32Address = new Bech32Address(hexAddress).toBech32(bech32Prefix);
 
   return {
-    chainId: chainInfo.chainId,
+    chainId: modularChainInfo.chainId,
     recipient: bech32Address,
   };
 };

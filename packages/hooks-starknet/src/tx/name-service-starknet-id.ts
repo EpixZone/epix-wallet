@@ -93,10 +93,7 @@ export class StarknetIdNameService implements NameService {
   }
 
   get isEnabled(): boolean {
-    if (
-      !this._starknetID ||
-      !("starknet" in this.base.modularChainInfo.embedded)
-    ) {
+    if (!this._starknetID || this.base.modularChainInfo.type !== "starknet") {
       return false;
     }
 
@@ -166,10 +163,10 @@ export class StarknetIdNameService implements NameService {
   protected async fetchInternal(): Promise<void> {
     const prevValue = this.value;
     try {
-      const modularChainInfoImpl = this.base.modularChainInfo;
-      if (!("starknet" in modularChainInfoImpl.embedded)) {
+      const u = this.base.modularChainInfo.unwrapped;
+      if (u.type !== "starknet") {
         throw new Error(
-          `${modularChainInfoImpl.chainId} is not starknet chain`
+          `${this.base.modularChainInfo.chainId} is not starknet chain`
         );
       }
 
@@ -186,7 +183,7 @@ export class StarknetIdNameService implements NameService {
       const username = domain + "." + suffix;
 
       const res = await simpleFetch<JsonRpcResponse<string[]>>(
-        modularChainInfoImpl.embedded.starknet.rpc,
+        u.starknet.rpc,
         "",
         {
           method: "POST",

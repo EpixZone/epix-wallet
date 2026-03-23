@@ -8,44 +8,38 @@ import { Body3, Subtitle1, Subtitle3 } from "../../../components/typography";
 import { useStore } from "../../../stores";
 import { Dec } from "@keplr-wallet/unit";
 import { useTheme } from "styled-components";
-import {
-  ChainInfo,
-  ModularChainInfo,
-  StarknetChainInfo,
-} from "@keplr-wallet/types";
+import { StarknetChainInfo } from "@keplr-wallet/types";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import { ThemeOption } from "../../../theme";
 import { INITIA_CHAIN_ID } from "../../../config.ui";
 import { useGetStakingApr } from "../../../hooks/use-get-staking-apr";
 
 export const StakedBalance: FunctionComponent<{
-  modularChainInfo: ModularChainInfo;
+  modularChainInfo: IModularChainInfoImpl;
 }> = observer(({ modularChainInfo }) => {
-  if ("starknet" in modularChainInfo) {
-    return (
-      <StarknetStakedBalance starknetChainInfo={modularChainInfo.starknet} />
-    );
+  const u = modularChainInfo.unwrapped;
+  if (u.type === "starknet") {
+    return <StarknetStakedBalance starknetChainInfo={u.starknet} />;
   }
 
-  if ("cosmos" in modularChainInfo) {
-    return <CosmosStakedBalance chainInfo={modularChainInfo.cosmos} />;
+  if (u.type === "cosmos" || u.type === "ethermint") {
+    return <CosmosStakedBalance chainId={modularChainInfo.chainId} />;
   }
-
-  // modularChainInfo가 추가됨에 따라 새로운 분기 처리가 필요할 수 있음
 
   return null;
 });
 
 const CosmosStakedBalance: FunctionComponent<{
-  chainInfo: ChainInfo;
-}> = observer(({ chainInfo }) => {
+  chainId: string;
+}> = observer(({ chainId }) => {
   const theme = useTheme();
 
   const { queriesStore, accountStore, chainStore, uiConfigStore } = useStore();
 
   const [isHover, setIsHover] = useState(false);
 
-  const chainId = chainInfo.chainId;
-  const chain = chainStore.getChain(chainId);
+  const modularChainInfo = chainStore.getModularChain(chainId);
+  const u = modularChainInfo.unwrapped;
 
   const cosmosAPRDec = useGetStakingApr(chainId);
   const cosmosAPR = cosmosAPRDec
@@ -66,7 +60,11 @@ const CosmosStakedBalance: FunctionComponent<{
 
   return (
     <StakedBalanceLayout
-      stakingUrl={chain.walletUrlForStaking}
+      stakingUrl={
+        u.type === "cosmos" || u.type === "ethermint"
+          ? u.cosmos.walletUrlForStaking
+          : undefined
+      }
       isHover={isHover}
       onHoverStateChange={setIsHover}
     >
@@ -79,7 +77,11 @@ const CosmosStakedBalance: FunctionComponent<{
         <Gutter size="0.75rem" />
         <YAxis>
           {(() => {
-            if (stakeBalanceIsZero && chain.walletUrlForStaking) {
+            if (
+              stakeBalanceIsZero &&
+              (u.type === "cosmos" || u.type === "ethermint") &&
+              u.cosmos.walletUrlForStaking
+            ) {
               return (
                 <React.Fragment>
                   <Subtitle1
@@ -160,7 +162,8 @@ const CosmosStakedBalance: FunctionComponent<{
             </Subtitle3>
           ) : null}
 
-          {chain.walletUrlForStaking ? (
+          {(u.type === "cosmos" || u.type === "ethermint") &&
+          u.cosmos.walletUrlForStaking ? (
             stakeBalanceIsZero ? (
               <React.Fragment>
                 <Gutter size="0.25rem" />

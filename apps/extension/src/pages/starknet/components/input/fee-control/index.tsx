@@ -92,13 +92,13 @@ export const useAutoFeeCurrencySelectionOnInit = (
     // }, 2000);
 
     // const disposer = autorun(() => {
-    //   const modularChainInfo = chainStore.getModularChain(feeConfig.chainId);
-    //   if (!skip && "starknet" in modularChainInfo) {
+    //   const mcInfo2 = chainStore.getModularChain(feeConfig.chainId);
+    //   if (!skip && mcInfo2.type === "starknet") {
     //     const queryBalances = starknetQueriesStore.get(
     //       feeConfig.chainId
     //     ).queryStarknetERC20Balance;
 
-    //     const strkCoinMinmalDenom = `erc20:${modularChainInfo.starknet.strkContractAddress}`;
+    //     const strkCoinMinmalDenom = `erc20:${mcInfo2.unwrapped.starknet.strkContractAddress}`;
 
     //     for (const coinMinimalDenom of [strkCoinMinmalDenom]) {
     //       const feeCurrencyBal = queryBalances.getBalance(

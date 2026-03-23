@@ -10,10 +10,10 @@ import { ChainImageFallback } from "../../../../components/image";
 import { Gutter } from "../../../../components/gutter";
 import { ArrowRightIcon } from "../../../../components/icon";
 import { useIntl } from "react-intl";
-import { ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 
 export const DestinationChainView: FunctionComponent<{
-  chainInfo?: ModularChainInfo | ChainInfo;
+  chainInfo?: IModularChainInfoImpl;
   onClick: () => void;
 }> = observer(({ chainInfo, onClick }) => {
   const theme = useTheme();

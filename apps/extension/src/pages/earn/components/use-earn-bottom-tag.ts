@@ -20,7 +20,7 @@ export function useEarnBottomTag(balances: ViewToken[]) {
 
   const nobleAccount = accountStore.getAccount(NOBLE_CHAIN_ID);
   const queries = queriesStore.get(NOBLE_CHAIN_ID);
-  const chainInfo = chainStore.getChain(NOBLE_CHAIN_ID);
+  const modularChainInfo = chainStore.getModularChain(NOBLE_CHAIN_ID);
 
   const usdnAsset = (() => {
     if (!nobleAccount?.bech32Address) {
@@ -31,9 +31,7 @@ export function useEarnBottomTag(balances: ViewToken[]) {
       nobleAccount.bech32Address
     );
 
-    const usdnCurrency = chainInfo.currencies.find(
-      (currency) => currency.coinMinimalDenom === "uusdn"
-    );
+    const usdnCurrency = modularChainInfo.findCurrency("uusdn");
 
     if (!usdnCurrency) {
       return undefined;

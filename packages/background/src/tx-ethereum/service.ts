@@ -33,11 +33,7 @@ export class BackgroundTxEthereumService {
     }
 
     try {
-      const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
-      const evmInfo = ChainsService.getEVMInfo(chainInfo);
-      if (!evmInfo) {
-        throw new Error("No EVM info provided");
-      }
+      const evmInfo = this.chainsService.getEVMInfoOrThrow(chainId);
 
       const sendRawTransactionResponse = await simpleFetch<{
         result?: string;
@@ -131,11 +127,15 @@ export class BackgroundTxEthereumService {
     chainId: string,
     txHash: string
   ): Promise<EthTxReceipt | null> {
-    const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
-    const evmInfo = ChainsService.getEVMInfo(chainInfo);
-    if (!evmInfo) {
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    if (
+      modularChainInfo.type !== "evm" &&
+      modularChainInfo.type !== "ethermint"
+    ) {
       return null;
     }
+    const evmInfo = modularChainInfo.evm;
 
     return await retry(
       () => {

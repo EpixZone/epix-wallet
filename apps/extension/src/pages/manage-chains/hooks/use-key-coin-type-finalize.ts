@@ -1,35 +1,34 @@
 import { useStore } from "../../../stores";
 import { useCallback } from "react";
-import { IChainInfoImpl } from "@keplr-wallet/stores";
-import { ChainInfoWithCoreTypes } from "@keplr-wallet/background";
 
 export function useKeyCoinTypeFinalize() {
-  const { keyRingStore, queriesStore } = useStore();
+  const { chainStore, keyRingStore, queriesStore } = useStore();
 
   const needFinalizeKeyCoinTypeAction = useCallback(
-    async (
-      vaultId: string,
-      chainInfo: IChainInfoImpl<ChainInfoWithCoreTypes>
-    ) => {
-      const queries = queriesStore.get(chainInfo.chainId);
+    async (vaultId: string, chainId: string) => {
+      const queries = queriesStore.get(chainId);
 
-      if (keyRingStore.needKeyCoinTypeFinalize(vaultId, chainInfo)) {
+      if (keyRingStore.needKeyCoinTypeFinalize(vaultId, chainId)) {
         const candidateAddress =
-          await keyRingStore.computeNotFinalizedKeyAddresses(
-            vaultId,
-            chainInfo.chainId
-          );
+          await keyRingStore.computeNotFinalizedKeyAddresses(vaultId, chainId);
 
         if (candidateAddress.length === 1) {
           // finalize-key scene을 통하지 않고도 이 scene으로 들어올 수 있는 경우가 있기 때문에...
           keyRingStore.finalizeKeyCoinType(
             vaultId,
-            chainInfo.chainId,
+            chainId,
             candidateAddress[0].coinType
           );
           return false;
         }
         if (candidateAddress.length >= 2) {
+          const modularChainInfo = chainStore.getModularChain(chainId);
+          const u = modularChainInfo.unwrapped;
+          if (u.type !== "cosmos" && u.type !== "ethermint") {
+            return false;
+          }
+          const bip44CoinType = u.cosmos.bip44.coinType;
+
           const result = await (async () => {
             const promises: Promise<unknown>[] = [];
 
@@ -45,10 +44,10 @@ export function useKeyCoinTypeFinalize() {
             await Promise.allSettled(promises);
 
             const mainAddress = candidateAddress.find(
-              (a) => a.coinType === chainInfo.bip44.coinType
+              (a) => a.coinType === bip44CoinType
             );
             const otherAddresses = candidateAddress.filter(
-              (a) => a.coinType !== chainInfo.bip44.coinType
+              (a) => a.coinType !== bip44CoinType
             );
 
             let otherIsSelectable = false;
@@ -73,7 +72,7 @@ export function useKeyCoinTypeFinalize() {
             if (!otherIsSelectable && mainAddress) {
               keyRingStore.finalizeKeyCoinType(
                 vaultId,
-                chainInfo.chainId,
+                chainId,
                 mainAddress.coinType
               );
               return false;
@@ -88,7 +87,7 @@ export function useKeyCoinTypeFinalize() {
 
       return false;
     },
-    [keyRingStore, queriesStore]
+    [chainStore, keyRingStore, queriesStore]
   );
 
   return { needFinalizeKeyCoinTypeAction };

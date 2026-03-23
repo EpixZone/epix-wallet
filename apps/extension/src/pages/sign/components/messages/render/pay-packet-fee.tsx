@@ -91,21 +91,27 @@ const PayPacketFeeMessagePretty: FunctionComponent<{
 }> = observer(({ chainId, fee, sourceChannelId, relayers }) => {
   const { chainStore } = useStore();
 
-  const chainInfo = chainStore.getChain(chainId);
+  const mcInfo2 = chainStore.getModularChain(chainId);
+  const u = mcInfo2.unwrapped;
 
   const [isOpen, setIsOpen] = useState(false);
 
   const totalFee: CoinPretty[] = (() => {
     if (!fee) {
-      return [
-        new CoinPretty(
-          chainInfo.stakeCurrency ||
-            chainInfo.forceFindCurrency(
-              chainInfo.feeCurrencies[0].coinMinimalDenom
-            ),
-          "0"
-        ),
-      ];
+      const fallbackCurrency = (() => {
+        if (u.type === "cosmos" || u.type === "ethermint") {
+          return (
+            u.cosmos.stakeCurrency ||
+            mcInfo2.forceFindCurrency(
+              u.cosmos.feeCurrencies[0].coinMinimalDenom
+            )
+          );
+        }
+        throw new Error(
+          `Unexpected chain type "${u.type}" for PayPacketFeeMessagePretty (${mcInfo2.chainId})`
+        );
+      })();
+      return [new CoinPretty(fallbackCurrency, "0")];
     }
 
     const res: CoinPretty[] = [];
@@ -122,17 +128,17 @@ const PayPacketFeeMessagePretty: FunctionComponent<{
     };
     for (const coin of fee.recvFee) {
       pushCoin(
-        new CoinPretty(chainInfo.forceFindCurrency(coin.denom), coin.amount)
+        new CoinPretty(mcInfo2.forceFindCurrency(coin.denom), coin.amount)
       );
     }
     for (const coin of fee.ackFee) {
       pushCoin(
-        new CoinPretty(chainInfo.forceFindCurrency(coin.denom), coin.amount)
+        new CoinPretty(mcInfo2.forceFindCurrency(coin.denom), coin.amount)
       );
     }
     for (const coin of fee.timeoutFee) {
       pushCoin(
-        new CoinPretty(chainInfo.forceFindCurrency(coin.denom), coin.amount)
+        new CoinPretty(mcInfo2.forceFindCurrency(coin.denom), coin.amount)
       );
     }
     return res;
@@ -172,7 +178,7 @@ const PayPacketFeeMessagePretty: FunctionComponent<{
             {fee?.recvFee
               .map((coin) =>
                 new CoinPretty(
-                  chainInfo.forceFindCurrency(coin.denom),
+                  mcInfo2.forceFindCurrency(coin.denom),
                   coin.amount
                 )
                   .trim(true)
@@ -184,7 +190,7 @@ const PayPacketFeeMessagePretty: FunctionComponent<{
             {fee?.ackFee
               .map((coin) =>
                 new CoinPretty(
-                  chainInfo.forceFindCurrency(coin.denom),
+                  mcInfo2.forceFindCurrency(coin.denom),
                   coin.amount
                 )
                   .trim(true)
@@ -196,7 +202,7 @@ const PayPacketFeeMessagePretty: FunctionComponent<{
             {fee?.timeoutFee
               .map((coin) =>
                 new CoinPretty(
-                  chainInfo.forceFindCurrency(coin.denom),
+                  mcInfo2.forceFindCurrency(coin.denom),
                   coin.amount
                 )
                   .trim(true)

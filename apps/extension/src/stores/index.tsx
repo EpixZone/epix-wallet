@@ -48,25 +48,22 @@ export const StoreProvider: FunctionComponent<PropsWithChildren> = ({
         await stores.keyRingStore.refreshKeyRingStatus();
         await stores.chainStore.updateEnabledChainIdentifiersFromBackground();
 
-        for (const modularChainInfo of stores.chainStore.modularChainInfos) {
-          if ("cosmos" in modularChainInfo) {
-            const chainInfo = stores.chainStore.getChain(
-              modularChainInfo.chainId
-            );
-            if (stores.accountStore.hasAccount(chainInfo.chainId)) {
-              stores.accountStore.getAccount(chainInfo.chainId).init();
+        for (const mc of stores.chainStore.modularChainInfos) {
+          if (
+            mc.type === "cosmos" ||
+            mc.type === "ethermint" ||
+            mc.type === "evm"
+          ) {
+            if (stores.accountStore.hasAccount(mc.chainId)) {
+              stores.accountStore.getAccount(mc.chainId).init();
             }
-          } else if ("starknet" in modularChainInfo) {
-            if (
-              stores.starknetAccountStore.getAccount(modularChainInfo.chainId)
-            ) {
-              stores.accountStore.getAccount(modularChainInfo.chainId).init();
+          } else if (mc.type === "starknet") {
+            if (stores.starknetAccountStore.getAccount(mc.chainId)) {
+              stores.accountStore.getAccount(mc.chainId).init();
             }
-          } else if ("bitcoin" in modularChainInfo) {
-            if (
-              stores.bitcoinAccountStore.getAccount(modularChainInfo.chainId)
-            ) {
-              stores.accountStore.getAccount(modularChainInfo.chainId).init();
+          } else if (mc.type === "bitcoin") {
+            if (stores.bitcoinAccountStore.getAccount(mc.chainId)) {
+              stores.accountStore.getAccount(mc.chainId).init();
             }
           }
         }
@@ -80,25 +77,22 @@ export const StoreProvider: FunctionComponent<PropsWithChildren> = ({
         if (newKeyId && stores.keyRingStore.selectedKeyInfo?.id === newKeyId) {
           await stores.chainStore.updateEnabledChainIdentifiersFromBackground();
 
-          for (const modularChainInfo of stores.chainStore.modularChainInfos) {
-            if ("cosmos" in modularChainInfo) {
-              const chainInfo = stores.chainStore.getChain(
-                modularChainInfo.chainId
-              );
-              if (stores.accountStore.hasAccount(chainInfo.chainId)) {
-                stores.accountStore.getAccount(chainInfo.chainId).init();
+          for (const mc of stores.chainStore.modularChainInfos) {
+            if (
+              mc.type === "cosmos" ||
+              mc.type === "ethermint" ||
+              mc.type === "evm"
+            ) {
+              if (stores.accountStore.hasAccount(mc.chainId)) {
+                stores.accountStore.getAccount(mc.chainId).init();
               }
-            } else if ("starknet" in modularChainInfo) {
-              if (
-                stores.starknetAccountStore.getAccount(modularChainInfo.chainId)
-              ) {
-                stores.accountStore.getAccount(modularChainInfo.chainId).init();
+            } else if (mc.type === "starknet") {
+              if (stores.starknetAccountStore.getAccount(mc.chainId)) {
+                stores.accountStore.getAccount(mc.chainId).init();
               }
-            } else if ("bitcoin" in modularChainInfo) {
-              if (
-                stores.bitcoinAccountStore.getAccount(modularChainInfo.chainId)
-              ) {
-                stores.accountStore.getAccount(modularChainInfo.chainId).init();
+            } else if (mc.type === "bitcoin") {
+              if (stores.bitcoinAccountStore.getAccount(mc.chainId)) {
+                stores.accountStore.getAccount(mc.chainId).init();
               }
             }
           }
@@ -161,10 +155,8 @@ export const StoreProvider: FunctionComponent<PropsWithChildren> = ({
     const disposal8 = addGlobalEventListener(
       "keplr_ledger_app_connected",
       async () => {
-        for (const modularChainInfo of stores.chainStore.modularChainInfos) {
-          const account = stores.accountStore.getAccount(
-            modularChainInfo.chainId
-          );
+        for (const mc of stores.chainStore.modularChainInfos) {
+          const account = stores.accountStore.getAccount(mc.chainId);
           if (account.walletStatus === WalletStatus.Rejected) {
             account.init();
           }

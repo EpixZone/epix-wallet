@@ -72,7 +72,11 @@ export class TokenFactoryCurrencyRegistrar {
       return;
     }
 
-    if (!this.chainStore.hasChain(chainId)) {
+    if (!this.chainStore.hasModularChain(chainId)) {
+      return;
+    }
+    const mcInfo2 = this.chainStore.getModularChain(chainId);
+    if (mcInfo2.type !== "cosmos" && mcInfo2.type !== "ethermint") {
       return;
     }
 

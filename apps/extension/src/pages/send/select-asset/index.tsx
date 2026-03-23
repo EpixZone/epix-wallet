@@ -55,7 +55,7 @@ const searchFields = [
 ];
 
 export const SendSelectAssetPage: FunctionComponent = observer(() => {
-  const { hugeQueriesStore, swapQueriesStore, chainStore } = useStore();
+  const { hugeQueriesStore, swapQueriesStore } = useStore();
   const navigate = useNavigate();
   const intl = useIntl();
   const theme = useTheme();
@@ -99,11 +99,12 @@ export const SendSelectAssetPage: FunctionComponent = observer(() => {
   const _filteredTokens = useMemo(() => {
     if (paramIsIBCTransfer) {
       return searchedTokens.filter((token) => {
-        if (!("currencies" in token.chainInfo)) {
+        const u = token.chainInfo.unwrapped;
+        if (u.type !== "cosmos" && u.type !== "ethermint") {
           return false;
         }
 
-        return token.chainInfo.hasFeature("ibc-transfer");
+        return u.cosmos.features?.includes("ibc-transfer") ?? false;
       });
     }
 
@@ -246,15 +247,8 @@ export const SendSelectAssetPage: FunctionComponent = observer(() => {
         <Stack>
           {filteredTokens.length > 0 &&
             filteredTokens.map((viewToken) => {
-              const modularChainInfo = chainStore.getModularChain(
-                viewToken.chainInfo.chainId
-              );
-              const isStarknet =
-                "starknet" in modularChainInfo &&
-                modularChainInfo.starknet != null;
-              const isBitcoin =
-                "bitcoin" in modularChainInfo &&
-                modularChainInfo.bitcoin != null;
+              const isStarknet = viewToken.chainInfo.type === "starknet";
+              const isBitcoin = viewToken.chainInfo.type === "bitcoin";
 
               const sendRoute = isBitcoin
                 ? "/bitcoin/send"

@@ -72,11 +72,10 @@ export const useStarknetClaimRewards = () => {
 
     let STRK: ERC20Currency | undefined;
 
-    if ("starknet" in modularChainInfo) {
-      STRK = modularChainInfo.starknet.currencies.find(
-        (c) =>
-          c.coinMinimalDenom ===
-          `erc20:${modularChainInfo.starknet.strkContractAddress}`
+    const u = modularChainInfo.unwrapped;
+    if (u.type === "starknet") {
+      STRK = u.starknet.currencies.find(
+        (c) => c.coinMinimalDenom === `erc20:${u.starknet.strkContractAddress}`
       );
     }
 
@@ -260,11 +259,10 @@ export const useStarknetClaimRewards = () => {
 
     let STRK: ERC20Currency | undefined;
 
-    if ("starknet" in modularChainInfo) {
-      STRK = modularChainInfo.starknet.currencies.find(
-        (c) =>
-          c.coinMinimalDenom ===
-          `erc20:${modularChainInfo.starknet.strkContractAddress}`
+    const u2 = modularChainInfo.unwrapped;
+    if (u2.type === "starknet") {
+      STRK = u2.starknet.currencies.find(
+        (c) => c.coinMinimalDenom === `erc20:${u2.starknet.strkContractAddress}`
       );
     }
 

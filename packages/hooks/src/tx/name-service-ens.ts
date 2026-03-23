@@ -50,7 +50,7 @@ export class ENSNameService implements NameService {
     makeObservable(this);
 
     autorun(() => {
-      noop(this.base.chainInfo, this._ens, this.isEnabled, this.value);
+      noop(this.base.modularChainInfo, this._ens, this.isEnabled, this.value);
       // 위의 값에 변경이 있으면 새로고침
       this.fetch();
     });
@@ -67,11 +67,11 @@ export class ENSNameService implements NameService {
   }
 
   get isEnabled(): boolean {
-    if (
-      !this._ens ||
-      this.base.chainInfo.evm == null ||
-      this.base.chainInfo.bip44.coinType !== 60
-    ) {
+    const u = this.base.modularChainInfo.unwrapped;
+    if (!this._ens || (u.type !== "ethermint" && u.type !== "evm")) {
+      return false;
+    }
+    if (u.type === "ethermint" && u.cosmos.bip44.coinType !== 60) {
       return false;
     }
 
@@ -149,7 +149,7 @@ export class ENSNameService implements NameService {
         this._isFetching = true;
       });
 
-      if (!this.chainGetter.hasChain(this._ens.chainId)) {
+      if (!this.chainGetter.hasModularChain(this._ens.chainId)) {
         throw new Error(`Can't find chain: ${this._ens.chainId}`);
       }
 
@@ -157,9 +157,16 @@ export class ENSNameService implements NameService {
       const domain = this.value;
       const username = domain + "." + suffix;
 
-      const resolver = await new JsonRpcProvider(
-        this.chainGetter.getChain(this._ens.chainId).rpc
-      ).getResolver(username);
+      const ensU = this.chainGetter.getModularChain(
+        this._ens.chainId
+      ).unwrapped;
+      if (ensU.type !== "evm" && ensU.type !== "ethermint") {
+        throw new Error("ENS chain must be an EVM chain");
+      }
+
+      const resolver = await new JsonRpcProvider(ensU.evm.rpc).getResolver(
+        username
+      );
 
       if (!resolver) {
         throw new Error("Can't find resolver");

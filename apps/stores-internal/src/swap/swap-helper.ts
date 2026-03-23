@@ -1,4 +1,4 @@
-import { HasMapStore, IChainInfoImpl } from "@keplr-wallet/stores";
+import { HasMapStore } from "@keplr-wallet/stores";
 import { AppCurrency } from "@keplr-wallet/types";
 import { ObservableQuerySwappable } from "./swappable";
 import { ObservableQueryRelatedAssets } from "./related-assets";
@@ -211,7 +211,7 @@ export class ObservableQuerySwapHelper extends HasMapStore<ObservableQuerySwapHe
 
   getSwapDestinationCurrencyAlternativeChains = computedFn(
     (
-      chainInfo: IChainInfoImpl,
+      chainInfo: { chainId: string },
       currency: AppCurrency
     ): { denom: string; chainId: string }[] => {
       const alternativeCurrencies =

@@ -13,7 +13,6 @@ import { computedFn } from "mobx-utils";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { ChainsUIService } from "../chains-ui";
 import { ChainsService } from "../chains";
-import { ChainInfo } from "@keplr-wallet/types";
 import { VaultService } from "../vault";
 
 const DISABLED_VIEW_ASSET_TOKEN_MAP_KEY = "disabledViewAssetTokenMap";
@@ -99,10 +98,10 @@ export class ManageViewAssetTokenService {
     });
   };
 
-  protected readonly onChainRemoved = (chainInfo: ChainInfo) => {
+  protected readonly onChainRemoved = (chainId: string) => {
     //이상하긴 하지만 ChainsUIService과 비슷하게 처리 하도록 구현
     //해서 다른 vault에서 체인을 삭제하면 전체 vault에서 삭제됨
-    const chainIdentifier = ChainIdHelper.parse(chainInfo.chainId).identifier;
+    const chainIdentifier = ChainIdHelper.parse(chainId).identifier;
     const vaultIds = this.disabledViewAssetTokenMap.keys();
     runInAction(() => {
       for (const vaultId of vaultIds) {

@@ -18,8 +18,8 @@ import { H4, Subtitle3 } from "../../components/typography";
 import { usePageSimpleBar } from "../../hooks/page-simplebar";
 import {
   IAccountStore,
-  IChainInfoImpl,
   IChainStore,
+  IModularChainInfoImpl,
 } from "@keplr-wallet/stores";
 import { action, computed, makeObservable, observable } from "mobx";
 import { Bech32Address } from "@keplr-wallet/cosmos";
@@ -29,7 +29,7 @@ import { FormattedMessage } from "react-intl";
 // 그냥 대충 mobx로...
 class OtherHexAddresses {
   @observable.ref
-  protected supportedChainList: IChainInfoImpl[] = [];
+  protected supportedChainList: IModularChainInfoImpl[] = [];
 
   constructor(
     protected readonly chainStore: IChainStore,
@@ -40,7 +40,7 @@ class OtherHexAddresses {
   }
 
   @action
-  setSupportedChainList(chainInfos: IChainInfoImpl[]) {
+  setSupportedChainList(chainInfos: IModularChainInfoImpl[]) {
     this.supportedChainList = chainInfos;
   }
 
@@ -112,10 +112,10 @@ const HistoryPageInner: FunctionComponent = observer(() => {
       map.set(chainIdentifier, true);
     }
 
-    return chainStore.chainInfosInListUI.filter((chainInfo) => {
-      return map.get(chainInfo.chainIdentifier) ?? false;
+    return chainStore.modularChainInfosInListUI.filter((modularChainInfo) => {
+      return map.get(modularChainInfo.chainIdentifier) ?? false;
     });
-  }, [chainStore.chainInfosInListUI, querySupported.response?.data]);
+  }, [chainStore.modularChainInfosInListUI, querySupported.response?.data]);
 
   otherHexAddresses.setSupportedChainList(supportedChainList);
 
@@ -336,8 +336,10 @@ const HistoryPageInner: FunctionComponent = observer(() => {
                 if (!msg.denoms || msg.denoms.length === 0) {
                   throw new Error(`Invalid denoms: ${msg.denoms})`);
                 }
-                const chainInfo = chainStore.getChain(msg.chainId);
-                if (chainInfo.chainIdentifier === "dydx-mainnet") {
+                const modularChainInfo = chainStore.getModularChain(
+                  msg.chainId
+                );
+                if (modularChainInfo.chainIdentifier === "dydx-mainnet") {
                   // dydx는 USDC에 우선권을 줌
                   if (
                     msg.denoms.includes(
@@ -347,13 +349,14 @@ const HistoryPageInner: FunctionComponent = observer(() => {
                     return "ibc/8E27BA2D5493AF5636760E354E46004562C46AB7EC0CC4C1CA14E9E20E2545B5";
                   }
                 }
-                if (chainInfo.stakeCurrency) {
-                  if (
-                    msg.denoms.includes(
-                      chainInfo.stakeCurrency.coinMinimalDenom
-                    )
-                  ) {
-                    return chainInfo.stakeCurrency.coinMinimalDenom;
+                const u = modularChainInfo.unwrapped;
+                const stakeCurrency =
+                  u.type === "cosmos" || u.type === "ethermint"
+                    ? u.cosmos.stakeCurrency
+                    : undefined;
+                if (stakeCurrency) {
+                  if (msg.denoms.includes(stakeCurrency.coinMinimalDenom)) {
+                    return stakeCurrency.coinMinimalDenom;
                   }
                 }
                 return msg.denoms[0];

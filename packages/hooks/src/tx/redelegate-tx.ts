@@ -42,11 +42,19 @@ export const useRedelegateTxConfig = (
   amountConfig.setFeeConfig(feeConfig);
 
   const recipientConfig = useRecipientConfig(chainGetter, chainId);
-  const chainInfo = chainGetter.getChain(chainId);
-  if (chainInfo.bech32Config) {
-    recipientConfig.setBech32Prefix(chainInfo.bech32Config.bech32PrefixValAddr);
+  const mcInfo = chainGetter.getModularChain(chainId);
+  const u = mcInfo.unwrapped;
+  if (
+    (u.type === "cosmos" || u.type === "ethermint") &&
+    u.cosmos.bech32Config
+  ) {
+    recipientConfig.setBech32Prefix(u.cosmos.bech32Config.bech32PrefixValAddr);
   }
-  amountConfig.setCurrency(chainGetter.getChain(chainId).stakeCurrency);
+  amountConfig.setCurrency(
+    u.type === "cosmos" || u.type === "ethermint"
+      ? u.cosmos.stakeCurrency
+      : undefined
+  );
 
   return {
     amountConfig,

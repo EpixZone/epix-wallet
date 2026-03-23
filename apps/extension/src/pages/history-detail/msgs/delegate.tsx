@@ -19,7 +19,7 @@ export const HistoryDetailDelegate: FunctionComponent<{
 
   const theme = useTheme();
 
-  const chainInfo = chainStore.getChain(msg.chainId);
+  const chainInfo = chainStore.getModularChain(msg.chainId);
 
   const amountPretty = useMemo(() => {
     const currency = chainInfo.forceFindCurrency(targetDenom);

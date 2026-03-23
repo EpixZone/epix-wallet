@@ -1,4 +1,4 @@
-import { ObservableSimpleQuery } from "@keplr-wallet/stores/build/query/simple";
+import { ObservableSimpleQuery } from "@keplr-wallet/stores";
 
 const AVG_BTC_BLOCK_TIME_IN_SECONDS = 10 * 60; // 10 minutes per block
 

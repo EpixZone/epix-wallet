@@ -82,10 +82,10 @@ export const IBCTransferSelectDestinationModal: FunctionComponent<{
     const bridgeOrIBCList = bridgeInfos.concat(channels).sort((a, b) => {
       // Sort by chain name.
       return chainStore
-        .getChain(a.destinationChainId)
+        .getModularChain(a.destinationChainId)
         .chainName.trim()
         .localeCompare(
-          chainStore.getChain(b.destinationChainId).chainName.trim()
+          chainStore.getModularChain(b.destinationChainId).chainName.trim()
         );
     });
 
@@ -94,8 +94,8 @@ export const IBCTransferSelectDestinationModal: FunctionComponent<{
     const searchRef = useFocusOnMount<HTMLInputElement>();
 
     const filteredChannels = bridgeOrIBCList.filter((c) => {
-      const chainInfo = chainStore.getChain(c.destinationChainId);
-      return chainInfo.chainName
+      const modularChainInfo = chainStore.getModularChain(c.destinationChainId);
+      return modularChainInfo.chainName
         .trim()
         .toLowerCase()
         .includes(search.trim().toLowerCase());
@@ -177,13 +177,13 @@ export const IBCTransferSelectDestinationModal: FunctionComponent<{
                   bridgeOrChannel.originChainId
                 : false;
 
-              const chainInfo = chainStore.getChain(
+              const destChainInfo = chainStore.getModularChain(
                 bridgeOrChannel.destinationChainId
               );
 
               return (
                 <Box
-                  key={chainInfo.chainId}
+                  key={destChainInfo.chainId}
                   height="4.125rem"
                   alignY="center"
                   paddingX="1rem"
@@ -201,10 +201,11 @@ export const IBCTransferSelectDestinationModal: FunctionComponent<{
                     const isIBCChain = "channels" in bridgeOrChannel;
 
                     if (!isIBCChain) {
-                      const isEVMOnlyChain = chainStore.isEvmOnlyChain(
+                      const destModularChainInfo = chainStore.getModularChain(
                         bridgeOrChannel.destinationChainId
                       );
-                      const isEvmChain = chainStore.isEvmChain(chainId);
+                      const srcModularChainInfo =
+                        chainStore.getModularChain(chainId);
 
                       const sendingDenomHelper = new DenomHelper(
                         bridgeOrChannel.denom
@@ -212,7 +213,10 @@ export const IBCTransferSelectDestinationModal: FunctionComponent<{
                       const isERC20 = sendingDenomHelper.type === "erc20";
 
                       const isDestinationEvmAddress =
-                        isEVMOnlyChain || (isERC20 && isEvmChain);
+                        destModularChainInfo.type === "evm" ||
+                        (isERC20 &&
+                          (srcModularChainInfo.type === "evm" ||
+                            srcModularChainInfo.type === "ethermint"));
 
                       const account = accountStore.getAccount(
                         bridgeOrChannel.destinationChainId
@@ -224,7 +228,7 @@ export const IBCTransferSelectDestinationModal: FunctionComponent<{
 
                       setDestinationChainInfoOfBridge({
                         chainId: bridgeOrChannel.destinationChainId,
-                        currency: chainInfo.forceFindCurrency(
+                        currency: destModularChainInfo.forceFindCurrency(
                           bridgeOrChannel.denom
                         ),
                       });
@@ -273,7 +277,7 @@ export const IBCTransferSelectDestinationModal: FunctionComponent<{
                   }}
                 >
                   <XAxis alignY="center">
-                    <ChainImageFallback chainInfo={chainInfo} size="2rem" />
+                    <ChainImageFallback chainInfo={destChainInfo} size="2rem" />
                     <Gutter size="0.75rem" />
                     <YAxis>
                       <Subtitle2
@@ -283,7 +287,7 @@ export const IBCTransferSelectDestinationModal: FunctionComponent<{
                             : ColorPalette["gray-10"]
                         }
                       >
-                        {chainInfo.chainName}
+                        {destChainInfo.chainName}
                       </Subtitle2>
                       {isToOrigin ? (
                         <React.Fragment>

@@ -303,7 +303,7 @@ export class ObservableQueryRouteInner extends ObservableQuery<
     if (!this.response) {
       return new CoinPretty(
         this.chainGetter
-          .getChain(this.destChainId)
+          .getModularChain(this.destChainId)
           .forceFindCurrency(this.destDenom),
         "0"
       );
@@ -311,7 +311,7 @@ export class ObservableQueryRouteInner extends ObservableQuery<
 
     return new CoinPretty(
       this.chainGetter
-        .getChain(this.destChainId)
+        .getModularChain(this.destChainId)
         .forceFindCurrency(this.destDenom),
       this.response.data.amount_out
     );
@@ -330,12 +330,12 @@ export class ObservableQueryRouteInner extends ObservableQuery<
 
     return this.response.data.estimated_fees.map((fee) => {
       return new CoinPretty(
-        this.chainGetter.hasChain(fee.origin_asset.chain_id)
+        this.chainGetter.hasModularChain(fee.origin_asset.chain_id)
           ? this.chainGetter
-              .getChain(fee.origin_asset.chain_id)
+              .getModularChain(fee.origin_asset.chain_id)
               .forceFindCurrency(fee.origin_asset.denom)
           : this.chainGetter
-              .getChain(`eip155:${fee.origin_asset.chain_id}`)
+              .getModularChain(`eip155:${fee.origin_asset.chain_id}`)
               .forceFindCurrency(
                 (() => {
                   if (fee.origin_asset.denom.startsWith("0x")) {
@@ -356,7 +356,7 @@ export class ObservableQueryRouteInner extends ObservableQuery<
       return [
         new CoinPretty(
           this.chainGetter
-            .getChain(this.destChainId)
+            .getModularChain(this.destChainId)
             .forceFindCurrency(this.destDenom),
           "0"
         ),
@@ -392,7 +392,7 @@ export class ObservableQueryRouteInner extends ObservableQuery<
       const denom = split[3];
 
       return new CoinPretty(
-        this.chainGetter.getChain(venueChainId).forceFindCurrency(denom),
+        this.chainGetter.getModularChain(venueChainId).forceFindCurrency(denom),
         amount
       );
     });

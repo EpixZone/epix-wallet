@@ -8,7 +8,7 @@ import {
   ObservableChainQuery,
   ObservableChainQueryMap,
 } from "../../chain-query";
-import { ChainGetter } from "../../../chain";
+import { ChainGetter, requireCosmosInfo } from "../../../chain";
 
 export class ObservableQueryInitiaValidatorsInner extends ObservableChainQuery<InitiaValidators> {
   @observable.shallow
@@ -42,7 +42,10 @@ export class ObservableQueryInitiaValidatorsInner extends ObservableChainQuery<I
   }
 
   protected override canFetch(): boolean {
-    if (!this.chainGetter.getChain(this.chainId).stakeCurrency) {
+    if (
+      !requireCosmosInfo(this.chainGetter.getModularChain(this.chainId))
+        .stakeCurrency
+    ) {
       return false;
     }
     return super.canFetch();
@@ -54,7 +57,10 @@ export class ObservableQueryInitiaValidatorsInner extends ObservableChainQuery<I
       return [];
     }
 
-    const stakeCurrency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+    const stakeCurrency = cosmosInfo.stakeCurrency;
 
     if (!stakeCurrency) {
       return [];
@@ -148,8 +154,10 @@ export class ObservableQueryInitiaValidatorsInner extends ObservableChainQuery<I
         return;
       }
 
-      const chainInfo = this.chainGetter.getChain(this.chainId);
-      const stakeCurrency = chainInfo.stakeCurrency;
+      const cosmosInfo = requireCosmosInfo(
+        this.chainGetter.getModularChain(this.chainId)
+      );
+      const stakeCurrency = cosmosInfo.stakeCurrency;
 
       if (!stakeCurrency) {
         return;

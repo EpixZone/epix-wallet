@@ -52,13 +52,13 @@ export class StarknetAccountBase {
     constructorCalldata: RawArgs,
     addressSalt: string
   ) {
-    const modularChainInfo = this.chainGetter.getModularChain(this.chainId);
-    if (!("starknet" in modularChainInfo)) {
+    const u = this.chainGetter.getModularChain(this.chainId).unwrapped;
+    if (u.type !== "starknet") {
       throw new Error(`${this.chainId} is not starknet chain`);
     }
 
     const walletAccount = new StoreAccount(
-      modularChainInfo.starknet.rpc,
+      u.starknet.rpc,
       sender,
       this.chainId,
       this.getKeplr
@@ -84,13 +84,13 @@ export class StarknetAccountBase {
       onBroadcastFailed?: (e?: Error) => void;
     } = {}
   ) {
-    const modularChainInfo = this.chainGetter.getModularChain(this.chainId);
-    if (!("starknet" in modularChainInfo)) {
+    const u = this.chainGetter.getModularChain(this.chainId).unwrapped;
+    if (u.type !== "starknet") {
       throw new Error(`${this.chainId} is not starknet chain`);
     }
 
     const walletAccount = new StoreAccount(
-      modularChainInfo.starknet.rpc,
+      u.starknet.rpc,
       sender,
       this.chainId,
       this.getKeplr
@@ -120,13 +120,13 @@ export class StarknetAccountBase {
       signature: string[];
     }
   ) {
-    const modularChainInfo = this.chainGetter.getModularChain(this.chainId);
-    if (!("starknet" in modularChainInfo)) {
+    const u = this.chainGetter.getModularChain(this.chainId).unwrapped;
+    if (u.type !== "starknet") {
       throw new Error(`${this.chainId} is not starknet chain`);
     }
 
     const walletAccount = new StoreAccount(
-      modularChainInfo.starknet.rpc,
+      u.starknet.rpc,
       sender,
       this.chainId,
       this.getKeplr
@@ -149,13 +149,13 @@ export class StarknetAccountBase {
   }
 
   async estimateInvokeFee(sender: string, calls: Call[]) {
-    const modularChainInfo = this.chainGetter.getModularChain(this.chainId);
-    if (!("starknet" in modularChainInfo)) {
+    const u = this.chainGetter.getModularChain(this.chainId).unwrapped;
+    if (u.type !== "starknet") {
       throw new Error(`${this.chainId} is not starknet chain`);
     }
 
     const walletAccount = new StoreAccount(
-      modularChainInfo.starknet.rpc,
+      u.starknet.rpc,
       sender,
       this.chainId,
       this.getKeplr
@@ -211,13 +211,13 @@ export class StarknetAccountBase {
       signature: string[];
     }>
   ) {
-    const modularChainInfo = this.chainGetter.getModularChain(this.chainId);
-    if (!("starknet" in modularChainInfo)) {
+    const u = this.chainGetter.getModularChain(this.chainId).unwrapped;
+    if (u.type !== "starknet") {
       throw new Error(`${this.chainId} is not starknet chain`);
     }
 
     const walletAccount = new StoreAccount(
-      modularChainInfo.starknet.rpc,
+      u.starknet.rpc,
       sender,
       this.chainId,
       this.getKeplr
@@ -254,13 +254,13 @@ export class StarknetAccountBase {
   }
 
   async getNonce(sender: string): Promise<Int> {
-    const modularChainInfo = this.chainGetter.getModularChain(this.chainId);
-    if (!("starknet" in modularChainInfo)) {
+    const u = this.chainGetter.getModularChain(this.chainId).unwrapped;
+    if (u.type !== "starknet") {
       throw new Error(`${this.chainId} is not starknet chain`);
     }
 
     const walletAccount = new StoreAccount(
-      modularChainInfo.starknet.rpc,
+      u.starknet.rpc,
       sender,
       this.chainId,
       this.getKeplr

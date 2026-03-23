@@ -31,9 +31,9 @@ export const SelectDerivationPathModal: FunctionComponent<{
   const [currentIndex, setCurrentIndex] = useState(0);
   const chainId = chainIds[currentIndex];
 
-  const chainInfo =
-    chainId && chainStore.hasChain(chainId)
-      ? chainStore.getChain(chainId)
+  const mcInfo2 =
+    chainId && chainStore.hasModularChain(chainId)
+      ? chainStore.getModularChain(chainId)
       : undefined;
 
   const goToNext = () => {
@@ -55,7 +55,7 @@ export const SelectDerivationPathModal: FunctionComponent<{
   useEffect(() => {
     setSelectedCoinType(-1);
 
-    if (!isOpen || !chainId || !chainInfo) {
+    if (!isOpen || !chainId || !mcInfo2) {
       return;
     }
 
@@ -70,7 +70,7 @@ export const SelectDerivationPathModal: FunctionComponent<{
 
         if (res.length === 1) {
           const [single] = res;
-          if (keyRingStore.needKeyCoinTypeFinalize(vaultId, chainInfo)) {
+          if (keyRingStore.needKeyCoinTypeFinalize(vaultId, chainId)) {
             await keyRingStore.finalizeKeyCoinType(
               vaultId,
               chainId,
@@ -102,11 +102,20 @@ export const SelectDerivationPathModal: FunctionComponent<{
     }
   }, [isOpen]);
 
-  if (!chainId || !chainInfo) {
+  if (!chainId || !mcInfo2) {
     return null;
   }
 
-  const currency = chainInfo.stakeCurrency || chainInfo.currencies[0];
+  const currency = (() => {
+    const u = mcInfo2.unwrapped;
+    if (u.type === "cosmos" || u.type === "ethermint") {
+      return u.cosmos.stakeCurrency || u.cosmos.currencies[0];
+    }
+    if (u.type === "evm") return u.evm.nativeCurrency;
+    throw new Error(
+      `Unexpected chain type "${u.type}" for SelectDerivationPathModal (${mcInfo2.chainId})`
+    );
+  })();
 
   return (
     <Modal isOpen={isOpen} align="bottom" close={close} maxHeight="95vh">
@@ -188,7 +197,7 @@ export const SelectDerivationPathModal: FunctionComponent<{
                 }
                 style={{ fontWeight: 500 }}
               >
-                {chainInfo.chainName}
+                {mcInfo2.chainName}
               </Subtitle3>
               <Body2
                 color={
@@ -225,7 +234,7 @@ export const SelectDerivationPathModal: FunctionComponent<{
               })}
               size="large"
               disabled={
-                !keyRingStore.needKeyCoinTypeFinalize(vaultId, chainInfo) ||
+                !keyRingStore.needKeyCoinTypeFinalize(vaultId, chainId) ||
                 selectedCoinType < 0
               }
               onClick={async () => {

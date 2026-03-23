@@ -1,6 +1,12 @@
 import { action, computed, flow, makeObservable, observable } from "mobx";
-import { AppCurrency, Keplr, SupportedPaymentType } from "@keplr-wallet/types";
-import { ChainGetter } from "../chain";
+import {
+  AppCurrency,
+  ChainInfo,
+  Keplr,
+  SupportedPaymentType,
+  isEthSignChain,
+} from "@keplr-wallet/types";
+import { ChainGetter, modularChainInfoToChainInfo } from "../chain";
 import { DenomHelper, toGenerator } from "@keplr-wallet/common";
 import { MakeTxResponse } from "./types";
 import { AccountSharedContext } from "./context";
@@ -22,7 +28,7 @@ export interface AccountSetOpts {
   readonly suggestChain: boolean;
   readonly suggestChainFn?: (
     keplr: Keplr,
-    chainInfo: ReturnType<ChainGetter["getChain"]>
+    chainInfo: ChainInfo
   ) => Promise<void>;
   readonly autoInit: boolean;
 }
@@ -107,9 +113,9 @@ export class AccountSetBase {
   }
 
   protected async enable(chainId: string): Promise<void> {
-    const modularChainInfo = this.chainGetter.getModularChain(chainId);
+    const mcInfo2 = this.chainGetter.getModularChain(chainId);
 
-    if ("cosmos" in modularChainInfo) {
+    if (mcInfo2.type === "cosmos" || mcInfo2.type === "ethermint") {
       if (this.opts.suggestChain) {
         const keplr = await this.sharedContext.getKeplr();
         if (this.opts.suggestChainFn) {
@@ -117,7 +123,9 @@ export class AccountSetBase {
             if (keplr && this.opts.suggestChainFn) {
               await this.opts.suggestChainFn(
                 keplr,
-                this.chainGetter.getChain(chainId)
+                modularChainInfoToChainInfo(
+                  this.chainGetter.getModularChain(chainId).embedded
+                )
               );
             }
           });
@@ -125,7 +133,9 @@ export class AccountSetBase {
           await this.sharedContext.suggestChain(async () => {
             if (keplr) {
               await keplr.experimentalSuggestChain(
-                this.chainGetter.getChain(chainId).embedded
+                modularChainInfoToChainInfo(
+                  this.chainGetter.getModularChain(chainId).embedded
+                )
               );
             }
           });
@@ -175,9 +185,9 @@ export class AccountSetBase {
     }
 
     const isStarknet =
-      "starknet" in this.chainGetter.getModularChain(this.chainId);
+      this.chainGetter.getModularChain(this.chainId).type === "starknet";
     const isBitcoin =
-      "bitcoin" in this.chainGetter.getModularChain(this.chainId);
+      this.chainGetter.getModularChain(this.chainId).type === "bitcoin";
 
     yield this.sharedContext.getKeyMixed(
       this.chainId,
@@ -348,13 +358,8 @@ export class AccountSetBase {
   }
 
   get hasEthereumHexAddress(): boolean {
-    const chainInfo = this.chainGetter.getChain(this.chainId);
-    return (
-      chainInfo.evm != null ||
-      chainInfo.bip44.coinType === 60 ||
-      !!chainInfo.features?.includes("eth-address-gen") ||
-      !!chainInfo.features?.includes("eth-key-sign")
-    );
+    const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
+    return isEthSignChain(mcInfo2.unwrapped);
   }
 
   get ethereumHexAddress(): string {

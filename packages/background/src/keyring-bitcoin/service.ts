@@ -140,7 +140,7 @@ export class KeyRingBitcoinService {
     derivationPath?: string;
   }> {
     const chainInfo = this.chainsService.getModularChainInfoOrThrow(chainId);
-    if (!("bitcoin" in chainInfo)) {
+    if (chainInfo.type !== "bitcoin") {
       throw new KeplrError("keyring", 221, "Chain is not a bitcoin chain");
     }
 
@@ -500,7 +500,7 @@ export class KeyRingBitcoinService {
 
   private getNetworkConfig(chainId: string) {
     const chainInfo = this.chainsService.getModularChainInfoOrThrow(chainId);
-    if (!("bitcoin" in chainInfo)) {
+    if (chainInfo.type !== "bitcoin") {
       throw new KeplrError("keyring", 221, "Chain is not a bitcoin chain");
     }
 

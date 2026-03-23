@@ -5,7 +5,7 @@ import {
   CosmosQueries,
   BabylonQueries,
 } from "../query";
-import { ChainGetter } from "../chain";
+import { ChainGetter, requireCosmosInfo } from "../chain";
 import { DeepReadonly } from "utility-types";
 import { CosmosAccount } from "./cosmos";
 import { Dec, DecUtils } from "@keplr-wallet/unit";
@@ -53,12 +53,16 @@ export class BabylonAccountImpl {
   ) {}
 
   makeDelegateTx(amount: string, validatorAddress: string) {
-    Bech32Address.validate(
-      validatorAddress,
-      this.chainGetter.getChain(this.chainId).bech32Config?.bech32PrefixValAddr
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
     );
 
-    const currency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    Bech32Address.validate(
+      validatorAddress,
+      cosmosInfo.bech32Config?.bech32PrefixValAddr
+    );
+
+    const currency = cosmosInfo.stakeCurrency;
 
     if (!currency) {
       throw new Error("Stake currency is null");
@@ -108,12 +112,16 @@ export class BabylonAccountImpl {
   }
 
   makeUndelegateTx(amount: string, validatorAddress: string) {
-    Bech32Address.validate(
-      validatorAddress,
-      this.chainGetter.getChain(this.chainId).bech32Config?.bech32PrefixValAddr
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
     );
 
-    const currency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    Bech32Address.validate(
+      validatorAddress,
+      cosmosInfo.bech32Config?.bech32PrefixValAddr
+    );
+
+    const currency = cosmosInfo.stakeCurrency;
 
     if (!currency) {
       throw new Error("Stake currency is null");
@@ -167,16 +175,20 @@ export class BabylonAccountImpl {
     srcValidatorAddress: string,
     dstValidatorAddress: string
   ) {
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+
     Bech32Address.validate(
       srcValidatorAddress,
-      this.chainGetter.getChain(this.chainId).bech32Config?.bech32PrefixValAddr
+      cosmosInfo.bech32Config?.bech32PrefixValAddr
     );
     Bech32Address.validate(
       dstValidatorAddress,
-      this.chainGetter.getChain(this.chainId).bech32Config?.bech32PrefixValAddr
+      cosmosInfo.bech32Config?.bech32PrefixValAddr
     );
 
-    const currency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    const currency = cosmosInfo.stakeCurrency;
 
     if (!currency) {
       throw new Error("Stake currency is null");

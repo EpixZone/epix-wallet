@@ -1,7 +1,6 @@
 import { Env, KeplrError } from "@keplr-wallet/router";
 import {
   AppCurrency,
-  ChainInfo,
   CW20Currency,
   Secret20Currency,
 } from "@keplr-wallet/types";
@@ -125,8 +124,8 @@ export class TokenCW20Service {
     this.chainsService.addChainRemovedHandler(this.onChainRemoved);
   }
 
-  protected readonly onChainRemoved = (chainInfo: ChainInfo) => {
-    const chainIdentifier = ChainIdHelper.parse(chainInfo.chainId).identifier;
+  protected readonly onChainRemoved = (chainId: string) => {
+    const chainIdentifier = ChainIdHelper.parse(chainId).identifier;
     runInAction(() => {
       this.tokenMap.delete(chainIdentifier);
     });
@@ -194,14 +193,8 @@ export class TokenCW20Service {
     }
   }
 
-  protected validateChainInfoFeatures(chainInfo: ChainInfo) {
-    if (
-      !chainInfo.features ||
-      !(
-        chainInfo.features.includes("cosmwasm") ||
-        chainInfo.features.includes("secretwasm")
-      )
-    ) {
+  protected validateCosmosFeatures(features: string[] | undefined) {
+    if (!features?.includes("cosmwasm") && !features?.includes("secretwasm")) {
       throw new Error("The chain doesn't support cosmwasm");
     }
   }
@@ -215,8 +208,16 @@ export class TokenCW20Service {
     viewingKey?: string
   ) {
     this.validateAssociatedAccountAddress(associatedAccountAddress);
-    const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
-    this.validateChainInfoFeatures(chainInfo);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    if (
+      modularChainInfo.type !== "cosmos" &&
+      modularChainInfo.type !== "ethermint"
+    ) {
+      throw new Error("The chain doesn't support cosmwasm");
+    }
+    const cosmosInfo = modularChainInfo.cosmos;
+    this.validateCosmosFeatures(cosmosInfo.features);
 
     const existing = this.getToken(
       chainId,
@@ -251,7 +252,7 @@ export class TokenCW20Service {
     // Validate the contract address.
     Bech32Address.validate(
       contractAddress,
-      chainInfo.bech32Config?.bech32PrefixAccAddr
+      cosmosInfo.bech32Config?.bech32PrefixAccAddr
     );
 
     const params = {
@@ -305,8 +306,16 @@ export class TokenCW20Service {
     associatedAccountAddress: string
   ): Promise<void> {
     this.validateAssociatedAccountAddress(associatedAccountAddress);
-    const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
-    this.validateChainInfoFeatures(chainInfo);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    if (
+      modularChainInfo.type !== "cosmos" &&
+      modularChainInfo.type !== "ethermint"
+    ) {
+      throw new Error("The chain doesn't support cosmwasm");
+    }
+    const cosmosInfo = modularChainInfo.cosmos;
+    this.validateCosmosFeatures(cosmosInfo.features);
     const chainIdentifier = ChainIdHelper.parse(chainId).identifier;
 
     if (!this.tokenMap.has(chainIdentifier)) {
@@ -317,7 +326,10 @@ export class TokenCW20Service {
 
     const tokens = this.tokenMap.get(chainIdentifier)!;
 
-    currency = await TokenCW20Service.validateCurrency(chainInfo, currency);
+    currency = await TokenCW20Service.validateCurrency(
+      cosmosInfo.bech32Config?.bech32PrefixAccAddr,
+      currency
+    );
 
     if (
       !("type" in currency) ||
@@ -422,7 +434,7 @@ export class TokenCW20Service {
   }
 
   static async validateCurrency(
-    chainInfo: ChainInfo,
+    bech32Prefix: string | undefined,
     currency: AppCurrency
   ): Promise<AppCurrency> {
     // Validate the schema.
@@ -430,13 +442,13 @@ export class TokenCW20Service {
       switch (currency.type) {
         case "cw20":
           currency = await TokenCW20Service.validateCW20Currency(
-            chainInfo,
+            bech32Prefix,
             currency
           );
           break;
         case "secret20":
           currency = await TokenCW20Service.validateSecret20Currency(
-            chainInfo,
+            bech32Prefix,
             currency
           );
           break;
@@ -451,33 +463,27 @@ export class TokenCW20Service {
   }
 
   static async validateCW20Currency(
-    chainInfo: ChainInfo,
+    bech32Prefix: string | undefined,
     currency: CW20Currency
   ): Promise<CW20Currency> {
     // Validate the schema.
     currency = await CW20CurrencySchema.validateAsync(currency);
 
     // Validate the contract address.
-    Bech32Address.validate(
-      currency.contractAddress,
-      chainInfo.bech32Config?.bech32PrefixAccAddr
-    );
+    Bech32Address.validate(currency.contractAddress, bech32Prefix);
 
     return currency;
   }
 
   static async validateSecret20Currency(
-    chainInfo: ChainInfo,
+    bech32Prefix: string | undefined,
     currency: Secret20Currency
   ): Promise<Secret20Currency> {
     // Validate the schema.
     currency = await Secret20CurrencySchema.validateAsync(currency);
 
     // Validate the contract address.
-    Bech32Address.validate(
-      currency.contractAddress,
-      chainInfo.bech32Config?.bech32PrefixAccAddr
-    );
+    Bech32Address.validate(currency.contractAddress, bech32Prefix);
 
     return currency;
   }

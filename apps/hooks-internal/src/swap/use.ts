@@ -11,14 +11,21 @@ import {
   useMemoConfig,
   useSenderConfig,
 } from "@keplr-wallet/hooks";
+import {
+  useFeeConfig as useEVMFeeConfig,
+  useSenderConfig as useEvmSenderConfig,
+} from "@keplr-wallet/hooks-evm";
 import { useSwapAmountConfig } from "./amount";
 import { SwapQueries } from "@keplr-wallet/stores-internal";
 import { AppCurrency } from "@keplr-wallet/types";
-import { EthereumAccountStore } from "@keplr-wallet/stores-eth";
+import {
+  EthereumAccountStore,
+  EthereumQueries,
+} from "@keplr-wallet/stores-eth";
 
 export const useSwapConfig = (
   chainGetter: ChainGetter,
-  queriesStore: IQueriesStore,
+  queriesStore: IQueriesStore<EthereumQueries>,
   accountStore: IAccountStoreWithInjects<[CosmosAccount, CosmwasmAccount]>,
   ethereumAccountStore: EthereumAccountStore,
   swapQueries: SwapQueries,
@@ -30,9 +37,11 @@ export const useSwapConfig = (
   disableSubFeeFromFaction: boolean,
   swapFeeBps: number,
   getSlippageTolerancePercent: () => number,
+  isEvmTx?: boolean,
   allowSwaps?: boolean
 ) => {
   const senderConfig = useSenderConfig(chainGetter, chainId, sender);
+  const evmSenderConfig = useEvmSenderConfig(chainGetter, chainId, sender);
   const amountConfig = useSwapAmountConfig(
     chainGetter,
     queriesStore,
@@ -60,13 +69,22 @@ export const useSwapConfig = (
     gasConfig
   );
 
-  amountConfig.setFeeConfig(feeConfig);
+  const evmFeeConfig = useEVMFeeConfig(
+    chainGetter,
+    queriesStore,
+    chainId,
+    evmSenderConfig,
+    amountConfig,
+    gasConfig
+  );
+
+  amountConfig.setFeeConfig(isEvmTx ? evmFeeConfig : feeConfig);
 
   return {
     amountConfig,
     memoConfig,
     gasConfig,
-    feeConfig,
+    feeConfig: isEvmTx ? evmFeeConfig : feeConfig,
     senderConfig,
   };
 };

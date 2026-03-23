@@ -32,10 +32,11 @@ import { InteractionService } from "../interaction";
 import { Env } from "@keplr-wallet/router";
 import { SuggestChainInfoMsg } from "./messages";
 import { ChainInfoWithCoreTypes, ChainInfoWithSuggestedOptions } from "./types";
+import { convertChainInfoToModularChainInfo } from "./convert";
 import { AnalyticsService } from "../analytics";
 import { runIfOnlyAppStart } from "../utils";
 
-type ChainRemovedHandler = (chainInfo: ChainInfo) => void;
+type ChainRemovedHandler = (chainId: string) => void;
 type ChainSuggestedHandler = (
   chainInfo: ChainInfo,
   options?: Record<string, any>
@@ -104,31 +105,15 @@ export class ChainsService {
   ) {
     this.modularChainInfos = embedModularChainInfos.map((modularChainInfo) => {
       if ("currencies" in modularChainInfo) {
-        return {
-          chainId: modularChainInfo.chainId,
-          chainName: modularChainInfo.chainName,
-          chainSymbolImageUrl: modularChainInfo.chainSymbolImageUrl,
-          cosmos: modularChainInfo,
-        };
+        return convertChainInfoToModularChainInfo(modularChainInfo);
       }
+      // Already ModularChainInfo
       return modularChainInfo;
     });
-    this.embedChainInfos = embedModularChainInfos
-      .filter(
-        (modularChainInfo) =>
-          "currencies" in modularChainInfo || "cosmos" in modularChainInfo
-      )
-      .map((modularChainInfo) => {
-        if ("currencies" in modularChainInfo) {
-          return modularChainInfo;
-        }
-        if (!("cosmos" in modularChainInfo)) {
-          throw new Error("Can't be happen");
-        }
-        return {
-          ...modularChainInfo.cosmos,
-        };
-      });
+    this.embedChainInfos = embedModularChainInfos.filter(
+      (modularChainInfo): modularChainInfo is ChainInfoWithCoreTypes =>
+        "currencies" in modularChainInfo
+    );
 
     this.updatedChainInfoKVStore = new PrefixKVStore(
       kvStore,
@@ -941,7 +926,7 @@ export class ChainsService {
         this.suggestedChainInfos
       );
       const starknetChainInfos = this.modularChainInfos.reduce((acc, cur) => {
-        if ("starknet" in cur) {
+        if (cur.type === "starknet") {
           acc.push(cur.starknet);
         }
         return acc;
@@ -1150,31 +1135,31 @@ export class ChainsService {
   protected mergeModularChainInfosWithDynamics(
     modularChainInfos: ModularChainInfo[]
   ): ModularChainInfo[] {
-    return modularChainInfos.map((modularChainInfo) => {
-      if (this.hasChainInfo(modularChainInfo.chainId)) {
-        const cosmos = this.getChainInfoOrThrow(modularChainInfo.chainId);
+    return modularChainInfos.map((m) => {
+      if (
+        (m.type === "cosmos" || m.type === "ethermint" || m.type === "evm") &&
+        this.hasChainInfo(m.chainId)
+      ) {
+        const merged = this.getChainInfoOrThrow(m.chainId);
         return {
-          chainId: cosmos.chainId,
-          chainName: cosmos.chainName,
-          chainSymbolImageUrl: cosmos.chainSymbolImageUrl,
-          isTestnet: cosmos.isTestnet,
-          cosmos: this.mergeChainInfosWithDynamics([cosmos])[0],
+          ...m,
+          ...convertChainInfoToModularChainInfo(merged),
         };
       }
 
-      if ("starknet" in modularChainInfo) {
-        const endpoint = this.getEndpoint(modularChainInfo.chainId);
+      if (m.type === "starknet") {
+        const endpoint = this.getEndpoint(m.chainId);
         return {
-          ...modularChainInfo,
+          ...m,
           starknet: {
-            ...modularChainInfo.starknet,
-            rpc: endpoint?.rpc || modularChainInfo.starknet.rpc,
+            ...m.starknet,
+            rpc: endpoint?.rpc || m.starknet.rpc,
           },
         };
       }
 
       // TODO: 나머지 모듈러 체인 정보들에 대해서도 적용하기
-      return modularChainInfo;
+      return m;
     });
   }
 
@@ -1229,7 +1214,7 @@ export class ChainsService {
     }
 
     for (const handler of this.onChainRemovedHandlers) {
-      handler(updated);
+      handler(updated.chainId);
     }
   }
 
@@ -1237,7 +1222,7 @@ export class ChainsService {
     this.onChainRemovedHandlers.push(handler);
   }
 
-  addChainSuggestedHandler(handler: ChainRemovedHandler) {
+  addChainSuggestedHandler(handler: ChainSuggestedHandler) {
     this.onChainSuggestedHandlers.push(handler);
   }
 
@@ -1251,28 +1236,24 @@ export class ChainsService {
   }
 
   getEVMInfoOrThrow(chainId: string): EVMInfo {
-    const chainInfo = this.getChainInfoOrThrow(chainId);
-    if (chainInfo.evm === undefined) {
+    const modularChainInfo = this.getModularChainInfoOrThrow(chainId);
+    if (
+      modularChainInfo.type !== "evm" &&
+      modularChainInfo.type !== "ethermint"
+    ) {
       throw new Error(`There is no EVM info for ${chainId}`);
     }
 
-    return chainInfo.evm;
+    return modularChainInfo.evm;
   }
 
   getModularChainInfos = computedFn(
     (): ModularChainInfo[] => {
       return this.mergeModularChainInfosWithDynamics(
-        this.modularChainInfos.slice()
+        this.modularChainInfos.map((m) => ({ ...m, isBuiltInChain: true }))
       ).concat(
         this.mergeChainInfosWithDynamics(this.suggestedChainInfos).map(
-          (chainInfo) => {
-            return {
-              chainId: chainInfo.chainId,
-              chainName: chainInfo.chainName,
-              chainSymbolImageUrl: chainInfo.chainSymbolImageUrl,
-              cosmos: chainInfo,
-            };
-          }
+          (chainInfo) => convertChainInfoToModularChainInfo(chainInfo)
         )
       );
     },
@@ -1283,8 +1264,8 @@ export class ChainsService {
 
   hasModularChainInfo = computedFn((chainId: string): boolean => {
     return this.getModularChainInfos().some(
-      (modularChainInfo) =>
-        ChainIdHelper.parse(modularChainInfo.chainId).identifier ===
+      (m) =>
+        ChainIdHelper.parse(m.chainId).identifier ===
         ChainIdHelper.parse(chainId).identifier
     );
   });
@@ -1292,12 +1273,20 @@ export class ChainsService {
   getModularChainInfo = computedFn(
     (chainId: string): ModularChainInfo | undefined => {
       return this.getModularChainInfos().find(
-        (modularChainInfo) =>
-          ChainIdHelper.parse(modularChainInfo.chainId).identifier ===
+        (m) =>
+          ChainIdHelper.parse(m.chainId).identifier ===
           ChainIdHelper.parse(chainId).identifier
       );
     }
   );
+
+  getModularChainInfoOrThrow(chainId: string): ModularChainInfo {
+    const m = this.getModularChainInfo(chainId);
+    if (!m) {
+      throw new Error(`There is no modular chain info for ${chainId}`);
+    }
+    return m;
+  }
 
   getModularChainInfoWithLinkedChainKey = computedFn(
     (chainId: string): ModularChainInfo[] => {
@@ -1305,23 +1294,19 @@ export class ChainsService {
 
       let linkedChainKey: string | undefined;
       if (this.hasModularChainInfo(chainId)) {
-        const modularChainInfo = this.getModularChainInfoOrThrow(chainId);
-        if ("linkedChainKey" in modularChainInfo) {
-          linkedChainKey = modularChainInfo.linkedChainKey;
-        }
-        res.push(modularChainInfo);
+        const m = this.getModularChainInfoOrThrow(chainId);
+        linkedChainKey = m.linkedChainKey;
+        res.push(m);
       }
 
       if (linkedChainKey) {
         const chainIdentifier = ChainIdHelper.parse(chainId).identifier;
-        for (const modularChainInfo of this.modularChainInfos) {
+        for (const m of this.getModularChainInfos()) {
           if (
-            ChainIdHelper.parse(modularChainInfo.chainId).identifier !==
-              chainIdentifier &&
-            "linkedChainKey" in modularChainInfo &&
-            modularChainInfo.linkedChainKey === linkedChainKey
+            ChainIdHelper.parse(m.chainId).identifier !== chainIdentifier &&
+            m.linkedChainKey === linkedChainKey
           ) {
-            res.push(modularChainInfo);
+            res.push(m);
           }
         }
       }
@@ -1330,30 +1315,21 @@ export class ChainsService {
     }
   );
 
-  getModularChainInfoOrThrow(chainId: string): ModularChainInfo {
-    const modularChainInfo = this.getModularChainInfo(chainId);
-    if (!modularChainInfo) {
-      throw new Error(`There is no modular chain info for ${chainId}`);
-    }
-
-    return modularChainInfo;
-  }
-
   hasStarknetChainInfo(chainId: string): boolean {
-    const modularChainInfo = this.getModularChainInfo(chainId);
-    if (!modularChainInfo) {
+    const m = this.getModularChainInfo(chainId);
+    if (!m) {
       return false;
     }
-    return "starknet" in modularChainInfo;
+    return m.type === "starknet";
   }
 
   getStarknetChainInfo(chainId: string): StarknetChainInfo | undefined {
-    const modularChainInfo = this.getModularChainInfo(chainId);
-    if (!modularChainInfo) {
+    const m = this.getModularChainInfo(chainId);
+    if (!m) {
       return undefined;
     }
-    if ("starknet" in modularChainInfo) {
-      return modularChainInfo.starknet;
+    if (m.type === "starknet") {
+      return m.starknet;
     }
   }
 
@@ -1362,7 +1338,6 @@ export class ChainsService {
     if (!starknetChainInfo) {
       throw new Error(`There is no starknet chain info for ${chainId}`);
     }
-
     return starknetChainInfo;
   }
 
@@ -1372,14 +1347,14 @@ export class ChainsService {
     const directMatch = modularChainInfos.find(
       (info) => info.chainId === chainId
     );
-    if (directMatch && "bitcoin" in directMatch) {
+    if (directMatch && directMatch.type === "bitcoin") {
       return directMatch.bitcoin;
     }
 
     const baseChainMatch = modularChainInfos.find(
-      (info) => "bitcoin" in info && info.bitcoin.chainId === chainId
+      (info) => info.type === "bitcoin" && info.bitcoin.chainId === chainId
     );
-    if (baseChainMatch && "bitcoin" in baseChainMatch) {
+    if (baseChainMatch && baseChainMatch.type === "bitcoin") {
       return baseChainMatch.bitcoin;
     }
   }
@@ -1389,16 +1364,9 @@ export class ChainsService {
     if (!bitcoinChainInfo) {
       throw new Error(`There is no bitcoin chain info for ${chainId}`);
     }
-
     return bitcoinChainInfo;
   }
 
-  /**
-   * 여러 주소 체계가 존재하는 체인의 경우, chainId에서 주소 체계를 제외한 공통된 부분을 사용하여 하나의 체인으로 취급해야 한다.
-   * 예를 들어, Bitcoin의 경우 `bip122:123456:taproot`와 `bip122:123456:native-segwit`를 사용해
-   * 각 주소 체계를 구분하고 있지만, 공통된 `bip122:123456`을 사용하여 하나의 체인으로 취급되어야 한다.
-   * TODO: 비트 코인 외에도 여러 주소 체계가 존재하는 체인이 추가될 경우, 이 메서드의 부분적인 수정이 필요하다.
-   */
   getBaseChainId(chainId: string): string | undefined {
     chainId = ChainIdHelper.parse(chainId).identifier;
 
@@ -1408,14 +1376,14 @@ export class ChainsService {
       (info) => ChainIdHelper.parse(info.chainId).identifier === chainId
     );
     if (directMatch) {
-      if ("bitcoin" in directMatch) {
+      if (directMatch.type === "bitcoin") {
         return directMatch.bitcoin.chainId;
       }
       return chainId;
     }
 
     const baseChainMatch = modularChainInfos.find(
-      (info) => "bitcoin" in info && info.bitcoin.chainId === chainId
+      (info) => info.type === "bitcoin" && info.bitcoin.chainId === chainId
     );
     if (baseChainMatch) {
       return chainId;
@@ -1429,7 +1397,6 @@ export class ChainsService {
     if (!baseChainId) {
       throw new Error(`There is no modular chain info for ${chainId}`);
     }
-
     return baseChainId;
   }
 }

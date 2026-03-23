@@ -78,7 +78,7 @@ export class ObservableQueryThirdpartyERC20BalancesImplParent extends Observable
   ) {
     super.onReceiveResponse(response);
 
-    const chainInfo = this.chainGetter.getChain(this.chainId);
+    const mcInfo = this.chainGetter.getModularChain(this.chainId);
     const erc20Denoms = response.data.tokenBalances
       .filter(
         (tokenBalance) =>
@@ -87,7 +87,7 @@ export class ObservableQueryThirdpartyERC20BalancesImplParent extends Observable
       )
       .map((tokenBalance) => `erc20:${tokenBalance.contractAddress}`);
     if (erc20Denoms) {
-      chainInfo.addUnknownDenoms(...erc20Denoms);
+      mcInfo.addUnknownDenoms(...erc20Denoms);
     }
   }
 }
@@ -128,8 +128,9 @@ export class ObservableQueryThirdpartyERC20BalancesImpl
   get currency(): AppCurrency {
     const denom = this.denomHelper.denom;
 
-    const chainInfo = this.chainGetter.getChain(this.chainId);
-    return chainInfo.forceFindCurrency(denom);
+    return this.chainGetter
+      .getModularChain(this.chainId)
+      .forceFindCurrency(denom);
   }
 
   get error(): Readonly<QueryError<unknown>> | undefined {
@@ -216,14 +217,14 @@ export class ObservableQueryThirdpartyERC20BalanceRegistry
     minimalDenom: string
   ): ObservableQueryThirdpartyERC20BalancesImpl | undefined {
     const denomHelper = new DenomHelper(minimalDenom);
-    const chainInfo = chainGetter.getChain(chainId);
+    const mcInfo = chainGetter.getModularChain(chainId);
     const isHexAddress =
       EthereumAccountBase.isEthereumHexAddressWithChecksum(address);
     if (
       !Object.keys(thirdparySupportedChainIdMap).includes(chainId) ||
       denomHelper.type !== "erc20" ||
       !isHexAddress ||
-      !chainInfo.evm ||
+      (mcInfo.type !== "evm" && mcInfo.type !== "ethermint") ||
       this.forceNativeERC20Query(chainId, chainGetter, address, minimalDenom)
     ) {
       return;

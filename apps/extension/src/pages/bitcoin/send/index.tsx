@@ -88,7 +88,7 @@ export const BitcoinSendPage: FunctionComponent = observer(() => {
       let r = "";
 
       for (const modularChainInfo of chainStore.modularChainInfosInUI) {
-        if ("bitcoin" in modularChainInfo) {
+        if (modularChainInfo.type === "bitcoin") {
           r = modularChainInfo.chainId;
           break;
         }
@@ -101,18 +101,21 @@ export const BitcoinSendPage: FunctionComponent = observer(() => {
     })();
   const { currentNetwork } = useBitcoinNetworkConfig(chainId);
   const modularChainInfo = chainStore.getModularChain(chainId);
-  if (!("bitcoin" in modularChainInfo)) {
+  if (modularChainInfo.type !== "bitcoin") {
     throw new Error(`${modularChainInfo.chainId} is not bitcoin chain`);
   }
-  const bitcoin = modularChainInfo.bitcoin;
+  const uBtc = modularChainInfo.unwrapped;
+  if (uBtc.type !== "bitcoin") {
+    throw new Error(`${modularChainInfo.chainId} is not bitcoin chain`);
+  }
+  const bitcoin = uBtc.bitcoin;
 
   const coinMinimalDenom =
     initialCoinMinimalDenom || bitcoin.currencies[0].coinMinimalDenom;
   const currency = (() => {
-    const res = chainStore
-      .getModularChainInfoImpl(chainId)
-      .getCurrencies("bitcoin")
-      .find((cur) => cur.coinMinimalDenom === coinMinimalDenom);
+    const res = modularChainInfo.currencies.find(
+      (cur) => cur.coinMinimalDenom === coinMinimalDenom
+    );
     if (res) {
       return res;
     }

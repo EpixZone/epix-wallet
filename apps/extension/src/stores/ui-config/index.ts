@@ -35,7 +35,7 @@ export interface UIConfigOptions {
   switchAssetViewModeSuggestion2: boolean;
   isPrivacyMode: boolean;
   rememberLastFeeOption: boolean;
-  lastFeeOption: "low" | "average" | "high" | false;
+  lastFeeOption: "low" | "average" | "high" | "custom" | false;
   show24HChangesInMagePage: boolean;
 
   useWebHIDLedger: boolean;
@@ -348,11 +348,11 @@ export class UIConfigStore {
   }
 
   @action
-  setLastFeeOption(value: "low" | "average" | "high" | false) {
+  setLastFeeOption(value: "low" | "average" | "high" | "custom" | false) {
     this.options.lastFeeOption = value;
   }
 
-  get lastFeeOption(): "low" | "average" | "high" | false {
+  get lastFeeOption(): "low" | "average" | "high" | "custom" | false {
     return this.options.lastFeeOption;
   }
 

@@ -5,10 +5,11 @@ import { VerticalCollapseTransition } from "../../../components/transition/verti
 import { ViewToken } from "../../main";
 import { NestedTokenItem } from "./nested-token-item";
 import { ToggleItemHeader } from "./toggle-item-header";
-import { ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
+import { ChainInfo } from "@keplr-wallet/types";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 
 interface ChainToggleItemProps {
-  chainInfo: ChainInfo | ModularChainInfo;
+  chainInfo: ChainInfo | IModularChainInfoImpl;
   tokens: ViewToken[];
   enabled: boolean;
   disabled?: boolean;

@@ -13,7 +13,6 @@ import {
   Caption1,
 } from "../../../../components/typography";
 import { ColorPalette } from "../../../../styles";
-import { useStore } from "../../../../stores";
 import {
   UpdateCurrentChainIdForBitcoinMsg,
   UpdateCurrentChainIdForStarknetMsg,
@@ -22,8 +21,11 @@ import {
 import { EcosystemType, EcosystemSection, EcosystemTypeToText } from "./types";
 import { ChainSelector } from "./chain-selector";
 import { EcosystemSpecificOptionsSelector } from "./option-selector";
-import { ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
-import { parseEcosystemSpecificOptions } from "./utils";
+import {
+  getBitcoinBaseChainId,
+  isBitcoinChainSelected,
+  parseEcosystemSpecificOptions,
+} from "./utils";
 import { Gutter } from "../../../../components/gutter";
 import { XAxis } from "../../../../components/axis";
 import { FloatModal } from "../../../../components/float-modal";
@@ -44,7 +46,6 @@ export const EcosystemsSelector: FunctionComponent<{
   activeTabOrigin,
 }) => {
   const theme = useTheme();
-  const { chainStore } = useStore();
 
   const [selectionState, setSelectionState] = React.useState<{
     ecosystemType: EcosystemType;
@@ -74,19 +75,15 @@ export const EcosystemsSelector: FunctionComponent<{
     }
 
     if (representativeSection.type === "bitcoin") {
-      return chainStore.groupedModularChainInfos.find(
-        (chain) =>
-          "bitcoin" in chain &&
-          chain.bitcoin.chainId === representativeSection.chainId
+      return representativeSection.chainInfos.find((chainInfo) =>
+        isBitcoinChainSelected(chainInfo, representativeSection.currentChainId)
       );
-    } else if (representativeSection.type === "evm") {
-      return chainStore.getChain(representativeSection.chainId);
-    } else if (representativeSection.type === "starknet") {
-      return chainStore.getModularChain(representativeSection.chainId);
     }
 
-    return undefined;
-  }, [ecosystemSections, chainStore]);
+    return representativeSection.chainInfos.find(
+      (chainInfo) => chainInfo.chainId === representativeSection.chainId
+    );
+  }, [ecosystemSections]);
 
   const { x, y, strategy, refs } = useFloating({
     placement: "bottom-end",
@@ -131,21 +128,11 @@ export const EcosystemsSelector: FunctionComponent<{
           chainInfos={bitcoinSection.chainInfos}
           currentChainId={bitcoinSection.currentChainId}
           setCurrentChainId={bitcoinSection.setCurrentChainId}
+          invalidateCurrentChainSync={bitcoinSection.invalidateCurrentChainSync}
           activeTabOrigin={activeTabOrigin}
           updateMessage={UpdateCurrentChainIdForBitcoinMsg}
-          // baseChainId is used for bitcoin chains
-          getChainId={(chainInfo) =>
-            "bitcoin" in chainInfo
-              ? chainInfo.bitcoin.chainId
-              : chainInfo.chainId
-          }
-          isChainSelected={(chainInfo, currentChainId) => {
-            const chainId =
-              "bitcoin" in chainInfo
-                ? chainInfo.bitcoin.chainId
-                : chainInfo.chainId;
-            return currentChainId === chainId;
-          }}
+          getChainId={getBitcoinBaseChainId}
+          isChainSelected={isBitcoinChainSelected}
         />
       );
     }
@@ -156,6 +143,7 @@ export const EcosystemsSelector: FunctionComponent<{
           chainInfos={evmSection.chainInfos}
           currentChainId={evmSection.currentChainId}
           setCurrentChainId={evmSection.setCurrentChainId}
+          invalidateCurrentChainSync={evmSection.invalidateCurrentChainSync}
           activeTabOrigin={activeTabOrigin}
           updateMessage={UpdateCurrentChainIdForEVMMsg}
         />
@@ -168,6 +156,9 @@ export const EcosystemsSelector: FunctionComponent<{
           chainInfos={starknetSection.chainInfos}
           currentChainId={starknetSection.currentChainId}
           setCurrentChainId={starknetSection.setCurrentChainId}
+          invalidateCurrentChainSync={
+            starknetSection.invalidateCurrentChainSync
+          }
           activeTabOrigin={activeTabOrigin}
           updateMessage={UpdateCurrentChainIdForStarknetMsg}
         />
@@ -410,18 +401,14 @@ export const EcosystemOverview: FunctionComponent<{
   return (
     <React.Fragment>
       {ecosystemSections.map((section, index) => {
-        let chainInfo: ModularChainInfo | ChainInfo | undefined;
-
-        if (section.type === "bitcoin") {
-          chainInfo = section.chainInfos.find(
-            (chain) =>
-              "bitcoin" in chain && chain.bitcoin.chainId === section.chainId
-          );
-        } else {
-          chainInfo = section.chainInfos.find(
-            (chain) => chain.chainId === section.chainId
-          );
-        }
+        const chainInfo =
+          section.type === "bitcoin"
+            ? section.chainInfos.find((chain) =>
+                isBitcoinChainSelected(chain, section.currentChainId)
+              )
+            : section.chainInfos.find(
+                (chain) => chain.chainId === section.chainId
+              );
 
         if (!chainInfo) return null;
 

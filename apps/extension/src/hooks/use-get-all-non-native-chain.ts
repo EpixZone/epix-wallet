@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo } from "react";
 import { useStore } from "../stores";
-import { ChainInfo } from "@keplr-wallet/types";
+import { ChainInfo, isEthSignChainInfo } from "@keplr-wallet/types";
 import { autorun } from "mobx";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { KeyRingCosmosService } from "@keplr-wallet/background";
 import { useSearch } from "./use-search";
+import { isChainSupportedByKeyType } from "../utils/is-chain-supported-by-key-type";
 
 interface UseGetAllNonNativeChainParams {
   pageSize?: number;
@@ -82,7 +83,10 @@ export const useGetAllNonNativeChain = ({
         const allChains = queryChains.response.data.chains;
         const filteredChains = allChains.filter((chain) => {
           const chainIdentifier = ChainIdHelper.parse(chain.chainId).identifier;
-          return !excludeChainIdentifiers.includes(chainIdentifier);
+          return (
+            !excludeChainIdentifiers.includes(chainIdentifier) &&
+            isChainSupportedByKeyType(keyType, chain)
+          );
         });
 
         setChains(filteredChains);
@@ -102,17 +106,19 @@ export const useGetAllNonNativeChain = ({
         disposer();
       }
     };
-  }, [queryChains, excludeChainIdentifiers]);
+  }, [queryChains, excludeChainIdentifiers, keyType]);
 
   //ledger의 경우 필터링을 해야함
   useEffect(() => {
     if (fallbackEthereumLedgerApp && keyType === "ledger") {
       const filteredChains = chains
         .filter((chainInfo) => {
-          const isEthermintLike =
-            chainInfo.bip44.coinType === 60 ||
-            !!chainInfo.features?.includes("eth-address-gen") ||
-            !!chainInfo.features?.includes("eth-key-sign");
+          const isEthermintLike = isEthSignChainInfo(chainInfo);
+          const isEvmOnly = !!chainInfo.evm && !chainInfo.bech32Config;
+
+          if (isEvmOnly) {
+            return true;
+          }
 
           const isLedgerSupported = (() => {
             try {
@@ -136,9 +142,7 @@ export const useGetAllNonNativeChain = ({
           return false;
         })
         .filter((chainInfo) => {
-          //혹시나 modularChainInfo인 경우가 있을 수 있어서 체크
-          //왜냐면 non-native chain은 기본적으로 chainInfo 타입이여야함
-          return "bip44" in chainInfo;
+          return isEthSignChainInfo(chainInfo);
         });
 
       setLedgerFilteredChains(filteredChains);

@@ -20,7 +20,7 @@ export const useBitcoinNetworkConfig = (chainId: string) => {
   const { chainStore } = useStore();
 
   const modularChainInfo = chainStore.getModularChain(chainId);
-  if (!("bitcoin" in modularChainInfo)) {
+  if (modularChainInfo.type !== "bitcoin") {
     throw new Error("Not a bitcoin chain");
   }
 
@@ -75,7 +75,7 @@ export const useGetBitcoinKeys = (chainId: string) => {
 
   const getBitcoinKeys = useCallback(async () => {
     const modularChainInfo = chainStore.getModularChain(chainId);
-    if (!("bitcoin" in modularChainInfo)) {
+    if (modularChainInfo.type !== "bitcoin") {
       throw new Error("Not a bitcoin chain");
     }
 
@@ -83,7 +83,7 @@ export const useGetBitcoinKeys = (chainId: string) => {
 
     const linkedChainInfos = chainStore.modularChainInfos.filter(
       (modularChainInfo) =>
-        "bitcoin" in modularChainInfo &&
+        modularChainInfo.type === "bitcoin" &&
         modularChainInfo.linkedChainKey === linkedChainKey
     );
 

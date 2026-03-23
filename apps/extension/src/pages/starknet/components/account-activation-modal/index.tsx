@@ -96,10 +96,14 @@ export const AccountActivationModal: FunctionComponent<{
   );
 
   const modularChainInfo = chainStore.getModularChain(senderConfig.chainId);
-  if (!("starknet" in modularChainInfo)) {
+  if (modularChainInfo.type !== "starknet") {
     throw new Error("This chain doesn't support starknet");
   }
-  const starknet = modularChainInfo.starknet;
+  const uStarknet = modularChainInfo.unwrapped;
+  if (uStarknet.type !== "starknet") {
+    throw new Error("This chain doesn't support starknet");
+  }
+  const starknet = uStarknet.starknet;
 
   const gasSimulationRefresher = useLocalObservable(() => ({
     count: 0,
@@ -145,10 +149,9 @@ export const AccountActivationModal: FunctionComponent<{
       // observed되어야 하므로 꼭 여기서 참조 해야함.
       // const type = feeConfig.type;
       const feeContractAddress = starknet.strkContractAddress;
-      const feeCurrency = chainStore
-        .getModularChainInfoImpl(chainId)
-        .getCurrencies("starknet")
-        .find((cur) => cur.coinMinimalDenom === `erc20:${feeContractAddress}`);
+      const feeCurrency = modularChainInfo.currencies.find(
+        (cur) => cur.coinMinimalDenom === `erc20:${feeContractAddress}`
+      );
       if (!feeCurrency) {
         throw new Error("Can't find fee currency");
       }
@@ -354,13 +357,10 @@ export const AccountActivationModal: FunctionComponent<{
                       );
 
                     const feeContractAddress = starknet.strkContractAddress;
-                    const feeCurrency = chainStore
-                      .getModularChainInfoImpl(chainId)
-                      .getCurrencies("starknet")
-                      .find(
-                        (cur) =>
-                          cur.coinMinimalDenom === `erc20:${feeContractAddress}`
-                      );
+                    const feeCurrency = modularChainInfo.currencies.find(
+                      (cur) =>
+                        cur.coinMinimalDenom === `erc20:${feeContractAddress}`
+                    );
                     if (!feeCurrency) {
                       throw new Error("Can't find fee currency");
                     }
@@ -466,10 +466,11 @@ export const AccountActivationModal: FunctionComponent<{
                             if (res?.data) {
                               starknetAccount.setIsDeployingAccount(false);
 
-                              const modularChainInfo =
+                              const modularChainInfoInner =
                                 chainStore.getModularChain(chainId);
-                              if ("starknet" in modularChainInfo) {
-                                const starknet = modularChainInfo.starknet;
+                              const uInner = modularChainInfoInner.unwrapped;
+                              if (uInner.type === "starknet") {
+                                const starknet = uInner.starknet;
                                 const ethCurrency = starknet.currencies.find(
                                   (cur) =>
                                     cur.coinMinimalDenom ===

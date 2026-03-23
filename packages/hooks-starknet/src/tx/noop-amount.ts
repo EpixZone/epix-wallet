@@ -44,12 +44,12 @@ export class NoopAmountConfig extends TxChainSetter implements IAmountConfig {
 
   @computed
   get currency(): ERC20Currency {
-    const modularChainInfoImpl = this.modularChainInfo;
-    if (!("starknet" in modularChainInfoImpl.embedded)) {
+    const u = this.modularChainInfo.unwrapped;
+    if (u.type !== "starknet") {
       throw new Error("Chain doesn't support the starknet");
     }
 
-    return modularChainInfoImpl.getCurrencies("starknet")[0] as ERC20Currency;
+    return u.starknet.currencies[0] as ERC20Currency;
   }
 
   @action

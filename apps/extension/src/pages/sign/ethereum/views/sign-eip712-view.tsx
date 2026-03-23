@@ -33,8 +33,7 @@ import {
   EIP712Intent,
   useEIP712Intent,
 } from "../../../../hooks/ethereum/use-eip712-intent";
-import { ChainInfoWithCoreTypes } from "@keplr-wallet/background";
-import { IChainInfoImpl } from "@keplr-wallet/stores";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import { XAxis } from "../../../../components/axis";
 import { Body2, Subtitle4 } from "../../../../components/typography";
 import { CoinOutlineIcon } from "../../../../components/icon/coin-outline";
@@ -67,7 +66,7 @@ export const EthereumSignEIP712View: FunctionComponent<{
 
   const { chainId } = interactionData.data;
 
-  const chainInfo = chainStore.getChain(chainId);
+  const chainInfo = chainStore.getModularChain(chainId);
 
   const signerInfo = {
     name:
@@ -355,7 +354,7 @@ const MAX_UINT256 =
   "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 
 const EIP712IntentView: FunctionComponent<{
-  chainInfo: IChainInfoImpl<ChainInfoWithCoreTypes>;
+  chainInfo: IModularChainInfoImpl;
   intent: EIP712Intent;
   signingDataText: string;
 }> = observer(({ chainInfo, intent, signingDataText }) => {
@@ -414,7 +413,7 @@ const EIP712IntentView: FunctionComponent<{
 });
 
 const PermitIntentView: FunctionComponent<{
-  chainInfo: IChainInfoImpl<ChainInfoWithCoreTypes>;
+  chainInfo: IModularChainInfoImpl;
   spender: string;
   tokenAddress: string;
   amount: string;
@@ -700,7 +699,7 @@ const PermitIntentView: FunctionComponent<{
 );
 
 const ERC3009TransferIntentView: FunctionComponent<{
-  chainInfo: IChainInfoImpl<ChainInfoWithCoreTypes>;
+  chainInfo: IModularChainInfoImpl;
   from: string;
   to: string;
   tokenAddress: string;

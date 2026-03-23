@@ -1,6 +1,5 @@
 import { EthermintChainIdHelper } from "@keplr-wallet/cosmos";
 import { ProtoMsgsOrWithAminoMsgs } from "./types";
-import { ChainInfo } from "@keplr-wallet/types";
 
 export function txEventsWithPreOnFulfill(
   onTxEvents:
@@ -80,7 +79,7 @@ export function txEventsWithPreOnFulfill(
 }
 
 export const getEip712TypedDataBasedOnChainInfo = (
-  chainInfo: ChainInfo,
+  chainInfo: { chainId: string; features?: string[] },
   msgs: ProtoMsgsOrWithAminoMsgs
 ): {
   types: Record<string, { name: string; type: string }[] | undefined>;

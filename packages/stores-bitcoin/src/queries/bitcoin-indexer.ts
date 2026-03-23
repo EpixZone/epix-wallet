@@ -21,9 +21,9 @@ export class ObservableBitcoinIndexerQuery<
     options?: Partial<QueryOptions>
   ) {
     let baseUrl = "";
-    const modularChainInfo = chainGetter.getModularChain(chainId);
-    if ("bitcoin" in modularChainInfo) {
-      baseUrl = modularChainInfo.bitcoin.rest;
+    const u = chainGetter.getModularChain(chainId).unwrapped;
+    if (u.type === "bitcoin") {
+      baseUrl = u.bitcoin.rest;
     }
 
     super(sharedContext, baseUrl, url, options);

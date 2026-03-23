@@ -10,6 +10,7 @@ import {
   StdFee,
   StdSignature,
   StdSignDoc,
+  isEthSignChain,
 } from "@keplr-wallet/types";
 import { APP_PORT, Env, KeplrError } from "@keplr-wallet/router";
 import {
@@ -119,8 +120,9 @@ export class KeyRingCosmosService {
 
     const pubKey = await this.keyRingService.getPubKey(chainId, vaultId);
 
-    const isEthermintLike = KeyRingService.isEthermintLike(chainInfo);
-    const evmInfo = ChainsService.getEVMInfo(chainInfo);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    const isEthermintLike = isEthSignChain(modularChainInfo);
     const forceEVMLedger = chainInfo.features?.includes(
       "force-enable-evm-ledger"
     );
@@ -137,7 +139,7 @@ export class KeyRingCosmosService {
     }
 
     const address = (() => {
-      if (isEthermintLike || evmInfo !== undefined) {
+      if (isEthermintLike) {
         return pubKey.getEthAddress();
       }
 
@@ -176,7 +178,9 @@ export class KeyRingCosmosService {
       coinTypes.push(...chainInfo.alternativeBIP44s.map((alt) => alt.coinType));
     }
 
-    const isEthermintLike = KeyRingService.isEthermintLike(chainInfo);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    const isEthermintLike = isEthSignChain(modularChainInfo);
 
     const res: {
       coinType: number;
@@ -250,7 +254,9 @@ export class KeyRingCosmosService {
     if (chainInfo.hideInUI) {
       throw new Error("Can't sign for hidden chain");
     }
-    const isEthermintLike = KeyRingService.isEthermintLike(chainInfo);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    const isEthermintLike = isEthSignChain(modularChainInfo);
     const forceEVMLedger = chainInfo.features?.includes(
       "force-enable-evm-ledger"
     );
@@ -391,7 +397,9 @@ export class KeyRingCosmosService {
     // if (chainInfo.hideInUI) {
     //   throw new Error("Can't sign for hidden chain");
     // }
-    const isEthermintLike = KeyRingService.isEthermintLike(chainInfo);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    const isEthermintLike = isEthSignChain(modularChainInfo);
 
     const keyInfo = this.keyRingService.getKeyInfo(vaultId);
     if (!keyInfo) {
@@ -477,7 +485,9 @@ export class KeyRingCosmosService {
 
     const vaultId = this.keyRingService.selectedVaultId;
 
-    const isEthermintLike = KeyRingService.isEthermintLike(chainInfo);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    const isEthermintLike = isEthSignChain(modularChainInfo);
     const forceEVMLedger = chainInfo.features?.includes(
       "force-enable-evm-ledger"
     );
@@ -580,7 +590,9 @@ export class KeyRingCosmosService {
 
     const vaultId = this.keyRingService.selectedVaultId;
 
-    const isEthermintLike = KeyRingService.isEthermintLike(chainInfo);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    const isEthermintLike = isEthSignChain(modularChainInfo);
     const forceEVMLedger = chainInfo.features?.includes(
       "force-enable-evm-ledger"
     );
@@ -717,7 +729,9 @@ export class KeyRingCosmosService {
 
     const vaultId = this.keyRingService.selectedVaultId;
 
-    const isEthermintLike = KeyRingService.isEthermintLike(chainInfo);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    const isEthermintLike = isEthSignChain(modularChainInfo);
     const forceEVMLedger = chainInfo.features?.includes(
       "force-enable-evm-ledger"
     );
@@ -839,7 +853,9 @@ export class KeyRingCosmosService {
     if (chainInfo.hideInUI) {
       throw new Error("Can't sign for hidden chain");
     }
-    const isEthermintLike = KeyRingService.isEthermintLike(chainInfo);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    const isEthermintLike = isEthSignChain(modularChainInfo);
     const forceEVMLedger = chainInfo.features?.includes(
       "force-enable-evm-ledger"
     );
@@ -938,7 +954,9 @@ export class KeyRingCosmosService {
     if (chainInfo.hideInUI) {
       throw new Error("Can't sign for hidden chain");
     }
-    const isEthermintLike = KeyRingService.isEthermintLike(chainInfo);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    const isEthermintLike = isEthSignChain(modularChainInfo);
     const forceEVMLedger = chainInfo.features?.includes(
       "force-enable-evm-ledger"
     );
@@ -1362,7 +1380,9 @@ export class KeyRingCosmosService {
     signDoc: SignDoc
   ): Promise<DirectSignResponse> {
     const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
-    const isEthermintLike = KeyRingService.isEthermintLike(chainInfo);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    const isEthermintLike = isEthSignChain(modularChainInfo);
 
     const keyInfo = this.keyRingService.getKeyInfo(vaultId);
     if (!keyInfo) {
@@ -1437,7 +1457,9 @@ export class KeyRingCosmosService {
     if (chainInfo.hideInUI) {
       throw new Error("Can't sign for hidden chain");
     }
-    const isEthermintLike = KeyRingService.isEthermintLike(chainInfo);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    const isEthermintLike = isEthSignChain(modularChainInfo);
     const forceEVMLedger = chainInfo.features?.includes(
       "force-enable-evm-ledger"
     );
@@ -1575,7 +1597,9 @@ export class KeyRingCosmosService {
     signature: StdSignature
   ): Promise<boolean> {
     const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
-    const isEthermintLike = KeyRingService.isEthermintLike(chainInfo);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    const isEthermintLike = isEthSignChain(modularChainInfo);
 
     const key = await this.getKey(vaultId, chainId);
     const bech32Prefix = chainInfo.bech32Config?.bech32PrefixAccAddr ?? "";
@@ -1646,7 +1670,9 @@ export class KeyRingCosmosService {
     if (chainInfo.hideInUI) {
       throw new Error("Can't sign for hidden chain");
     }
-    const isEthermintLike = KeyRingService.isEthermintLike(chainInfo);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    const isEthermintLike = isEthSignChain(modularChainInfo);
     const forceEVMLedger = chainInfo.features?.includes(
       "force-enable-evm-ledger"
     );
@@ -1799,7 +1825,9 @@ export class KeyRingCosmosService {
     const vaultId = this.keyRingService.selectedVaultId;
 
     const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
-    const isEthermintLike = KeyRingService.isEthermintLike(chainInfo);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    const isEthermintLike = isEthSignChain(modularChainInfo);
     const forceEVMLedger = chainInfo.features?.includes(
       "force-enable-evm-ledger"
     );
@@ -1967,8 +1995,8 @@ export class KeyRingCosmosService {
 
         const ownerBech32 = Bech32Address.fromBech32(owner);
         for (const accountInfo of interactionInfo.accountInfos) {
-          const isEthermintLike = KeyRingService.isEthermintLike(
-            this.chainsService.getChainInfoOrThrow(accountInfo.chainId)
+          const isEthermintLike = isEthSignChain(
+            this.chainsService.getModularChainInfoOrThrow(accountInfo.chainId)
           );
 
           if (

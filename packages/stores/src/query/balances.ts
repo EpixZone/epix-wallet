@@ -1,5 +1,5 @@
 import { DenomHelper } from "@keplr-wallet/common";
-import { ChainGetter } from "../chain";
+import { ChainGetter, getCosmosInfo } from "../chain";
 import { computed, makeObservable, observable, runInAction } from "mobx";
 import { CoinPretty, Dec, Int } from "@keplr-wallet/unit";
 import { AppCurrency } from "@keplr-wallet/types";
@@ -74,12 +74,14 @@ export class ObservableQueryBalancesImplMap {
 
   @computed
   get stakable(): IObservableQueryBalanceImpl | undefined {
-    const chainInfo = this.chainGetter.getChain(this.chainId);
-    if (!chainInfo.stakeCurrency) {
+    const cosmosInfo = getCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+    if (!cosmosInfo?.stakeCurrency) {
       return undefined;
     }
 
-    return this.getBalanceInner(chainInfo.stakeCurrency);
+    return this.getBalanceInner(cosmosInfo.stakeCurrency);
   }
 
   /**
@@ -87,12 +89,12 @@ export class ObservableQueryBalancesImplMap {
    */
   @computed
   get balances(): IObservableQueryBalanceImpl[] {
-    const chainInfo = this.chainGetter.getChain(this.chainId);
+    const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
 
     const result = [];
 
-    for (let i = 0; i < chainInfo.currencies.length; i++) {
-      const currency = chainInfo.currencies[i];
+    for (let i = 0; i < mcInfo2.currencies.length; i++) {
+      const currency = mcInfo2.currencies[i];
       const balanceInner = this.getBalanceInner(currency);
       if (balanceInner) {
         result.push(balanceInner);
@@ -129,7 +131,9 @@ export class ObservableQueryBalancesImplMap {
    */
   @computed
   get positiveNativeUnstakables(): IObservableQueryBalanceImpl[] {
-    const chainInfo = this.chainGetter.getChain(this.chainId);
+    const cosmosInfo = getCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
 
     const balances = this.balances;
     return balances.filter(
@@ -137,17 +141,18 @@ export class ObservableQueryBalancesImplMap {
         new DenomHelper(bal.currency.coinMinimalDenom).type === "native" &&
         bal.balance.toDec().gt(new Dec(0)) &&
         bal.currency.coinMinimalDenom !==
-          chainInfo.stakeCurrency?.coinMinimalDenom
+          cosmosInfo?.stakeCurrency?.coinMinimalDenom
     );
   }
 
   @computed
   get unstakables(): IObservableQueryBalanceImpl[] {
-    const chainInfo = this.chainGetter.getChain(this.chainId);
+    const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
+    const cosmosInfo = getCosmosInfo(mcInfo2);
 
-    const currencies = chainInfo.currencies.filter(
+    const currencies = mcInfo2.currencies.filter(
       (cur) =>
-        cur.coinMinimalDenom !== chainInfo.stakeCurrency?.coinMinimalDenom
+        cur.coinMinimalDenom !== cosmosInfo?.stakeCurrency?.coinMinimalDenom
     );
 
     const result = [];

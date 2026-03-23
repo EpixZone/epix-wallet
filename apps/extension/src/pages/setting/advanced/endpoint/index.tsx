@@ -5,13 +5,13 @@ import { HeaderLayout } from "../../../../layouts/header";
 import styled from "styled-components";
 import { Stack } from "../../../../components/stack";
 import { GuideBox } from "../../../../components/guide-box";
-import { useStore } from "../../../../stores";
+import { ChainStore, useStore } from "../../../../stores";
 import { Column, Columns } from "../../../../components/column";
 import { Dropdown } from "../../../../components/dropdown";
 import { Button } from "../../../../components/button";
 import { Box } from "../../../../components/box";
 import { TextInput } from "../../../../components/input";
-import { useForm } from "react-hook-form";
+import { useForm, UseFormRegister } from "react-hook-form";
 import {
   checkEvmRpcConnectivity,
   checkRestConnectivity,
@@ -25,7 +25,8 @@ import { GetChainOriginalEndpointsMsg } from "@keplr-wallet/background";
 import { InExtensionMessageRequester } from "@keplr-wallet/router-extension";
 import { BACKGROUND_PORT } from "@keplr-wallet/router";
 import { FormattedMessage, useIntl } from "react-intl";
-import { Gutter } from "../../../../components/gutter";
+import { ModularChainInfo } from "@keplr-wallet/types";
+import { filterModularChainInfosByKeyType } from "../../../../utils/is-chain-supported-by-key-type";
 
 const Styles = {
   Container: styled(Stack)`
@@ -37,99 +38,295 @@ const Styles = {
   `,
 };
 
+// --- Types ---
+
+interface FormData {
+  rpc: string;
+  lcd?: string;
+  evmRpc?: string;
+}
+
+interface OriginalEndpoint {
+  rpc: string;
+  rest?: string;
+  evmRpc?: string;
+}
+
+// --- Field Descriptor ---
+// formKey: key in FormData, originalKey: key in OriginalEndpoint
+
+interface EndpointField {
+  formKey: keyof FormData;
+  originalKey: keyof OriginalEndpoint;
+  label: string;
+}
+
+const FIELD_RPC: EndpointField = {
+  formKey: "rpc",
+  originalKey: "rpc",
+  label: "RPC",
+};
+const FIELD_LCD: EndpointField = {
+  formKey: "lcd",
+  originalKey: "rest",
+  label: "LCD",
+};
+const FIELD_EVM_RPC: EndpointField = {
+  formKey: "evmRpc",
+  originalKey: "evmRpc",
+  label: "EVM RPC",
+};
+
+const ALL_FORM_KEYS: (keyof FormData)[] = ["rpc", "lcd", "evmRpc"];
+
+// --- Generic Field Operations ---
+
+function formFieldsMatch(
+  fields: EndpointField[],
+  a: Partial<FormData>,
+  b: Partial<FormData>
+): boolean {
+  return fields.every((f) => a[f.formKey] === b[f.formKey]);
+}
+
+function formMatchesOriginal(
+  fields: EndpointField[],
+  formValues: Partial<FormData>,
+  original: OriginalEndpoint
+): boolean {
+  return fields.every(
+    (f) =>
+      (formValues[f.formKey] as string | undefined) ===
+      (original[f.originalKey] as string | undefined)
+  );
+}
+
+// --- Chain Endpoint Config ---
+
+type ConnectivityChecker = (
+  checkFn: () => Promise<void>,
+  endpointLabel: string
+) => Promise<void>;
+
+interface ChainEndpointConfig {
+  fields: EndpointField[];
+  currentValues: FormData;
+  validate: (
+    data: FormData,
+    originalEndpoint: OriginalEndpoint | undefined,
+    check: ConnectivityChecker
+  ) => Promise<void>;
+  getSubmitArgs: (
+    data: FormData
+  ) => [string | undefined, string | undefined, string | undefined];
+}
+
+function getChainEndpointConfig(
+  chainInfoU: ModularChainInfo,
+  chainId: string
+): ChainEndpointConfig {
+  switch (chainInfoU.type) {
+    case "cosmos":
+      return {
+        fields: [FIELD_RPC, FIELD_LCD],
+        currentValues: {
+          rpc: chainInfoU.cosmos.rpc,
+          lcd: chainInfoU.cosmos.rest,
+        },
+        validate: async (data, orig, check) => {
+          if (orig?.rpc !== data.rpc) {
+            await check(() => checkRPCConnectivity(chainId, data.rpc), "RPC");
+          }
+          if (data.lcd != null && orig?.rest !== data.lcd) {
+            await check(() => checkRestConnectivity(chainId, data.lcd!), "LCD");
+          }
+        },
+        getSubmitArgs: (data) => [data.rpc, data.lcd, undefined],
+      };
+    case "ethermint": {
+      const evmChainId = chainInfoU.evm.chainId;
+      return {
+        fields: [FIELD_RPC, FIELD_LCD, FIELD_EVM_RPC],
+        currentValues: {
+          rpc: chainInfoU.cosmos.rpc,
+          lcd: chainInfoU.cosmos.rest,
+          evmRpc: chainInfoU.evm.rpc,
+        },
+        validate: async (data, orig, check) => {
+          if (orig?.rpc !== data.rpc) {
+            await check(() => checkRPCConnectivity(chainId, data.rpc), "RPC");
+          }
+          if (data.lcd != null && orig?.rest !== data.lcd) {
+            await check(() => checkRestConnectivity(chainId, data.lcd!), "LCD");
+          }
+          if (data.evmRpc != null && orig?.evmRpc !== data.evmRpc) {
+            await check(
+              () => checkEvmRpcConnectivity(evmChainId, data.evmRpc!),
+              "EVM RPC"
+            );
+          }
+        },
+        getSubmitArgs: (data) => [data.rpc, data.lcd, data.evmRpc],
+      };
+    }
+    case "evm": {
+      const evmChainId = chainInfoU.evm.chainId;
+      return {
+        fields: [FIELD_RPC],
+        currentValues: { rpc: chainInfoU.evm.rpc },
+        validate: async (data, orig) => {
+          if (orig?.rpc !== data.rpc) {
+            await checkEvmRpcConnectivity(evmChainId, data.rpc);
+          }
+        },
+        getSubmitArgs: (data) => [undefined, undefined, data.rpc],
+      };
+    }
+    case "starknet":
+      return {
+        fields: [FIELD_RPC],
+        currentValues: { rpc: chainInfoU.starknet.rpc },
+        validate: async (data, orig) => {
+          if (orig?.rpc !== data.rpc) {
+            await checkStarknetRpcConnectivity(chainId, data.rpc);
+          }
+        },
+        getSubmitArgs: (data) => [data.rpc, undefined, undefined],
+      };
+    default:
+      throw new Error(`Unsupported chain type: ${(chainInfoU as any).type}`);
+  }
+}
+
+// --- Endpoint Input Rendering ---
+
+const EndpointInputs: FunctionComponent<{
+  fields: EndpointField[];
+  register: UseFormRegister<FormData>;
+}> = ({ fields, register }) => (
+  <React.Fragment>
+    {fields.map((field) => (
+      <TextInput
+        key={field.formKey}
+        label={field.label}
+        {...register(field.formKey)}
+      />
+    ))}
+  </React.Fragment>
+);
+
+// --- Main Page ---
+
+function getEndpointSelectableChains(
+  chainStore: ChainStore,
+  keyType: string | undefined
+) {
+  const chainsInUI = filterModularChainInfosByKeyType(
+    keyType,
+    chainStore.modularChainInfosInUI
+  ).filter((ci) => ci.type !== "bitcoin");
+  if (chainsInUI.length > 0) {
+    return chainsInUI;
+  }
+
+  throw new Error("No chain available for endpoint settings in UI");
+}
+
 export const SettingAdvancedEndpointPage: FunctionComponent = observer(() => {
-  const { chainStore } = useStore();
+  const { chainStore, keyRingStore } = useStore();
 
   const notification = useNotification();
   const confirm = useConfirm();
   const intl = useIntl();
 
-  const [chainId, setChainId] = useState<string>(
-    chainStore.modularChainInfos[0].chainId
+  const selectableChains = getEndpointSelectableChains(
+    chainStore,
+    keyRingStore.selectedKeyInfo?.type
   );
+
+  const [chainId, setChainId] = useState<string>(selectableChains[0].chainId);
   const [originalEndpoint, setOriginalEndpoint] = useState<
-    | {
-        rpc: string;
-        rest?: string;
-        evmRpc?: string;
-      }
-    | undefined
+    OriginalEndpoint | undefined
   >();
   const [isLoading, setIsLoading] = useState(false);
 
-  const chainInfo = (() => {
-    const modularChainInfo = chainStore.getModularChain(chainId);
+  const chainList = selectableChains.map((ci) => ({
+    key: ci.chainId,
+    label: ci.chainName,
+  }));
 
-    if ("starknet" in modularChainInfo) {
-      return modularChainInfo.starknet;
-    }
+  const activeChainId = chainList.some((item) => item.key === chainId)
+    ? chainId
+    : chainList[0].key;
+  const modularChainInfo = chainStore.getModularChain(activeChainId);
+  const config = getChainEndpointConfig(
+    modularChainInfo.unwrapped,
+    activeChainId
+  );
 
-    return chainStore.getChain(chainId);
-  })();
-  const hasRestEndpoint = "rest" in chainInfo;
-  const hasEvmEndpoint = "evm" in chainInfo && chainInfo.evm != null;
-
-  const { setValue, watch, register, handleSubmit } = useForm<{
-    rpc: string;
-    lcd?: string;
-    evmRpc?: string;
-  }>({
-    defaultValues: {
-      rpc: chainInfo.rpc,
-      ...(hasRestEndpoint && { lcd: chainInfo.rest }),
-      ...(hasEvmEndpoint && { evmRpc: chainInfo.evm.rpc }),
-    },
+  const { setValue, watch, register, handleSubmit } = useForm<FormData>({
+    defaultValues: config.currentValues,
   });
 
-  const chainList = chainStore.modularChainInfosInUI
-    .filter((chainInfo) => {
-      // TODO: bitcoin rest endpoint 변경 가능 여부 확인
-      if ("bitcoin" in chainInfo) {
-        return false;
-      }
-
-      return true;
-    })
-    .map((chainInfo) => {
-      return {
-        key: chainInfo.chainId,
-        label: chainInfo.chainName,
-      };
-    });
-
   useEffect(() => {
-    setValue("rpc", chainInfo.rpc);
-    if (hasRestEndpoint) {
-      setValue("lcd", chainInfo.rest);
-    }
-    if (hasEvmEndpoint) {
-      setValue("evmRpc", chainInfo.evm.rpc);
+    const activeKeys = new Set(config.fields.map((f) => f.formKey));
+    for (const key of ALL_FORM_KEYS) {
+      setValue(
+        key,
+        activeKeys.has(key) ? config.currentValues[key] : undefined
+      );
     }
 
-    const msg = new GetChainOriginalEndpointsMsg(chainId);
+    const msg = new GetChainOriginalEndpointsMsg(activeChainId);
     new InExtensionMessageRequester()
       .sendMessage(BACKGROUND_PORT, msg)
-      .then((r) => {
-        setOriginalEndpoint(r);
-      })
+      .then((r) => setOriginalEndpoint(r))
       .catch((e) => {
         console.log(e);
-
         setOriginalEndpoint(undefined);
       });
-  }, [chainId, chainInfo, hasEvmEndpoint, hasRestEndpoint, setValue]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    activeChainId,
+    config.currentValues.rpc,
+    config.currentValues.lcd,
+    config.currentValues.evmRpc,
+    setValue,
+  ]);
 
-  const isEndpointNothingChanged = (() => {
-    const isRpcChanged = chainInfo.rpc !== watch("rpc");
-    const isLcdChanged = hasRestEndpoint
-      ? chainInfo.rest === watch("lcd")
-      : false;
-    const isEvmRpcChanged = hasEvmEndpoint
-      ? chainInfo.evm.rpc === watch("evmRpc")
-      : false;
+  const watchedValues: Partial<FormData> = {
+    rpc: watch("rpc"),
+    lcd: watch("lcd"),
+    evmRpc: watch("evmRpc"),
+  };
 
-    return !isRpcChanged && !isLcdChanged && !isEvmRpcChanged;
-  })();
+  const isEndpointNothingChanged = formFieldsMatch(
+    config.fields,
+    watchedValues,
+    config.currentValues
+  );
+
+  const checkConnectivityWithConfirm: ConnectivityChecker = async (
+    checkFn,
+    endpointType
+  ) => {
+    try {
+      await checkFn();
+    } catch (e) {
+      if (e instanceof DifferentChainVersionError) {
+        if (
+          !(await confirm.confirm(
+            "Different chain id",
+            `The ${endpointType} endpoint of the node might have different version with the registered chain. Do you want to proceed?`
+          ))
+        ) {
+          throw e;
+        }
+      } else {
+        throw e;
+      }
+    }
+  };
 
   return (
     <HeaderLayout
@@ -139,9 +336,7 @@ export const SettingAdvancedEndpointPage: FunctionComponent = observer(() => {
       left={<BackButton />}
       bottomButtons={[
         {
-          text: intl.formatMessage({
-            id: "button.confirm",
-          }),
+          text: intl.formatMessage({ id: "button.confirm" }),
           color: "primary",
           size: "large",
           type: "submit",
@@ -153,103 +348,37 @@ export const SettingAdvancedEndpointPage: FunctionComponent = observer(() => {
         setIsLoading(true);
 
         try {
-          if (
-            !originalEndpoint ||
-            originalEndpoint.rpc !== data.rpc ||
-            originalEndpoint.rest !== data.lcd ||
-            originalEndpoint.evmRpc !== data.evmRpc
-          ) {
+          const matchesOriginal =
+            originalEndpoint &&
+            formMatchesOriginal(config.fields, data, originalEndpoint);
+
+          if (!matchesOriginal) {
             try {
-              if (originalEndpoint?.rpc !== data.rpc) {
-                try {
-                  if (chainId.startsWith("starknet:")) {
-                    await checkStarknetRpcConnectivity(chainId, data.rpc);
-                  } else {
-                    await checkRPCConnectivity(chainId, data.rpc);
-                  }
-                } catch (e) {
-                  if (
-                    // In the case of this error, the chain version is different.
-                    // It gives a warning and handles it if the user wants.
-                    e instanceof DifferentChainVersionError
-                  ) {
-                    if (
-                      !(await confirm.confirm(
-                        "Different chain id",
-                        "The RPC endpoint of the node might have different version with the registered chain. Do you want to proceed?"
-                      ))
-                    ) {
-                      throw e;
-                    }
-                  } else {
-                    throw e;
-                  }
-                }
-              }
-
-              if (
-                hasRestEndpoint &&
-                data.lcd != undefined &&
-                originalEndpoint?.rest !== data.lcd
-              ) {
-                try {
-                  await checkRestConnectivity(chainId, data.lcd);
-                } catch (e) {
-                  if (
-                    // In the case of this error, the chain version is different.
-                    // It gives a warning and handles it if the user wants.
-                    e instanceof DifferentChainVersionError
-                  ) {
-                    if (
-                      !(await confirm.confirm(
-                        "Different chain id",
-                        "The LCD endpoint of the node might have different version with the registered chain. Do you want to proceed?"
-                      ))
-                    ) {
-                      throw e;
-                    }
-                  } else {
-                    throw e;
-                  }
-                }
-              }
-
-              if (
-                hasEvmEndpoint &&
-                data.evmRpc != null &&
-                originalEndpoint?.evmRpc !== data.evmRpc
-              ) {
-                await checkEvmRpcConnectivity(
-                  chainInfo.evm.chainId,
-                  data.evmRpc
-                );
-              }
+              await config.validate(
+                data,
+                originalEndpoint,
+                checkConnectivityWithConfirm
+              );
             } catch (e) {
               console.error(e);
-
               notification.show(
                 "failed",
                 intl.formatMessage({ id: "error.failed-to-set-endpoints" }),
                 e.message || e.toString()
               );
-
               return;
             }
           }
 
-          if (
-            originalEndpoint &&
-            originalEndpoint.rpc == data.rpc &&
-            originalEndpoint.rest == data.lcd &&
-            originalEndpoint.evmRpc == data.evmRpc
-          ) {
-            await chainStore.resetChainEndpoints(chainId);
+          if (matchesOriginal) {
+            await chainStore.resetChainEndpoints(activeChainId);
           } else {
+            const [rpc, rest, evmRpc] = config.getSubmitArgs(data);
             await chainStore.setChainEndpoints(
-              chainId,
-              data.rpc,
-              data.lcd,
-              data.evmRpc
+              activeChainId,
+              rpc,
+              rest,
+              evmRpc
             );
           }
 
@@ -260,9 +389,7 @@ export const SettingAdvancedEndpointPage: FunctionComponent = observer(() => {
             intl.formatMessage({
               id: "page.setting.advanced.endpoint.confirm-paragraph",
             }),
-            {
-              forceYes: true,
-            }
+            { forceYes: true }
           );
 
           window.close();
@@ -278,7 +405,7 @@ export const SettingAdvancedEndpointPage: FunctionComponent = observer(() => {
           <Box width="13rem">
             <Dropdown
               items={chainList}
-              selectedItemKey={chainId}
+              selectedItemKey={activeChainId}
               onSelect={setChainId}
               allowSearch={true}
             />
@@ -291,35 +418,28 @@ export const SettingAdvancedEndpointPage: FunctionComponent = observer(() => {
               id: "page.setting.advanced.endpoint.reset-button",
             })}
             color="secondary"
-            disabled={(() => {
-              if (!originalEndpoint) {
-                return true;
-              }
-
-              return (
-                originalEndpoint.rpc === watch("rpc") &&
-                originalEndpoint.rest === watch("lcd") &&
-                originalEndpoint.evmRpc === watch("evmRpc")
-              );
-            })()}
+            disabled={
+              !originalEndpoint ||
+              formMatchesOriginal(
+                config.fields,
+                watchedValues,
+                originalEndpoint
+              )
+            }
             onClick={() => {
               if (originalEndpoint) {
-                setValue("rpc", originalEndpoint.rpc);
-                setValue("lcd", originalEndpoint.rest);
-                setValue("evmRpc", originalEndpoint.evmRpc);
+                for (const field of config.fields) {
+                  setValue(
+                    field.formKey,
+                    originalEndpoint[field.originalKey] as string | undefined
+                  );
+                }
               }
             }}
           />
         </Columns>
 
-        <TextInput label="RPC" {...register("rpc")} />
-        {hasRestEndpoint && <TextInput label="LCD" {...register("lcd")} />}
-        {hasEvmEndpoint && (
-          <React.Fragment>
-            <TextInput label="EVM RPC" {...register("evmRpc")} />
-            <Gutter size="0" />
-          </React.Fragment>
-        )}
+        <EndpointInputs fields={config.fields} register={register} />
 
         <Styles.Flex1 />
 

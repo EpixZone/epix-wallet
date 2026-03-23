@@ -42,14 +42,27 @@ export const EarnOverviewPage: FunctionComponent = observer(() => {
   const { chainStore, accountStore } = useStore();
   const [searchParams] = useSearchParams();
   const chainId = searchParams.get("chainId") || NOBLE_CHAIN_ID;
-  const chainInfo = chainStore.getChain(chainId);
+  const modularChainInfo = chainStore.getModularChain(chainId);
 
   const account = accountStore.getAccount(NOBLE_CHAIN_ID);
 
-  const holdingCurrency = chainInfo.currencies[0];
-  const rewardCurrency =
-    chainInfo.currencies.find((c) => c.coinMinimalDenom === "uusdn") ??
-    USDN_CURRENCY;
+  const holdingCurrency = (() => {
+    const u = modularChainInfo.unwrapped;
+    if (u.type === "cosmos" || u.type === "ethermint") {
+      return u.cosmos.currencies[0];
+    }
+    return modularChainInfo.forceFindCurrency("uusdc");
+  })();
+  const rewardCurrency = (() => {
+    const u = modularChainInfo.unwrapped;
+    if (u.type === "cosmos" || u.type === "ethermint") {
+      return (
+        u.cosmos.currencies.find((c) => c.coinMinimalDenom === "uusdn") ??
+        USDN_CURRENCY
+      );
+    }
+    return USDN_CURRENCY;
+  })();
 
   return (
     <HeaderLayout
@@ -80,7 +93,7 @@ export const EarnOverviewPage: FunctionComponent = observer(() => {
       <Divider direction="horizontal" />
       <Gutter size="1.5rem" />
 
-      <EarnOverviewHistorySection chainInfo={chainInfo} />
+      <EarnOverviewHistorySection chainInfo={modularChainInfo} />
 
       <Modal
         isOpen={isTutorialModalOpen}

@@ -21,9 +21,9 @@ export class ObservableStarknetChainJsonRpcQuery<
     params?: unknown[] | Record<string, unknown>
   ) {
     let url = "";
-    const modularChainInfo = chainGetter.getModularChain(chainId);
-    if ("starknet" in modularChainInfo) {
-      url = modularChainInfo.starknet.rpc;
+    const u = chainGetter.getModularChain(chainId).unwrapped;
+    if (u.type === "starknet") {
+      url = u.starknet.rpc;
     }
 
     super(sharedContext, url, "", method, { block_id: "latest", ...params });

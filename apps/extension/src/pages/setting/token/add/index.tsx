@@ -34,6 +34,7 @@ import { MenuIcon } from "../../../../components/icon";
 import { handleExternalInteractionWithNoProceedNext } from "../../../../utils";
 import { TokenContract } from "../../../../stores/token-contracts";
 import { CoinPretty } from "@keplr-wallet/unit";
+import { filterModularChainInfosByKeyType } from "../../../../utils/is-chain-supported-by-key-type";
 
 const Styles = {
   Container: styled(Stack)`
@@ -53,6 +54,7 @@ export const SettingTokenAddPage: FunctionComponent = observer(() => {
   const {
     chainStore,
     accountStore,
+    keyRingStore,
     queriesStore,
     tokensStore,
     starknetQueriesStore,
@@ -75,22 +77,38 @@ export const SettingTokenAddPage: FunctionComponent = observer(() => {
       },
     });
 
+  const availableChainInfosInListUI = filterModularChainInfosByKeyType(
+    keyRingStore.selectedKeyInfo?.type,
+    chainStore.modularChainInfosInListUI
+  );
+
   const supportedChainInfos = useMemo(() => {
-    return chainStore.chainInfosInListUI.filter((chainInfo) => {
-      return (
-        chainInfo.features?.includes("cosmwasm") ||
-        chainInfo.features?.includes("secretwasm") ||
-        chainInfo.evm != null
-      );
+    return availableChainInfosInListUI.filter((modularChainInfo) => {
+      const u = modularChainInfo.unwrapped;
+      if (u.type === "cosmos" || u.type === "ethermint") {
+        return (
+          u.cosmos.features?.includes("cosmwasm") ||
+          u.cosmos.features?.includes("secretwasm") ||
+          u.type === "ethermint"
+        );
+      }
+      if (u.type === "evm") {
+        return true;
+      }
+      return false;
     });
-  }, [chainStore.chainInfosInListUI]);
+  }, [availableChainInfosInListUI]);
+
+  const availableChainInfosInUI = filterModularChainInfosByKeyType(
+    keyRingStore.selectedKeyInfo?.type,
+    chainStore.modularChainInfosInUI
+  );
+
   const starknetChainInfos = useMemo(() => {
-    return chainStore.modularChainInfosInUI.filter((modularChainInfo) => {
-      return (
-        "starknet" in modularChainInfo && modularChainInfo.starknet != null
-      );
+    return availableChainInfosInUI.filter((modularChainInfo) => {
+      return modularChainInfo.type === "starknet";
     });
-  }, [chainStore.modularChainInfosInUI]);
+  }, [availableChainInfosInUI]);
 
   const [chainId, setChainId] = useState<string>(() => {
     if (paramChainId) {
@@ -99,9 +117,9 @@ export const SettingTokenAddPage: FunctionComponent = observer(() => {
 
     if (supportedChainInfos.length > 0) {
       return supportedChainInfos[0].chainId;
-    } else {
-      return chainStore.chainInfos[0].chainId;
     }
+
+    return availableChainInfosInListUI[0].chainId;
   });
 
   // secret20은 서명 페이지로 넘어가야하기 때문에 막아야함...
@@ -145,22 +163,13 @@ export const SettingTokenAddPage: FunctionComponent = observer(() => {
     };
   }, [accountStore, chainId]);
 
-  const { chainInfo, modularChainInfo } = (() => {
-    const modularChainInfo = chainStore.getModularChain(chainId);
-    if ("cosmos" in modularChainInfo) {
-      return { chainInfo: chainStore.getChain(chainId), modularChainInfo };
-    } else {
-      return { chainInfo: undefined, modularChainInfo };
-    }
-  })();
+  const modularChainInfo = chainStore.getModularChain(chainId);
+  const tokenAddU = modularChainInfo.unwrapped;
 
-  const isSecretWasm = chainInfo?.hasFeature("secretwasm");
-  const isEvmChain =
-    chainInfo != null && "evm" in chainInfo && chainInfo.evm != null;
-  const isStarknet =
-    modularChainInfo != null &&
-    "starknet" in modularChainInfo &&
-    modularChainInfo.starknet != null;
+  const isSecretWasm =
+    (tokenAddU.type === "cosmos" || tokenAddU.type === "ethermint") &&
+    !!tokenAddU.cosmos.features?.includes("secretwasm");
+  const chainType = modularChainInfo.type;
   const [isOpenSecret20ViewingKey, setIsOpenSecret20ViewingKey] =
     useState(false);
 
@@ -182,13 +191,13 @@ export const SettingTokenAddPage: FunctionComponent = observer(() => {
 
   const contractAddress = watch("contractAddress").trim();
   const queryContract = (() => {
-    if (isEvmChain) {
+    if (chainType === "evm" || chainType === "ethermint") {
       return queriesStore
         .get(chainId)
         .ethereum.queryEthereumERC20ContractInfo.getQueryContract(
           contractAddress
         );
-    } else if (isStarknet) {
+    } else if (chainType === "starknet") {
       return starknetQueriesStore
         .get(chainId)
         .queryStarknetERC20ContractInfo.getQueryContract(contractAddress);
@@ -263,8 +272,9 @@ export const SettingTokenAddPage: FunctionComponent = observer(() => {
 
           if (
             !("name" in queryContract.tokenInfo) ||
-            isEvmChain ||
-            isStarknet
+            chainType === "evm" ||
+            chainType === "ethermint" ||
+            chainType === "starknet"
           ) {
             currency = {
               type: "erc20",
@@ -405,10 +415,17 @@ export const SettingTokenAddPage: FunctionComponent = observer(() => {
             required: true,
             validate: (value): string | undefined => {
               try {
-                if (!isEvmChain && !isStarknet) {
+                if (
+                  chainType !== "evm" &&
+                  chainType !== "ethermint" &&
+                  chainType !== "starknet"
+                ) {
                   Bech32Address.validate(
                     value,
-                    chainInfo?.bech32Config?.bech32PrefixAccAddr
+                    tokenAddU.type === "cosmos" ||
+                      tokenAddU.type === "ethermint"
+                      ? tokenAddU.cosmos.bech32Config?.bech32PrefixAccAddr
+                      : undefined
                   );
                 }
               } catch (e) {

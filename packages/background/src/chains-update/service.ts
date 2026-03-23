@@ -68,8 +68,8 @@ export class ChainsUpdateService {
       });
     });
 
-    this.chainsService.addChainRemovedHandler((chainInfo) => {
-      this.updateChainInfo(chainInfo.chainId).catch((e) => {
+    this.chainsService.addChainRemovedHandler((chainId) => {
+      this.updateChainInfo(chainId).catch((e) => {
         console.log(e);
       });
     });

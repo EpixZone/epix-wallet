@@ -53,10 +53,14 @@ export const TransactionFeeModal: FunctionComponent<{
     const theme = useTheme();
 
     const modularChainInfo = chainStore.getModularChain(senderConfig.chainId);
-    if (!("starknet" in modularChainInfo)) {
+    if (modularChainInfo.type !== "starknet") {
       throw new Error("This chain doesn't support starknet");
     }
-    const starknet = modularChainInfo.starknet;
+    const uStarknet = modularChainInfo.unwrapped;
+    if (uStarknet.type !== "starknet") {
+      throw new Error("This chain doesn't support starknet");
+    }
+    const starknet = uStarknet.starknet;
 
     return (
       <Styles.Container>
@@ -75,14 +79,11 @@ export const TransactionFeeModal: FunctionComponent<{
             items={["STRK"]
               .filter((_type) => {
                 const contractAddress = starknet.strkContractAddress;
-                const cur = chainStore
-                  .getModularChainInfoImpl(senderConfig.chainId)
-                  .getCurrencies("starknet")
-                  .find(
-                    (cur) =>
-                      "contractAddress" in cur &&
-                      cur.contractAddress === contractAddress
-                  );
+                const cur = modularChainInfo.currencies.find(
+                  (cur) =>
+                    "contractAddress" in cur &&
+                    cur.contractAddress === contractAddress
+                );
                 if (!cur) {
                   return false;
                 }

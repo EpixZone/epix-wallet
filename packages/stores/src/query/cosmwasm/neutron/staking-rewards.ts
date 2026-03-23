@@ -1,4 +1,4 @@
-import { ChainGetter } from "../../../chain";
+import { ChainGetter, requireCosmosInfo } from "../../../chain";
 import { CoinPretty, Int } from "@keplr-wallet/unit";
 import { ObservableCosmwasmContractChainQuery } from "../contract-query";
 import { QuerySharedContext } from "../../../common";
@@ -41,23 +41,25 @@ class ObservableQueryNeutronStakingRewardsInner extends ObservableCosmwasmContra
   @computed
   get pendingReward(): CoinPretty {
     if (!this.response?.data?.pending_rewards) {
-      const chainInfo = this.chainGetter.getChain(this.chainId);
+      const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
+      const cosmosInfo = requireCosmosInfo(mcInfo2);
       const defaultCurrency =
-        chainInfo.stakeCurrency || chainInfo.currencies[0];
+        cosmosInfo.stakeCurrency || cosmosInfo.currencies[0];
 
       return new CoinPretty(defaultCurrency, new Int(0)).ready(false);
     }
 
     const reward = this.response.data.pending_rewards;
     if (!reward.denom || !reward.amount) {
-      const chainInfo = this.chainGetter.getChain(this.chainId);
+      const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
+      const cosmosInfo = requireCosmosInfo(mcInfo2);
       const defaultCurrency =
-        chainInfo.stakeCurrency || chainInfo.currencies[0];
+        cosmosInfo.stakeCurrency || cosmosInfo.currencies[0];
 
       return new CoinPretty(defaultCurrency, new Int(0)).ready(false);
     }
-    const chainInfo = this.chainGetter.getChain(this.chainId);
-    const currency = chainInfo.forceFindCurrency(reward.denom);
+    const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
+    const currency = mcInfo2.forceFindCurrency(reward.denom);
 
     return new CoinPretty(currency, new Int(reward.amount)).ready(
       !this.isFetching
@@ -73,8 +75,8 @@ class ObservableQueryNeutronStakingRewardsInner extends ObservableCosmwasmContra
     if (!reward.denom || !reward.amount) {
       return undefined;
     }
-    const chainInfo = this.chainGetter.getChain(this.chainId);
-    return chainInfo.findCurrency(reward.denom);
+    const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
+    return mcInfo2.findCurrency(reward.denom);
   }
 }
 

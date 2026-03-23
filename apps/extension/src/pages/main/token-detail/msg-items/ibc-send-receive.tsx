@@ -18,10 +18,10 @@ export const MsgRelationIBCSendReceive: FunctionComponent<{
 }> = observer(({ msg, prices, targetDenom, isInAllActivitiesPage }) => {
   const { chainStore } = useStore();
 
-  const chainInfo = chainStore.getChain(msg.chainId);
+  const modularChainInfo = chainStore.getModularChain(msg.chainId);
 
   const sendAmountPretty = useMemo(() => {
-    const currency = chainInfo.forceFindCurrency(targetDenom);
+    const currency = modularChainInfo.forceFindCurrency(targetDenom);
 
     const receives = msg.meta["receives"] as string[];
     for (const receive of receives) {
@@ -34,7 +34,7 @@ export const MsgRelationIBCSendReceive: FunctionComponent<{
     }
 
     return new CoinPretty(currency, "0");
-  }, [chainInfo, msg.meta, targetDenom]);
+  }, [modularChainInfo, msg.meta, targetDenom]);
 
   const fromAddress = (() => {
     if (!msg.ibcTracking) {

@@ -13,7 +13,7 @@ export const HistoryDetailIBCSend: FunctionComponent<{
 }> = observer(({ msg, targetDenom }) => {
   const { chainStore, accountStore } = useStore();
 
-  const chainInfo = chainStore.getChain(msg.chainId);
+  const chainInfo = chainStore.getModularChain(msg.chainId);
   const account = accountStore.getAccount(msg.chainId);
 
   const sendAmountPretty = useMemo(() => {
@@ -105,8 +105,11 @@ export const HistoryDetailIBCSend: FunctionComponent<{
     }
 
     const lastPath = msg.ibcTracking.paths[msg.ibcTracking.paths.length - 1];
-    if (lastPath.clientChainId && chainStore.hasChain(lastPath.clientChainId)) {
-      return chainStore.getChain(lastPath.clientChainId).chainName;
+    if (
+      lastPath.clientChainId &&
+      chainStore.hasModularChain(lastPath.clientChainId)
+    ) {
+      return chainStore.getModularChain(lastPath.clientChainId).chainName;
     }
     return "Unknown";
   })();

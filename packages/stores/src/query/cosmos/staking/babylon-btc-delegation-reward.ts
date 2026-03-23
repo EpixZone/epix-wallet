@@ -3,7 +3,7 @@ import {
   ObservableChainQueryMap,
 } from "../../chain-query";
 import { BabylonRewardGauges } from "./types";
-import { ChainGetter } from "../../../chain";
+import { ChainGetter, requireCosmosInfo } from "../../../chain";
 import { CoinPretty, Int } from "@keplr-wallet/unit";
 import { computed, makeObservable } from "mobx";
 import { QuerySharedContext } from "../../../common";
@@ -32,13 +32,17 @@ export class ObservableQueryBabylonBtcDelegationRewardInner extends ObservableCh
     // If bech32 address is empty, it will always fail, so don't need to fetch it.
     return (
       this.bech32Address.length > 0 ||
-      this.chainGetter.getChain(this.chainId).stakeCurrency != null
+      requireCosmosInfo(this.chainGetter.getModularChain(this.chainId))
+        .stakeCurrency != null
     );
   }
 
   @computed
   get claimable(): CoinPretty | undefined {
-    const stakeCurrency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+    const stakeCurrency = cosmosInfo.stakeCurrency;
 
     if (!stakeCurrency) {
       return;

@@ -13,10 +13,10 @@ export class BitcoinAccountStore extends HasMapStore<BitcoinAccountBase> {
   }
 
   getAccount(chainId: string): BitcoinAccountBase {
-    const modularChainInfo = this.chainGetter.getModularChain(chainId);
-    if (!("bitcoin" in modularChainInfo)) {
+    const mcInfo2 = this.chainGetter.getModularChain(chainId);
+    if (mcInfo2.type !== "bitcoin") {
       throw new Error(`${chainId} is not bitcoin chain`);
     }
-    return this.get(modularChainInfo.chainId);
+    return this.get(mcInfo2.chainId);
   }
 }

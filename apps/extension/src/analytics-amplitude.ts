@@ -249,15 +249,15 @@ export const logNobleClaimAnalytics = async (
   eventName: string
 ) => {
   const chainId = NOBLE_CHAIN_ID;
-  const chainInfo = chainStore.getChain(chainId);
-  const currency = await chainInfo.findCurrencyAsync("uusdn");
+  const mcInfo2 = chainStore.getModularChain(chainId);
+  const currency = await mcInfo2.findCurrencyAsync("uusdn");
   const bech32Address = accountStore.getAccount(chainId).bech32Address;
 
   if (!bech32Address) return;
 
   if (!currency) {
     console.error(
-      `Failed to find currency info for uusdn on ${chainInfo.chainName} chain`
+      `Failed to find currency info for uusdn on ${mcInfo2.chainName} chain`
     );
 
     return;

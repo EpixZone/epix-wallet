@@ -37,6 +37,20 @@ import { useFocusOnMount } from "../../../../hooks/use-focus-on-mount";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Tooltip } from "../../../../components/tooltip";
 
+const glowSlideAnimation = keyframes`
+  0% {
+    background-position: 100% 0;
+    animation-timing-function: ease-in;
+  }
+  50% {
+    background-position: 50% 0;
+    animation-timing-function: linear;
+  }
+  100% {
+    background-position: 0% 0;
+  }
+`;
+
 const GlowBorderWrapper = styled.div<{ $isLoading: boolean }>`
   position: relative;
   border-radius: 0.375rem;
@@ -69,20 +83,6 @@ const GlowBorderWrapper = styled.div<{ $isLoading: boolean }>`
         animation: ${glowSlideAnimation} 1.5s infinite;
       }
     `}
-`;
-
-const glowSlideAnimation = keyframes`
-  0% {
-    background-position: 100% 0;
-    animation-timing-function: ease-in;
-  }
-  50% {
-    background-position: 50% 0;
-    animation-timing-function: linear;
-  }
-  100% {
-    background-position: 0% 0;
-  }
 `;
 
 const GlowOverlay = styled.div`
@@ -195,7 +195,7 @@ export const SwapAssetInfo: FunctionComponent<{
       }
     }, [isPriceBased]);
 
-    const fromChainInfo = chainStore.getChain(amountConfig.chainId);
+    const fromChainInfo = chainStore.getModularChain(amountConfig.chainId);
     const fromCurrency: AppCurrency | undefined = (() => {
       if (amountConfig.amount.length === 0) {
         return;
@@ -204,7 +204,7 @@ export const SwapAssetInfo: FunctionComponent<{
       return amountConfig.amount[0].currency;
     })();
 
-    const toChainInfo = chainStore.getChain(amountConfig.outChainId);
+    const toChainInfo = chainStore.getModularChain(amountConfig.outChainId);
     const outCurrency: AppCurrency = amountConfig.outCurrency;
 
     const textInputRef = useRef<HTMLInputElement | null>(null);
@@ -416,8 +416,8 @@ export const SwapAssetInfo: FunctionComponent<{
               />
             ) : null}
             <Styles.TextInput
-              ref={textInputRef}
               $isLoading={isLoadingWithGlowEffect}
+              ref={textInputRef}
               value={
                 type === "from"
                   ? (() => {
@@ -567,7 +567,7 @@ export const SwapAssetInfo: FunctionComponent<{
                     `/ibc-swap/select-destination?${(() => {
                       if (amountConfig.amount.length === 1) {
                         return `excludeKey=${encodeURIComponent(
-                          `${amountConfig.chainInfo.chainIdentifier}/${amountConfig.amount[0].currency.coinMinimalDenom}`
+                          `${amountConfig.modularChainInfo.chainIdentifier}/${amountConfig.amount[0].currency.coinMinimalDenom}`
                         )}&`;
                       }
 
@@ -580,7 +580,9 @@ export const SwapAssetInfo: FunctionComponent<{
                         }
                         return q;
                       })()}&entryPoint=select_to_asset`
-                    )}&inChainId=${amountConfig.chainInfo.chainId}&inDenom=${
+                    )}&inChainId=${
+                      amountConfig.modularChainInfo.chainId
+                    }&inDenom=${
                       amountConfig.amount[0].currency.coinMinimalDenom
                     }`
                   );
@@ -594,7 +596,7 @@ export const SwapAssetInfo: FunctionComponent<{
                   if (type === "to") {
                     if (
                       chainStore
-                        .getChain(amountConfig.outChainId)
+                        .getModularChain(amountConfig.outChainId)
                         .findCurrency(outCurrency.coinMinimalDenom) == null
                     ) {
                       return (
@@ -909,7 +911,7 @@ const SelectDestinationChainModal: FunctionComponent<{
     denom: string;
   }[] =
     swapQueriesStore.querySwapHelper.getSwapDestinationCurrencyAlternativeChains(
-      chainStore.getChain(amountConfig.outChainId),
+      chainStore.getModularChain(amountConfig.outChainId),
       amountConfig.outCurrency
     );
 
@@ -921,7 +923,7 @@ const SelectDestinationChainModal: FunctionComponent<{
 
     return channels.filter((channel) => {
       return chainStore
-        .getChain(channel.chainId)
+        .getModularChain(channel.chainId)
         .chainName.toLowerCase()
         .includes(trim);
     });
@@ -1011,7 +1013,7 @@ const SelectDestinationChainModal: FunctionComponent<{
               >
                 <XAxis alignY="center">
                   <ChainImageFallback
-                    chainInfo={chainStore.getChain(channel.chainId)}
+                    chainInfo={chainStore.getModularChain(channel.chainId)}
                     size="2rem"
                   />
                   <Gutter size="0.75rem" />
@@ -1022,7 +1024,7 @@ const SelectDestinationChainModal: FunctionComponent<{
                         : ColorPalette["gray-10"]
                     }
                   >
-                    {chainStore.getChain(channel.chainId).chainName}
+                    {chainStore.getModularChain(channel.chainId).chainName}
                   </Subtitle2>
                 </XAxis>
               </Box>

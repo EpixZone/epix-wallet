@@ -59,7 +59,8 @@ import { Stack } from "../../../../components/stack";
 import { ArbitraryMsgSignHeader } from "../../../sign/components/arbitrary-message/arbitrary-message-header";
 import { ArbitraryMsgRequestOrigin } from "../../../sign/components/arbitrary-message/arbitrary-message-origin";
 import { ArbitraryMsgWalletDetails } from "../../../sign/components/arbitrary-message/arbitrary-message-wallet-details";
-import { AppCurrency, ModularChainInfo } from "@keplr-wallet/types";
+import { AppCurrency } from "@keplr-wallet/types";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import { ExtensionKVStore } from "@keplr-wallet/common";
 import { toXOnly } from "@keplr-wallet/crypto";
 import { useGetUTXOs } from "../../../../hooks/bitcoin/use-get-utxos";
@@ -110,7 +111,11 @@ export const SignBitcoinTxView: FunctionComponent<{
   const chainId = interactionData.data.chainId;
 
   const modularChainInfo = chainStore.getModularChain(chainId);
-  if (!("bitcoin" in modularChainInfo)) {
+  if (modularChainInfo.type !== "bitcoin") {
+    throw new Error(`${modularChainInfo.chainId} is not bitcoin chain`);
+  }
+  const uBtc = modularChainInfo.unwrapped;
+  if (uBtc.type !== "bitcoin") {
     throw new Error(`${modularChainInfo.chainId} is not bitcoin chain`);
   }
 
@@ -325,7 +330,7 @@ export const SignBitcoinTxView: FunctionComponent<{
     Error | undefined
   >(undefined);
 
-  const isTestnet = modularChainInfo.bitcoin.bip44.coinType === 1;
+  const isTestnet = uBtc.bitcoin.bip44.coinType === 1;
 
   // 이 페이지에서는 다른 config들이 사용되지 않으므로 feeConfig만 검증한다.
   const txConfigsValidate = useTxConfigsValidate({
@@ -368,9 +373,7 @@ export const SignBitcoinTxView: FunctionComponent<{
 
   const approve = async () => {
     try {
-      const feeCurrency = chainStore
-        .getModularChainInfoImpl(chainId)
-        .getCurrencies("bitcoin")[0];
+      const feeCurrency = modularChainInfo.currencies[0];
       if (!feeCurrency) {
         throw new Error("Can't find fee currency");
       }
@@ -707,10 +710,12 @@ const InternalSendBitcoinTxReview: FunctionComponent<{
         ? sumOutputValueByAddress?.find((output) => output.address !== sender)
         : sumOutputValueByAddress?.[0];
     const recipient = recipientOutput?.address;
-    const modularChainInfo = chainStore.getModularChain(chainId);
-    const currency = chainStore
-      .getModularChainInfoImpl(chainId)
-      .getCurrencies("bitcoin")[0];
+    const modularChainInfoInner = chainStore.getModularChain(chainId);
+    const uBtcInner = modularChainInfoInner.unwrapped;
+    if (uBtcInner.type !== "bitcoin") {
+      throw new Error("Not a bitcoin chain");
+    }
+    const currency = uBtcInner.bitcoin.currencies[0];
     const sendToken = new CoinPretty(
       currency,
       recipientOutput?.value ?? new Dec(0)
@@ -736,7 +741,7 @@ const InternalSendBitcoinTxReview: FunctionComponent<{
           overflow: "auto",
         }}
       >
-        <NetworkInfoBadge chainInfo={modularChainInfo} />
+        <NetworkInfoBadge chainInfo={modularChainInfoInner} />
         <Gutter size="0.75rem" />
         <Box marginBottom="0.5rem">
           <Columns sum={1} alignY="center">
@@ -989,10 +994,12 @@ const PsbtDetailsView: FunctionComponent<{
       return JSON.stringify(decodedRawData, null, 2);
     }, [decodedRawData]);
 
-    const modularChainInfo = chainStore.getModularChain(chainId);
-    const currency = chainStore
-      .getModularChainInfoImpl(chainId)
-      .getCurrencies("bitcoin")[0];
+    const modularChainInfoRaw = chainStore.getModularChain(chainId);
+    const uBtcRaw = modularChainInfoRaw.unwrapped;
+    if (uBtcRaw.type !== "bitcoin") {
+      throw new Error("Not a bitcoin chain");
+    }
+    const currency = uBtcRaw.bitcoin.currencies[0];
 
     const { totalSpend, expectedFee } = useMemo(() => {
       if (!sumInputValueByAddress?.length) {
@@ -1103,7 +1110,7 @@ const PsbtDetailsView: FunctionComponent<{
         <ContentWrapper isSidePanel={isSidePanel}>
           <ArbitraryMsgWalletDetails
             walletName={signerInfo.name}
-            chainInfo={modularChainInfo}
+            chainInfo={modularChainInfoRaw}
             addressInfo={{
               type: "bitcoin",
               address: signerInfo.address,
@@ -1238,7 +1245,7 @@ const ContentWrapper: FunctionComponent<{
 };
 
 const NetworkInfoBadge: FunctionComponent<{
-  chainInfo: ModularChainInfo;
+  chainInfo: IModularChainInfoImpl;
 }> = observer(({ chainInfo }) => {
   const theme = useTheme();
 

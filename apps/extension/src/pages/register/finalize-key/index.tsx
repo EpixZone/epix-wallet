@@ -182,11 +182,18 @@ export const FinalizeKeyScene: FunctionComponent<{
 
         let promises: Promise<unknown>[] = [];
 
-        for (const chainInfo of chainStore.chainInfos) {
+        for (const chainInfo of chainStore.modularChainInfos) {
           // If mnemonic is fresh, there is no way that additional coin type account has value to select.
           if (mnemonic) {
+            const u = chainInfo.unwrapped;
+            if (u.type !== "cosmos" && u.type !== "ethermint") {
+              continue;
+            }
             if (
-              keyRingStore.needKeyCoinTypeFinalize(vaultId, chainInfo) &&
+              keyRingStore.needKeyCoinTypeFinalize(
+                vaultId,
+                chainInfo.chainId
+              ) &&
               mnemonic?.isFresh
             ) {
               promises.push(
@@ -194,7 +201,7 @@ export const FinalizeKeyScene: FunctionComponent<{
                   await keyRingStore.finalizeKeyCoinType(
                     vaultId,
                     chainInfo.chainId,
-                    chainInfo.bip44.coinType
+                    u.cosmos.bip44.coinType
                   );
                 })()
               );
@@ -216,21 +223,24 @@ export const FinalizeKeyScene: FunctionComponent<{
 
         promises = [];
         for (const modularChainInfo of chainStore.modularChainInfos) {
-          if ("cosmos" in modularChainInfo) {
-            const chainInfo = chainStore.getChain(
-              modularChainInfo.cosmos.chainId
-            );
-            if (keyRingStore.needKeyCoinTypeFinalize(vaultId, chainInfo)) {
+          const u = modularChainInfo.unwrapped;
+          if (u.type === "cosmos" || u.type === "ethermint") {
+            if (
+              keyRingStore.needKeyCoinTypeFinalize(
+                vaultId,
+                modularChainInfo.chainId
+              )
+            ) {
               promises.push(
                 (async () => {
                   const res =
                     await keyRingStore.computeNotFinalizedKeyAddresses(
                       vaultId,
-                      chainInfo.chainId
+                      modularChainInfo.chainId
                     );
 
                   candidateAddresses.push({
-                    chainId: chainInfo.chainId,
+                    chainId: modularChainInfo.chainId,
                     bech32Addresses: res.map((res) => {
                       return {
                         coinType: res.coinType,
@@ -241,7 +251,7 @@ export const FinalizeKeyScene: FunctionComponent<{
                 })()
               );
             } else {
-              const account = accountStore.getAccount(chainInfo.chainId);
+              const account = accountStore.getAccount(modularChainInfo.chainId);
               promises.push(
                 (async () => {
                   if (account.walletStatus !== WalletStatus.Loaded) {
@@ -250,10 +260,10 @@ export const FinalizeKeyScene: FunctionComponent<{
 
                   if (account.bech32Address) {
                     candidateAddresses.push({
-                      chainId: chainInfo.chainId,
+                      chainId: modularChainInfo.chainId,
                       bech32Addresses: [
                         {
-                          coinType: chainInfo.bip44.coinType,
+                          coinType: u.cosmos.bip44.coinType,
                           address: account.bech32Address,
                         },
                       ],
@@ -262,10 +272,8 @@ export const FinalizeKeyScene: FunctionComponent<{
                 })()
               );
             }
-          } else if ("starknet" in modularChainInfo) {
-            const account = accountStore.getAccount(
-              modularChainInfo.starknet.chainId
-            );
+          } else if (u.type === "evm") {
+            const account = accountStore.getAccount(modularChainInfo.chainId);
             promises.push(
               (async () => {
                 if (account.walletStatus !== WalletStatus.Loaded) {
@@ -273,7 +281,16 @@ export const FinalizeKeyScene: FunctionComponent<{
                 }
               })()
             );
-          } else if ("bitcoin" in modularChainInfo) {
+          } else if (u.type === "starknet") {
+            const account = accountStore.getAccount(modularChainInfo.chainId);
+            promises.push(
+              (async () => {
+                if (account.walletStatus !== WalletStatus.Loaded) {
+                  await account.init();
+                }
+              })()
+            );
+          } else if (u.type === "bitcoin") {
             const account = accountStore.getAccount(modularChainInfo.chainId);
             promises.push(
               (async () => {
@@ -298,11 +315,32 @@ export const FinalizeKeyScene: FunctionComponent<{
         (async () => {
           const promises: Promise<unknown>[] = [];
 
-          // 스타크넷, 비트코인 관련 체인들은 `candidateAddresses`에 추가되지 않으므로 여기서 처리한다.
+          // EVM, 스타크넷, 비트코인 관련 체인들은 `candidateAddresses`에 추가되지 않으므로 여기서 처리한다.
           for (const modularChainInfo of chainStore.modularChainInfosInListUI) {
-            if ("starknet" in modularChainInfo) {
+            const mu = modularChainInfo.unwrapped;
+            if (mu.type === "evm") {
               const account = accountStore.getAccount(modularChainInfo.chainId);
-              const mainCurrency = modularChainInfo.starknet.currencies[0];
+              const mainCurrency = mu.evm.nativeCurrency;
+
+              if (account.ethereumHexAddress) {
+                const queryBalance = queriesStore
+                  .get(modularChainInfo.chainId)
+                  .queryBalances.getQueryEthereumHexAddress(
+                    account.ethereumHexAddress
+                  );
+                const balance = queryBalance.getBalance(mainCurrency);
+
+                if (balance) {
+                  promises.push(balance.waitFreshResponse());
+
+                  if (mainCurrency.coinGeckoId) {
+                    priceStore.getPrice(mainCurrency.coinGeckoId);
+                  }
+                }
+              }
+            } else if (mu.type === "starknet") {
+              const account = accountStore.getAccount(modularChainInfo.chainId);
+              const mainCurrency = mu.starknet.currencies[0];
 
               const queryBalance = starknetQueriesStore
                 .get(modularChainInfo.chainId)
@@ -321,9 +359,9 @@ export const FinalizeKeyScene: FunctionComponent<{
                   priceStore.getPrice(mainCurrency.coinGeckoId);
                 }
               }
-            } else if ("bitcoin" in modularChainInfo) {
+            } else if (mu.type === "bitcoin") {
               const account = accountStore.getAccount(modularChainInfo.chainId);
-              const mainCurrency = modularChainInfo.bitcoin.currencies[0];
+              const mainCurrency = mu.bitcoin.currencies[0];
 
               const queryBalance = bitcoinQueriesStore
                 .get(modularChainInfo.chainId)
@@ -346,60 +384,51 @@ export const FinalizeKeyScene: FunctionComponent<{
           }
 
           for (const candidateAddress of candidateAddresses) {
-            const account = accountStore.getAccount(candidateAddress.chainId);
             const queries = queriesStore.get(candidateAddress.chainId);
-            const isEVMOnlyChain = chainStore.isEvmOnlyChain(
+            const modularChainInfo = chainStore.getModularChain(
               candidateAddress.chainId
             );
+            const cu = modularChainInfo.unwrapped;
+            if (cu.type !== "cosmos" && cu.type !== "ethermint") {
+              continue;
+            }
             for (const bech32Address of candidateAddress.bech32Addresses) {
               // Prepare queries state to avoid UI flicker on next scene.
-              if (!isEVMOnlyChain) {
-                promises.push(
-                  queries.cosmos.queryAccount
-                    .getQueryBech32Address(bech32Address.address)
-                    .waitFreshResponse()
-                );
-              }
+              promises.push(
+                queries.cosmos.queryAccount
+                  .getQueryBech32Address(bech32Address.address)
+                  .waitFreshResponse()
+              );
               promises.push(
                 (async () => {
-                  const chainInfo = chainStore.getChain(
-                    candidateAddress.chainId
-                  );
-                  const bal = isEVMOnlyChain
-                    ? queries.queryBalances
-                        .getQueryEthereumHexAddress(account.ethereumHexAddress)
-                        .getBalance(
-                          chainInfo.stakeCurrency || chainInfo.currencies[0]
-                        )
-                    : queries.queryBalances
-                        .getQueryBech32Address(bech32Address.address)
-                        .getBalance(
-                          chainInfo.stakeCurrency || chainInfo.currencies[0]
-                        );
+                  const mainCurrency =
+                    cu.cosmos.stakeCurrency || cu.cosmos.currencies[0];
+                  if (!mainCurrency) return;
+
+                  const bal = queries.queryBalances
+                    .getQueryBech32Address(bech32Address.address)
+                    .getBalance(mainCurrency);
 
                   if (bal) {
                     await bal.waitFreshResponse();
                   }
                 })()
               );
-              if (!isEVMOnlyChain) {
-                const isInitia = candidateAddress.chainId === INITIA_CHAIN_ID;
-                promises.push(
-                  isInitia
-                    ? queries.cosmos.queryInitiaDelegations
-                        .getQueryBech32Address(bech32Address.address)
-                        .waitFreshResponse()
-                    : queries.cosmos.queryDelegations
-                        .getQueryBech32Address(bech32Address.address)
-                        .waitFreshResponse()
-                );
-              }
+              const isInitia = candidateAddress.chainId === INITIA_CHAIN_ID;
+              promises.push(
+                isInitia
+                  ? queries.cosmos.queryInitiaDelegations
+                      .getQueryBech32Address(bech32Address.address)
+                      .waitFreshResponse()
+                  : queries.cosmos.queryDelegations
+                      .getQueryBech32Address(bech32Address.address)
+                      .waitFreshResponse()
+              );
             }
 
-            const chainInfo = chainStore.getChain(candidateAddress.chainId);
             const targetCurrency =
-              chainInfo.stakeCurrency || chainInfo.currencies[0];
-            if (targetCurrency.coinGeckoId) {
+              cu.cosmos.stakeCurrency || cu.cosmos.currencies[0];
+            if (targetCurrency?.coinGeckoId) {
               // Push coingecko id to priceStore.
               priceStore.getPrice(targetCurrency.coinGeckoId);
             }

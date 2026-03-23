@@ -1,20 +1,18 @@
-import { ModularChainInfo } from "@keplr-wallet/types";
-import { ChainStore } from "@keplr-wallet/stores";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
+import { isEthSignChain } from "@keplr-wallet/types";
 
-export const determineLedgerApp = (
-  chainStore: ChainStore,
-  info: ModularChainInfo,
-  cid: string
-): string => {
-  if ("cosmos" in info && chainStore.isEvmOrEthermintLikeChain(cid)) {
+export const determineLedgerApp = (info: IModularChainInfoImpl): string => {
+  const u = info.unwrapped;
+
+  if (isEthSignChain(u)) {
     return "Ethereum";
   }
 
-  if ("starknet" in info) {
+  if (u.type === "starknet") {
     return "Starknet";
   }
-  if ("bitcoin" in info) {
-    const coinType = info.bitcoin.bip44.coinType;
+  if (u.type === "bitcoin") {
+    const coinType = u.bitcoin.bip44.coinType;
     return coinType === 1 ? "Bitcoin Test" : "Bitcoin";
   }
 

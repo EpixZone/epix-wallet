@@ -16,7 +16,7 @@ export const HistoryDetailIBCSwapSkipReceive: FunctionComponent<{
 }> = observer(({ msg, targetDenom }) => {
   const { chainStore } = useStore();
 
-  const chainInfo = chainStore.getChain(msg.chainId);
+  const chainInfo = chainStore.getModularChain(msg.chainId);
 
   const sendAmountPretty = useMemo(() => {
     const currency = chainInfo.forceFindCurrency(targetDenom);
@@ -39,17 +39,21 @@ export const HistoryDetailIBCSwapSkipReceive: FunctionComponent<{
       return "Unknown";
     }
 
-    if (chainStore.isEvmOnlyChain(msg.chainId)) {
+    const u = chainInfo.unwrapped;
+    if (u.type === "evm") {
       return "0x" + msg.search;
     }
 
-    if (!chainInfo.bech32Config?.bech32PrefixAccAddr) {
-      return "Unknown";
+    if (u.type === "cosmos" || u.type === "ethermint") {
+      if (!u.cosmos.bech32Config?.bech32PrefixAccAddr) {
+        return "Unknown";
+      }
+      return new Bech32Address(Buffer.from(msg.search, "hex")).toBech32(
+        u.cosmos.bech32Config.bech32PrefixAccAddr
+      );
     }
 
-    return new Bech32Address(Buffer.from(msg.search, "hex")).toBech32(
-      chainInfo.bech32Config.bech32PrefixAccAddr
-    );
+    return "Unknown";
   })();
 
   const shortenedToAddress = useMemo(() => {

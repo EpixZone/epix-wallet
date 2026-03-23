@@ -1,3 +1,4 @@
+export * from "./types";
 import {
   ObservableChainQuery,
   ObservableChainQueryMap,

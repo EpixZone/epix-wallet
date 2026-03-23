@@ -52,16 +52,19 @@ export const IBCAddChannelModal: FunctionComponent<{
           })}
           menuContainerMaxHeight="10rem"
           selectedItemKey={selectedChainId}
-          items={chainStore.chainInfos
-            .filter(
-              (chainInfo) =>
-                chainInfo.chainId !== chainId &&
-                chainInfo.hasFeature("ibc-transfer")
-            )
-            .map((chainInfo) => {
+          items={chainStore.modularChainInfosInUI
+            .filter((modularChainInfo) => {
+              if (modularChainInfo.chainId === chainId) return false;
+              const u = modularChainInfo.unwrapped;
+              return (
+                (u.type === "cosmos" || u.type === "ethermint") &&
+                (u.cosmos.features?.includes("ibc-transfer") ?? false)
+              );
+            })
+            .map((modularChainInfo) => {
               return {
-                key: chainInfo.chainId,
-                label: chainInfo.chainName,
+                key: modularChainInfo.chainId,
+                label: modularChainInfo.chainName,
               };
             })}
           onSelect={(key) => {

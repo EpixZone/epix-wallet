@@ -85,7 +85,7 @@ export class KeyRingStarknetService {
     }
     const modularChainInfo =
       this.chainsService.getModularChainInfoOrThrow(chainId);
-    if (!("starknet" in modularChainInfo)) {
+    if (modularChainInfo.type !== "starknet") {
       throw new Error("Chain is not a starknet chain");
     }
     return new RpcProvider({
@@ -164,7 +164,7 @@ export class KeyRingStarknetService {
     yHigh: Uint8Array;
   }> {
     const chainInfo = this.chainsService.getModularChainInfoOrThrow(chainId);
-    if (!("starknet" in chainInfo)) {
+    if (chainInfo.type !== "starknet") {
       throw new Error("Chain is not a starknet chain");
     }
 
@@ -251,7 +251,7 @@ export class KeyRingStarknetService {
 
           const modularChainInfo =
             this.chainsService.getModularChainInfoOrThrow(currentChainId);
-          if (!("starknet" in modularChainInfo)) {
+          if (modularChainInfo.type !== "starknet") {
             throw new Error("Chain is not a starknet chain");
           }
 
@@ -269,7 +269,7 @@ export class KeyRingStarknetService {
 
           const modularChainInfo =
             this.chainsService.getModularChainInfoOrThrow(currentChainId);
-          if (!("starknet" in modularChainInfo)) {
+          if (modularChainInfo.type !== "starknet") {
             throw new Error("Chain is not a starknet chain");
           }
 
@@ -354,7 +354,7 @@ export class KeyRingStarknetService {
 
           const newCurrentChainInfo =
             this.chainsService.getModularChainInfo(newCurrentChainId);
-          if (!newCurrentChainInfo || !("starknet" in newCurrentChainInfo)) {
+          if (!newCurrentChainInfo || newCurrentChainInfo.type !== "starknet") {
             return false;
           }
 
@@ -437,7 +437,7 @@ export class KeyRingStarknetService {
           const currentChainId = this.forceGetCurrentChainId(origin, chainId);
           const modularChainInfo =
             this.chainsService.getModularChainInfoOrThrow(currentChainId);
-          if (!("starknet" in modularChainInfo)) {
+          if (modularChainInfo.type !== "starknet") {
             throw new Error("Chain is not a starknet chain");
           }
 
@@ -488,7 +488,7 @@ export class KeyRingStarknetService {
           const currentChainId = this.forceGetCurrentChainId(origin, chainId);
           const modularChainInfo =
             this.chainsService.getModularChainInfoOrThrow(currentChainId);
-          if (!("starknet" in modularChainInfo)) {
+          if (modularChainInfo.type !== "starknet") {
             throw new Error("Chain is not a starknet chain");
           }
 

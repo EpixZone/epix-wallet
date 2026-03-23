@@ -25,8 +25,12 @@ export const SettingGeneralAuthZPage: FunctionComponent = observer(() => {
   const navigate = useNavigate();
   const intl = useIntl();
 
+  const cosmosChainInfosInUI = chainStore.modularChainInfosInUI.filter(
+    (ci) => ci.type === "cosmos" || ci.type === "ethermint"
+  );
+
   const [chainId, setChainId] = useState<string>(
-    chainStore.chainInfosInUI[0].chainId
+    cosmosChainInfosInUI[0].chainId
   );
 
   let grants = [] as AuthZ.Grant[];
@@ -43,7 +47,7 @@ export const SettingGeneralAuthZPage: FunctionComponent = observer(() => {
     }
   }
 
-  const items = chainStore.chainInfosInUI.map((chainInfo) => {
+  const items = cosmosChainInfosInUI.map((chainInfo) => {
     return {
       key: chainInfo.chainId,
       label: chainInfo.chainName,

@@ -1,6 +1,6 @@
 import { autorun, makeObservable, observable, runInAction, toJS } from "mobx";
 import { AppCurrency } from "@keplr-wallet/types";
-import { ChainStore } from "../chain";
+import { ChainStore, getCosmosInfo } from "../chain";
 import { CosmosQueries, IQueriesStore } from "../query";
 import { DenomHelper, KVStore } from "@keplr-wallet/common";
 import { Bech32Address, ChainIdHelper } from "@keplr-wallet/cosmos";
@@ -69,7 +69,11 @@ export class LSMCurrencyRegistrar {
         done: boolean;
       }
     | undefined {
-    if (!this.chainStore.hasChain(chainId)) {
+    if (!this.chainStore.hasModularChain(chainId)) {
+      return;
+    }
+    const mcInfo2 = this.chainStore.getModularChain(chainId);
+    if (mcInfo2.type !== "cosmos" && mcInfo2.type !== "ethermint") {
       return;
     }
 
@@ -78,14 +82,14 @@ export class LSMCurrencyRegistrar {
       return;
     }
 
-    const chainInfo = this.chainStore.getChain(chainId);
-    if (!chainInfo.stakeCurrency) {
+    const cosmosInfo = getCosmosInfo(this.chainStore.getModularChain(chainId));
+    if (!cosmosInfo?.stakeCurrency) {
       return;
     }
 
     if (
-      !chainInfo.bech32Config ||
-      !coinMinimalDenom.startsWith(chainInfo.bech32Config.bech32PrefixValAddr)
+      !cosmosInfo.bech32Config ||
+      !coinMinimalDenom.startsWith(cosmosInfo.bech32Config.bech32PrefixValAddr)
     ) {
       return;
     }
@@ -99,7 +103,7 @@ export class LSMCurrencyRegistrar {
     try {
       Bech32Address.validate(
         valAddress,
-        chainInfo.bech32Config?.bech32PrefixValAddr
+        cosmosInfo.bech32Config?.bech32PrefixValAddr
       );
     } catch {
       // noop
@@ -196,7 +200,7 @@ export class LSMCurrencyRegistrar {
 
           return "Unknown";
         })()}/${id}`,
-        coinDecimals: chainInfo.stakeCurrency.coinDecimals,
+        coinDecimals: cosmosInfo.stakeCurrency.coinDecimals,
         coinImageUrl: validator.thumbnail || undefined,
       },
       done: !validator.isFetching,

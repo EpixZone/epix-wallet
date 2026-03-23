@@ -40,7 +40,7 @@ export const EarnConfirmUsdnEstimationPage: FunctionComponent = observer(() => {
   const [isUsdnDescriptionModalOpen, setIsUsdnDescriptionModalOpen] =
     useState(false);
 
-  const chainInfo = chainStore.getChain(NOBLE_CHAIN_ID);
+  const modularChainInfo = chainStore.getModularChain(NOBLE_CHAIN_ID);
   const account = accountStore.getAccount(NOBLE_CHAIN_ID);
 
   const amountValue = searchParams.get("amount");
@@ -48,10 +48,10 @@ export const EarnConfirmUsdnEstimationPage: FunctionComponent = observer(() => {
   const feeMinimalDenom = searchParams.get("feeCurrency");
   const feeType = searchParams.get("feeType");
 
-  const inCurrency = chainInfo.forceFindCurrency(
+  const inCurrency = modularChainInfo.forceFindCurrency(
     NOBLE_EARN_DEPOSIT_IN_COIN_MINIMAL_DENOM
   );
-  const outCurrency = chainInfo.forceFindCurrency(
+  const outCurrency = modularChainInfo.forceFindCurrency(
     NOBLE_EARN_DEPOSIT_OUT_COIN_MINIMAL_DENOM
   );
   const inAmount = new CoinPretty(
@@ -92,11 +92,15 @@ export const EarnConfirmUsdnEstimationPage: FunctionComponent = observer(() => {
       nobleEarnAmountConfig.gasConfig.setValue(gasValue);
     }
     if (feeMinimalDenom && feeType) {
-      const feeCurrency = chainStore
-        .getChain(NOBLE_CHAIN_ID)
-        .feeCurrencies.find(
-          (feeCurrency) => feeCurrency.coinMinimalDenom === feeMinimalDenom
-        );
+      const feeCurrency = (() => {
+        const u = chainStore.getModularChain(NOBLE_CHAIN_ID).unwrapped;
+        if (u.type === "cosmos" || u.type === "ethermint") {
+          return u.cosmos.feeCurrencies.find(
+            (feeCurrency) => feeCurrency.coinMinimalDenom === feeMinimalDenom
+          );
+        }
+        return undefined;
+      })();
       if (feeCurrency) {
         nobleEarnAmountConfig.feeConfig.setFee({
           type: feeType as FeeType,

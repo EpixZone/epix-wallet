@@ -173,12 +173,10 @@ export const PermissionBasicAccessForStarknetPage: FunctionComponent<{
               </Body2>
               <Dropdown
                 items={chainStore.modularChainInfos
-                  .filter((chainInfo) =>
-                    chainInfo.chainId.startsWith("starknet:")
-                  )
-                  .map((chainInfo) => ({
-                    key: `${chainInfo.chainId}`,
-                    label: chainInfo.chainName,
+                  .filter((mc) => mc.chainId.startsWith("starknet:"))
+                  .map((mc) => ({
+                    key: `${mc.chainId}`,
+                    label: mc.chainName,
                   }))}
                 onSelect={(chainId) => setCurrentChainIdForStarknet(chainId)}
                 selectedItemKey={currentChainIdForStarknet}

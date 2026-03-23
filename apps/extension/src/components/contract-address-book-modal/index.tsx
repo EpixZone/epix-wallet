@@ -49,8 +49,11 @@ export const ContractAddressBookModal: FunctionComponent<{
 }> = observer(({ isOpen, chainId, onSelect, close }) => {
   const { chainStore, queriesStore, starknetQueriesStore } = useStore();
 
+  const modularChainInfo = chainStore.getModularChain(chainId);
   const contracts =
-    "cosmos" in chainStore.getModularChain(chainId)
+    modularChainInfo.type === "cosmos" ||
+    modularChainInfo.type === "ethermint" ||
+    modularChainInfo.type === "evm"
       ? queriesStore.get(chainId).tokenContracts.queryTokenContracts
           .tokenContracts
       : starknetQueriesStore.get(chainId).queryTokenContracts.tokenContracts;

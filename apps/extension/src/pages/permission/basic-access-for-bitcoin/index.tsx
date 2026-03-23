@@ -40,10 +40,12 @@ export const PermissionBasicAccessForBitcoinPage: FunctionComponent<{
   });
 
   const defaultModularChainInfo = chainStore.getModularChain(data.chainIds[0]);
-  const defaultChainId =
-    "bitcoin" in defaultModularChainInfo
-      ? defaultModularChainInfo.bitcoin.chainId
+  const defaultChainId = (() => {
+    const u = defaultModularChainInfo.unwrapped;
+    return u.type === "bitcoin"
+      ? u.bitcoin.chainId
       : defaultModularChainInfo.chainId;
+  })();
 
   const [currentChainIdForBitcoin, setCurrentChainIdForBitcoin] =
     useState<string>(defaultChainId);
@@ -205,17 +207,20 @@ export const PermissionBasicAccessForBitcoinPage: FunctionComponent<{
               </Body2>
               <Dropdown
                 items={chainStore.groupedModularChainInfos
-                  .filter((chainInfo) =>
-                    chainInfo.chainId.startsWith("bip122:")
+                  .filter((group) =>
+                    group.modularChainInfo.chainId.startsWith("bip122:")
                   )
-                  .map((chainInfo) => ({
-                    key: `${
-                      "bitcoin" in chainInfo
-                        ? chainInfo.bitcoin.chainId
-                        : chainInfo.chainId
-                    }`,
-                    label: chainInfo.chainName,
-                  }))}
+                  .map((group) => {
+                    const u = group.modularChainInfo.unwrapped;
+                    return {
+                      key: `${
+                        u.type === "bitcoin"
+                          ? u.bitcoin.chainId
+                          : group.modularChainInfo.chainId
+                      }`,
+                      label: group.modularChainInfo.chainName,
+                    };
+                  })}
                 onSelect={(chainId) => setCurrentChainIdForBitcoin(chainId)}
                 selectedItemKey={currentChainIdForBitcoin}
                 style={{ padding: "1rem", height: "auto" }}
@@ -256,11 +261,13 @@ export const PermissionBasicAccessForBitcoinPage: FunctionComponent<{
                   }
                 >
                   {
-                    chainStore.groupedModularChainInfos.find(
-                      (chainInfo) =>
-                        "bitcoin" in chainInfo &&
-                        chainInfo.bitcoin.chainId === currentChainIdForBitcoin
-                    )?.chainName
+                    chainStore.groupedModularChainInfos.find((group) => {
+                      const u = group.modularChainInfo.unwrapped;
+                      return (
+                        u.type === "bitcoin" &&
+                        u.bitcoin.chainId === currentChainIdForBitcoin
+                      );
+                    })?.modularChainInfo.chainName
                   }
                 </Subtitle3>
               </Box>

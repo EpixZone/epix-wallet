@@ -49,11 +49,15 @@ export const SignBitcoinMessageView: FunctionComponent<{
   const chainId = interactionData.data.chainId;
 
   const modularChainInfo = chainStore.getModularChain(chainId);
-  if (!("bitcoin" in modularChainInfo)) {
+  if (modularChainInfo.type !== "bitcoin") {
+    throw new Error(`${modularChainInfo.chainId} is not bitcoin chain`);
+  }
+  const uBtc = modularChainInfo.unwrapped;
+  if (uBtc.type !== "bitcoin") {
     throw new Error(`${modularChainInfo.chainId} is not bitcoin chain`);
   }
 
-  const isTestnet = modularChainInfo.bitcoin.bip44.coinType === 1;
+  const isTestnet = uBtc.bitcoin.bip44.coinType === 1;
 
   const [unmountPromise] = useState(() => {
     let resolver: () => void;

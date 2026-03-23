@@ -2,7 +2,7 @@ import React, { FunctionComponent } from "react";
 import { Box } from "../../../../components/box";
 import { TokenTitleView } from "../token";
 import { ColorPalette } from "../../../../styles";
-import { ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
+import { ChainInfo } from "@keplr-wallet/types";
 import { Gutter } from "../../../../components/gutter";
 import { ChainImageFallback } from "../../../../components/image";
 import { Column, Columns } from "../../../../components/column";
@@ -20,12 +20,19 @@ import { NativeChainMarkIcon } from "../../../../components/icon";
 import { useNavigate } from "react-router";
 import { useKeyCoinTypeFinalize } from "../../../manage-chains/hooks/use-key-coin-type-finalize";
 import { determineLedgerApp } from "../../../../utils/determine-ledger-app";
+import { ChainIdHelper } from "@keplr-wallet/cosmos";
+import { getKeplrFromWindow } from "@keplr-wallet/stores";
 
 export const LookingForChains: FunctionComponent<{
   lookingForChains: {
     embedded: boolean;
     stored: boolean;
-    chainInfo: ChainInfo | ModularChainInfo;
+    chainInfo: {
+      chainId: string;
+      chainName: string;
+      chainSymbolImageUrl?: string;
+      suggestChainInfo?: ChainInfo;
+    };
   }[];
   search: string;
 }> = ({ lookingForChains }) => {
@@ -55,7 +62,12 @@ export const LookingForChains: FunctionComponent<{
 };
 
 export const LookingForChainItem: FunctionComponent<{
-  chainInfo: ChainInfo | ModularChainInfo;
+  chainInfo: {
+    chainId: string;
+    chainName: string;
+    chainSymbolImageUrl?: string;
+    suggestChainInfo?: ChainInfo;
+  };
   embedded: boolean;
   stored: boolean;
 }> = observer(({ chainInfo, embedded, stored }) => {
@@ -67,6 +79,31 @@ export const LookingForChainItem: FunctionComponent<{
   const { needFinalizeKeyCoinTypeAction } = useKeyCoinTypeFinalize();
 
   const chainId = chainInfo.chainId;
+  const getChainIdsToEnable = () => {
+    const identifier = ChainIdHelper.parse(chainId).identifier;
+    const groupedChainInfo = chainStore.groupedModularChainInfosInListUI.find(
+      (group) => {
+        const chainIds = [
+          group.modularChainInfo.chainId,
+          ...(group.linkedModularChainInfos?.map((lc) => lc.chainId) ?? []),
+        ];
+
+        return chainIds.some(
+          (id) => ChainIdHelper.parse(id).identifier === identifier
+        );
+      }
+    );
+
+    if (!groupedChainInfo) {
+      return [chainId];
+    }
+
+    return [
+      groupedChainInfo.modularChainInfo.chainId,
+      ...(groupedChainInfo.linkedModularChainInfos?.map((lc) => lc.chainId) ??
+        []),
+    ];
+  };
 
   return (
     <Box
@@ -87,7 +124,7 @@ export const LookingForChainItem: FunctionComponent<{
     >
       <Columns sum={1} gutter="0.5rem" alignY="center">
         <Box position="relative">
-          <ChainImageFallback chainInfo={chainInfo} size="2rem" />
+          <ChainImageFallback chainInfo={chainInfo as any} size="2rem" />
           {embedded && (
             <Box
               position="absolute"
@@ -138,8 +175,11 @@ export const LookingForChainItem: FunctionComponent<{
             // add the chain internally and refresh the store.
             if (!embedded && !stored) {
               try {
-                if ("bech32Config" in chainInfo) {
-                  await window.keplr?.experimentalSuggestChain(chainInfo);
+                const keplr = await getKeplrFromWindow();
+                if (keplr && chainInfo.suggestChainInfo) {
+                  await keplr.experimentalSuggestChain(
+                    chainInfo.suggestChainInfo
+                  );
                   await keyRingStore.refreshKeyRingStatus();
                   await chainStore.updateChainInfosFromBackground();
                   await chainStore.updateEnabledChainIdentifiersFromBackground();
@@ -152,30 +192,33 @@ export const LookingForChainItem: FunctionComponent<{
             }
 
             if (keyRingStore.selectedKeyInfo) {
+              const chainIdsToEnable = getChainIdsToEnable();
+
               analyticsStore.logEvent("click_enableChain", {
                 chainId: chainInfo.chainId,
                 chainName: chainInfo.chainName,
               });
 
-              if (chainStore.hasChain(chainId)) {
-                const chainInfo = chainStore.getChain(chainId);
-                const needModal = await needFinalizeKeyCoinTypeAction(
-                  keyRingStore.selectedKeyInfo.id,
-                  chainInfo
-                );
+              if (chainStore.hasModularChain(chainId)) {
+                const mcType = chainStore.getModularChain(chainId).type;
+                if (mcType === "cosmos" || mcType === "ethermint") {
+                  const needModal = await needFinalizeKeyCoinTypeAction(
+                    keyRingStore.selectedKeyInfo.id,
+                    chainId
+                  );
 
-                if (!needModal) {
-                  await chainStore.enableChainInfoInUI(chainInfo.chainId);
+                  if (!needModal) {
+                    await chainStore.enableChainInfoInUI(...chainIdsToEnable);
+                  }
+                } else {
+                  await chainStore.enableChainInfoInUI(...chainIdsToEnable);
                 }
               }
 
               if (chainStore.hasModularChain(chainId)) {
                 if (keyRingStore.selectedKeyInfo?.type === "ledger") {
-                  const modularChainInfo = chainStore.getModularChain(chainId);
                   const ledgerApp = determineLedgerApp(
-                    chainStore,
-                    modularChainInfo,
-                    chainId
+                    chainStore.getModularChain(chainId)
                   );
 
                   const alreadyAppended = Boolean(
@@ -183,7 +226,7 @@ export const LookingForChainItem: FunctionComponent<{
                   );
 
                   if (alreadyAppended) {
-                    await chainStore.enableChainInfoInUI(chainInfo.chainId);
+                    await chainStore.enableChainInfoInUI(...chainIdsToEnable);
                   }
                 }
               }

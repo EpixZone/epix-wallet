@@ -3,7 +3,7 @@ import {
   ObservableChainQueryMap,
 } from "../../chain-query";
 import { InitiaUnbondingDelegations, UnbondingDelegation } from "./types";
-import { ChainGetter } from "../../../chain";
+import { ChainGetter, requireCosmosInfo } from "../../../chain";
 import { CoinPretty, Int, Dec } from "@keplr-wallet/unit";
 import { computed, makeObservable } from "mobx";
 import { QuerySharedContext } from "../../../common";
@@ -30,7 +30,10 @@ export class ObservableQueryInitiaUnbondingDelegationsInner extends ObservableCh
   }
 
   protected override canFetch(): boolean {
-    if (!this.chainGetter.getChain(this.chainId).stakeCurrency) {
+    if (
+      !requireCosmosInfo(this.chainGetter.getModularChain(this.chainId))
+        .stakeCurrency
+    ) {
       return false;
     }
     // If bech32 address is empty, it will always fail, so don't need to fetch it.
@@ -40,8 +43,9 @@ export class ObservableQueryInitiaUnbondingDelegationsInner extends ObservableCh
   // a function to extract amount from unbonding balance
   // For Initia chain, the balance is an array of Coin
   protected getAmountFromBalanceArray(balance: Coin[]): string {
-    const stakeDenom = this.chainGetter.getChain(this.chainId).stakeCurrency
-      ?.coinMinimalDenom;
+    const stakeDenom = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    ).stakeCurrency?.coinMinimalDenom;
 
     if (!stakeDenom) {
       return "0";
@@ -53,7 +57,10 @@ export class ObservableQueryInitiaUnbondingDelegationsInner extends ObservableCh
 
   @computed
   get total(): CoinPretty | undefined {
-    const stakeCurrency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+    const stakeCurrency = cosmosInfo.stakeCurrency;
 
     if (!stakeCurrency) {
       return;
@@ -88,7 +95,10 @@ export class ObservableQueryInitiaUnbondingDelegationsInner extends ObservableCh
   }[] {
     const unbondings = this.unbondings;
 
-    const stakeCurrency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+    const stakeCurrency = cosmosInfo.stakeCurrency;
 
     if (!stakeCurrency) {
       return [];
@@ -126,7 +136,10 @@ export class ObservableQueryInitiaUnbondingDelegationsInner extends ObservableCh
       return [];
     }
 
-    const stakeCurrency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+    const stakeCurrency = cosmosInfo.stakeCurrency;
 
     return this.response.data.unbonding_responses.map((unbonding) => {
       const filtered = unbonding.entries.filter((entry) =>

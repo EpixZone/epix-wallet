@@ -103,6 +103,7 @@ import { StarknetSendPage } from "./pages/starknet/send";
 import { SignStarknetTxPage } from "./pages/starknet/sign/tx";
 import { SignStarknetMessagePage } from "./pages/starknet/sign/message";
 import { BitcoinSendPage } from "./pages/bitcoin/send";
+
 import { SignBitcoinTxPage } from "./pages/bitcoin/sign/tx";
 import { SignBitcoinMessagePage } from "./pages/bitcoin/sign/message";
 import { ManageViewAssetTokenListPage } from "./pages/manage-view-asset-token-list";
@@ -194,8 +195,8 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
         // XXX: Below logic not observe state changes on account store and it's inner state.
         //      This is intended because this logic is only for the first time and avoid global re-rendering.
         // Start init for registered chains so that users can see account address more quickly.
-        for (const modularChainInfo of chainStore.modularChainInfos) {
-          const account = accountStore.getAccount(modularChainInfo.chainId);
+        for (const mc of chainStore.modularChainInfos) {
+          const account = accountStore.getAccount(mc.chainId);
           // Because {autoInit: true} is given as the option on account store,
           // initialization for the account starts at this time just by using getAccount().
           // However, run safe check on current status and init if status is not inited.
@@ -299,7 +300,7 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
     if (keyRingStore.status === "unlocked") {
       // mobx의 특성상 밑의 로직은 useMemo 안에서 처리할 수가 없어서 분리되었음.
       const firstAccount = accountStore.getAccount(
-        chainStore.chainInfos[0].chainId
+        chainStore.modularChainInfos[0].chainId
       );
       if (
         firstAccount.walletStatus === WalletStatus.NotInit ||
@@ -335,9 +336,9 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
       for (const keyInfo of keyRingStore.keyInfos) {
         chainStore.enableChainInfoInUIWithVaultId(
           keyInfo.id,
-          ...chainStore.chainInfos
-            .filter((chainInfo) => chainInfo.chainId.startsWith("eip155:"))
-            .map((chainInfo) => chainInfo.chainId)
+          ...chainStore.modularChainInfos
+            .filter((mcInfo2) => mcInfo2.type === "evm")
+            .map((mcInfo2) => mcInfo2.chainId)
         );
       }
       localStorage.setItem(newEVMChainsEnabledLocalStorageKey, "true");
@@ -378,8 +379,8 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
               id: "bottom-tabs.swap",
             }),
             ...(() => {
-              for (const modularChainInfo of chainStore.modularChainInfosInUI) {
-                if ("cosmos" in modularChainInfo) {
+              for (const mc of chainStore.modularChainInfosInUI) {
+                if (mc.type === "cosmos" || mc.type === "ethermint") {
                   return {
                     disabled: false,
                   };
@@ -423,6 +424,7 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
               <Route path="/send" element={<SendAmountPage />} />
               <Route path="/starknet/send" element={<StarknetSendPage />} />
               <Route path="/bitcoin/send" element={<BitcoinSendPage />} />
+
               <Route path="/ibc-swap" element={<IBCSwapPage />} />
               <Route
                 path="/send/select-asset"
@@ -615,7 +617,9 @@ const LightModeBackground: FunctionComponent<{
         location.pathname === "/setting" ||
         location.pathname.startsWith("/setting/") ||
         location.pathname === "/send" ||
-        location.pathname.startsWith("/send/")
+        location.pathname.startsWith("/send/") ||
+        location.pathname === "/starknet/send" ||
+        location.pathname === "/bitcoin/send"
       ) {
         document.documentElement.setAttribute("data-white-background", "true");
         document.body.setAttribute("data-white-background", "true");

@@ -149,12 +149,12 @@ export class TokenScanService {
       }
     );
 
-    this.chainsService.addChainRemovedHandler((chainInfo) => {
+    this.chainsService.addChainRemovedHandler((chainId) => {
       runInAction(() => {
         for (const [vaultId, tokenScans] of this.vaultToMap.entries()) {
           let prevTokenScans = tokenScans;
           prevTokenScans = prevTokenScans.filter((scan) => {
-            return scan.chainId !== chainInfo.chainId;
+            return scan.chainId !== chainId;
           });
 
           this.vaultToMap.set(vaultId, prevTokenScans);
@@ -202,8 +202,9 @@ export class TokenScanService {
       return;
     }
 
-    const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
-    if (chainInfo.hideInUI) {
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    if (modularChainInfo.hideInUI) {
       return;
     }
 
@@ -239,8 +240,9 @@ export class TokenScanService {
       return;
     }
 
-    const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
-    if (chainInfo.hideInUI) {
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    if (modularChainInfo.hideInUI) {
       return;
     }
 
@@ -299,7 +301,7 @@ export class TokenScanService {
     const logChains: string[] = [];
 
     for (const modularChainInfo of modularChainInfos) {
-      if ("linkedChainKey" in modularChainInfo) {
+      if (modularChainInfo.linkedChainKey != null) {
         if (processedLinkedChainKeys.has(modularChainInfo.linkedChainKey)) {
           continue;
         }
@@ -386,17 +388,23 @@ export class TokenScanService {
       return;
     }
 
-    if ("linkedChainKey" in modularChainInfo) {
+    if (modularChainInfo.linkedChainKey != null) {
       tokenScan.linkedChainKey = modularChainInfo.linkedChainKey;
     }
 
-    if ("cosmos" in modularChainInfo) {
-      const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
-      if (chainInfo.hideInUI) {
+    if (
+      modularChainInfo.type === "cosmos" ||
+      modularChainInfo.type === "ethermint" ||
+      modularChainInfo.type === "evm"
+    ) {
+      if (modularChainInfo.hideInUI) {
         return;
       }
 
-      if (this.chainsService.isEvmOnlyChain(chainId)) {
+      if (
+        this.chainsService.isEvmOnlyChain(chainId) &&
+        modularChainInfo.type === "evm"
+      ) {
         const evmInfo = this.chainsService.getEVMInfoOrThrow(chainId);
         const pubkey = await this.keyRingService.getPubKey(chainId, vaultId);
         const ethereumHexAddress = `0x${Buffer.from(
@@ -433,7 +441,7 @@ export class TokenScanService {
           BigInt(res.data.result).toString(10) !== "0"
         ) {
           assets.push({
-            currency: chainInfo.stakeCurrency ?? chainInfo.currencies[0],
+            currency: modularChainInfo.evm.nativeCurrency,
             amount: BigInt(res.data.result).toString(10),
           });
         }
@@ -507,7 +515,11 @@ export class TokenScanService {
             assets,
           });
         }
-      } else {
+      } else if (
+        modularChainInfo.type === "cosmos" ||
+        modularChainInfo.type === "ethermint"
+      ) {
+        const cosmosInfo = modularChainInfo.cosmos;
         const bech32Addresses: {
           value: string;
           coinType?: number;
@@ -539,7 +551,7 @@ export class TokenScanService {
           const res = await simpleFetch<{
             balances: { denom: string; amount: string }[];
           }>(
-            chainInfo.rest,
+            cosmosInfo.rest,
             `/cosmos/bank/v1beta1/balances/${bech32Address.value}?pagination.limit=1000`
           );
 
@@ -548,8 +560,9 @@ export class TokenScanService {
 
             const balances = res.data?.balances ?? [];
             for (const bal of balances) {
-              const currency = chainInfo.currencies.find(
-                (cur) => cur.coinMinimalDenom === bal.denom
+              const currency = cosmosInfo.currencies.find(
+                (cur: { coinMinimalDenom: string }) =>
+                  cur.coinMinimalDenom === bal.denom
               );
 
               // validate
@@ -577,7 +590,7 @@ export class TokenScanService {
           }
         }
       }
-    } else if ("starknet" in modularChainInfo) {
+    } else if (modularChainInfo.type === "starknet") {
       const { hexAddress: starknetHexAddress } =
         await this.keyRingStarknetService.getStarknetKey(vaultId, chainId);
 
@@ -651,7 +664,7 @@ export class TokenScanService {
           }
         })
       );
-    } else if ("bitcoin" in modularChainInfo) {
+    } else if (modularChainInfo.type === "bitcoin") {
       const getBitcoinScanInfo = async (
         vaultId: string,
         chainId: string,
@@ -706,12 +719,12 @@ export class TokenScanService {
       };
 
       // TODO: 향후 여러 주소체계를 지원하는 체인이 추가되면 linkedChainKey와 관련된 로직은 별도의 함수로 분리가 필요할 것
-      if ("linkedChainKey" in modularChainInfo) {
+      if (modularChainInfo.linkedChainKey != null) {
         const linkedBitcoinChains = this.chainsService
           .getModularChainInfos()
           .filter((chainInfo) => {
             return (
-              "bitcoin" in chainInfo &&
+              chainInfo.type === "bitcoin" &&
               chainInfo.linkedChainKey === modularChainInfo.linkedChainKey
             );
           });

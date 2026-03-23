@@ -70,16 +70,15 @@ export const AddressBookModal: FunctionComponent<{
         recipientConfig.chainId
       );
 
-      if (!("bitcoin" in modularChainInfo)) {
+      if (modularChainInfo.type !== "bitcoin") {
         throw new Error(`${recipientConfig.chainId} is not bitcoin chain`);
       }
 
-      const linkedChainKey = modularChainInfo.linkedChainKey;
+      const linkedChainKey = modularChainInfo.embedded.linkedChainKey;
 
       const linkedChainInfos = chainStore.modularChainInfosInUI.filter(
-        (modularChainInfo) =>
-          "bitcoin" in modularChainInfo &&
-          modularChainInfo.linkedChainKey === linkedChainKey
+        (mc) =>
+          mc.type === "bitcoin" && mc.embedded.linkedChainKey === linkedChainKey
       );
 
       setLinkedChainIds(linkedChainInfos.map((info) => info.chainId));

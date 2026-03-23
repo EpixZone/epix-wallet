@@ -6,7 +6,7 @@ import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { CoinPretty, Dec } from "@keplr-wallet/unit";
 import { AppCurrency } from "@keplr-wallet/types";
 import { SwapAmountConfig } from "@keplr-wallet/hooks-internal";
-import { FeeConfig, GasConfig, SenderConfig } from "@keplr-wallet/hooks";
+import { GasConfig, SenderConfig } from "@keplr-wallet/hooks";
 import { RouteStepType, SwapProvider } from "@keplr-wallet/stores-internal";
 import debounce from "lodash.debounce";
 import { v4 as uuidv4 } from "uuid";
@@ -28,7 +28,6 @@ interface SwapAnalyticsArgs {
   swapConfigs: {
     amountConfig: SwapAmountConfig;
     gasConfig: GasConfig;
-    feeConfig: FeeConfig;
     senderConfig: SenderConfig;
   };
   swapFeeBps: number;
@@ -155,11 +154,11 @@ export const useSwapAnalytics = ({
   const inChainIdentifier = ChainIdHelper.parse(inChainId).identifier;
   const outChainIdentifier = ChainIdHelper.parse(outChainId).identifier;
 
-  const inChainName = chainStore.hasChain(inChainId)
-    ? chainStore.getChain(inChainId).chainName
+  const inChainName = chainStore.hasModularChain(inChainId)
+    ? chainStore.getModularChain(inChainId).chainName
     : undefined;
-  const outChainName = chainStore.hasChain(outChainId)
-    ? chainStore.getChain(outChainId).chainName
+  const outChainName = chainStore.hasModularChain(outChainId)
+    ? chainStore.getModularChain(outChainId).chainName
     : undefined;
 
   // source selected
@@ -450,11 +449,11 @@ function getChainProperties(
   const chainIdentifier = Number.isNaN(parseInt(_chainIdentifier, 10))
     ? _chainIdentifier
     : `eip155:${_chainIdentifier}`;
-  const chain = chainStore.hasChain(chainIdentifier)
-    ? chainStore.getChain(chainIdentifier)
+  const modularChainInfo = chainStore.hasModularChain(chainIdentifier)
+    ? chainStore.getModularChain(chainIdentifier)
     : undefined;
 
-  if (!chain) {
+  if (!modularChainInfo) {
     return {
       chainIdentifier,
       chainName: chainId,
@@ -462,7 +461,7 @@ function getChainProperties(
     };
   }
 
-  const currency = chain.forceFindCurrency(denom);
+  const currency = modularChainInfo.forceFindCurrency(denom);
   const price = priceStore.calculatePrice(
     new CoinPretty(currency, amount),
     "usd"
@@ -470,7 +469,7 @@ function getChainProperties(
 
   return {
     chainIdentifier,
-    chainName: chain.chainName,
+    chainName: modularChainInfo.chainName,
     coinDenom: currency.coinDenom,
     amountUsd: price ? price.toDec().toString() : undefined,
   };

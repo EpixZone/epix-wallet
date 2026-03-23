@@ -1,5 +1,5 @@
 import { Env, KeplrError } from "@keplr-wallet/router";
-import { AppCurrency, ChainInfo, ERC20Currency } from "@keplr-wallet/types";
+import { AppCurrency, ERC20Currency } from "@keplr-wallet/types";
 import { ERC20CurrencySchema } from "@keplr-wallet/chain-validator";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { ChainsService } from "../chains";
@@ -50,8 +50,8 @@ export class TokenERC20Service {
     this.chainsService.addChainRemovedHandler(this.onChainRemoved);
   }
 
-  protected readonly onChainRemoved = (chainInfo: ChainInfo) => {
-    const chainIdentifier = ChainIdHelper.parse(chainInfo.chainId).identifier;
+  protected readonly onChainRemoved = (chainId: string) => {
+    const chainIdentifier = ChainIdHelper.parse(chainId).identifier;
     runInAction(() => {
       this.tokenMap.delete(chainIdentifier);
     });
@@ -64,20 +64,15 @@ export class TokenERC20Service {
     }
   );
 
-  protected validateChainInfo(chainInfo: ChainInfo) {
-    if (chainInfo.evm === undefined) {
-      throw new Error("The chain doesn't support evm");
-    }
-  }
-
   async suggestERC20Token(env: Env, chainId: string, contractAddress: string) {
     const modularChainInfo =
       this.chainsService.getModularChainInfoOrThrow(chainId);
-    if ("cosmos" in modularChainInfo) {
-      const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
-
-      this.validateChainInfo(chainInfo);
-    } else if ("starknet" in modularChainInfo) {
+    if (
+      modularChainInfo.type === "ethermint" ||
+      modularChainInfo.type === "evm"
+    ) {
+      // EVM supported — ok
+    } else if (modularChainInfo.type === "starknet") {
       if (modularChainInfo.starknet == null) {
         throw new Error("Starknet chain info is not defined");
       }
@@ -137,10 +132,12 @@ export class TokenERC20Service {
   async setERC20Token(chainId: string, currency: AppCurrency): Promise<void> {
     const modularChainInfo =
       this.chainsService.getModularChainInfoOrThrow(chainId);
-    if ("cosmos" in modularChainInfo) {
-      const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
-      this.validateChainInfo(chainInfo);
-    } else if ("starknet" in modularChainInfo) {
+    if (
+      modularChainInfo.type === "ethermint" ||
+      modularChainInfo.type === "evm"
+    ) {
+      // EVM supported — ok
+    } else if (modularChainInfo.type === "starknet") {
       if (modularChainInfo.starknet == null) {
         throw new Error("Starknet chain info is not defined");
       }

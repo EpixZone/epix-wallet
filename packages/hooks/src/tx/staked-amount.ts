@@ -78,10 +78,12 @@ export class StakedAmountConfig extends TxChainSetter implements IAmountConfig {
   }
 
   canUseCurrency(currency: AppCurrency): boolean {
-    return (
-      this.chainInfo.stakeCurrency?.coinMinimalDenom ===
-      currency.coinMinimalDenom
-    );
+    const u = this.modularChainInfo.unwrapped;
+    const stakeCurrency =
+      u.type === "cosmos" || u.type === "ethermint"
+        ? u.cosmos.stakeCurrency
+        : undefined;
+    return stakeCurrency?.coinMinimalDenom === currency.coinMinimalDenom;
   }
 
   @computed
@@ -149,9 +151,14 @@ export class StakedAmountConfig extends TxChainSetter implements IAmountConfig {
 
   @computed
   get currency(): AppCurrency {
-    const chainInfo = this.chainInfo;
-    if (chainInfo.stakeCurrency) {
-      return chainInfo.stakeCurrency;
+    const chainInfo = this.modularChainInfo;
+    const u = chainInfo.unwrapped;
+    const stakeCurrency =
+      u.type === "cosmos" || u.type === "ethermint"
+        ? u.cosmos.stakeCurrency
+        : undefined;
+    if (stakeCurrency) {
+      return stakeCurrency;
     }
 
     if (this._currency) {
@@ -180,7 +187,12 @@ export class StakedAmountConfig extends TxChainSetter implements IAmountConfig {
 
   @computed
   get sendCurrency(): AppCurrency {
-    return this.chainInfo.stakeCurrency || this.chainInfo.currencies[0];
+    const u = this.modularChainInfo.unwrapped;
+    const stakeCurrency =
+      u.type === "cosmos" || u.type === "ethermint"
+        ? u.cosmos.stakeCurrency
+        : undefined;
+    return stakeCurrency || this.modularChainInfo.currencies[0];
   }
 
   @computed

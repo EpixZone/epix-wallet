@@ -2,7 +2,7 @@ import {
   ObservableChainQuery,
   ObservableChainQueryMap,
 } from "../../chain-query";
-import { ChainGetter } from "../../../chain";
+import { ChainGetter, requireCosmosInfo } from "../../../chain";
 import { ChannelResponse } from "./types";
 import { autorun } from "mobx";
 import { QuerySharedContext } from "../../../common";
@@ -29,8 +29,9 @@ export class ObservableChainQueryIBCChannel extends ObservableChainQuery<Channel
     super.onStart();
 
     this.disposer = autorun(() => {
-      const chainInfo = this.chainGetter.getChain(this.chainId);
-      if (chainInfo.features && chainInfo.features.includes("ibc-go")) {
+      const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
+      const cosmosInfo = requireCosmosInfo(mcInfo2);
+      if (cosmosInfo.features && cosmosInfo.features.includes("ibc-go")) {
         this.setUrl(
           `/ibc/core/channel/v1/channels/${this.channelId}/ports/${this.portId}`
         );

@@ -17,7 +17,7 @@ export const HistoryDetailIBCSwapSkip: FunctionComponent<{
 }> = observer(({ msg, targetDenom }) => {
   const { chainStore } = useStore();
 
-  const chainInfo = chainStore.getChain(msg.chainId);
+  const chainInfo = chainStore.getModularChain(msg.chainId);
 
   const sendAmountPretty = useMemo(() => {
     const currency = chainInfo.forceFindCurrency(targetDenom);
@@ -61,7 +61,7 @@ export const HistoryDetailIBCSwapSkip: FunctionComponent<{
         <HistoryDetailSendBaseUIUpper
           fromAddress={fromAddress}
           shortenedFromAddress={shortenedFromAddress}
-          fromText={chainStore.getChain(msg.chainId).chainName}
+          fromText={chainStore.getModularChain(msg.chainId).chainName}
           fromAmount={sendAmountPretty}
         />
       </YAxis>

@@ -1,5 +1,6 @@
 import React, { FunctionComponent } from "react";
-import { ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
+import { ChainInfo } from "@keplr-wallet/types";
 import { Box } from "../../../../components/box";
 import { Columns } from "../../../../components/column";
 import { XAxis, YAxis } from "../../../../components/axis";
@@ -11,9 +12,17 @@ import { ColorPalette } from "../../../../styles";
 import { FormattedMessage } from "react-intl";
 
 export const NextStepChainItem: FunctionComponent<{
-  modularChainInfo: ModularChainInfo | ChainInfo;
+  modularChainInfo: IModularChainInfoImpl | ChainInfo;
   tagText: string;
 }> = ({ modularChainInfo, tagText }) => {
+  const chainType = (() => {
+    if ("type" in modularChainInfo) {
+      return modularChainInfo.type;
+    }
+    // ChainInfo from external API — always cosmos/ethermint-like
+    return "cosmos";
+  })();
+
   return (
     <Box
       paddingX="1rem"
@@ -39,9 +48,9 @@ export const NextStepChainItem: FunctionComponent<{
             <Gutter size="0.25rem" />
 
             <Subtitle4 color={ColorPalette["gray-300"]}>
-              {"bitcoin" in modularChainInfo ? (
+              {chainType === "bitcoin" ? (
                 <FormattedMessage id="pages.register.enable-chains.guide.can-select-bitcoin-later-step" />
-              ) : "starknet" in modularChainInfo ? (
+              ) : chainType === "starknet" ? (
                 <FormattedMessage id="pages.register.enable-chains.guide.can-select-starknet-later-step" />
               ) : (
                 <FormattedMessage id="pages.register.enable-chains.guide.can-select-evm-next-step" />

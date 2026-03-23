@@ -6195,6 +6195,7 @@ __metadata:
     "@keplr-wallet/crypto": 0.13.14
     "@keplr-wallet/hooks": 0.13.14
     "@keplr-wallet/hooks-bitcoin": 0.13.14
+    "@keplr-wallet/hooks-evm": 0.13.14
     "@keplr-wallet/hooks-internal": 0.13.14
     "@keplr-wallet/hooks-starknet": 0.13.14
     "@keplr-wallet/ledger-cosmos": 0.13.14
@@ -6347,11 +6348,33 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@keplr-wallet/hooks-evm@0.13.14, @keplr-wallet/hooks-evm@workspace:packages/hooks-evm":
+  version: 0.0.0-use.local
+  resolution: "@keplr-wallet/hooks-evm@workspace:packages/hooks-evm"
+  dependencies:
+    "@ethersproject/address": ^5.7.0
+    "@ethersproject/providers": ^5.7.0
+    "@keplr-wallet/common": 0.13.14
+    "@keplr-wallet/cosmos": 0.13.14
+    "@keplr-wallet/simple-fetch": 0.13.14
+    "@keplr-wallet/stores": 0.13.14
+    "@keplr-wallet/stores-eth": 0.13.14
+    "@keplr-wallet/types": 0.13.14
+    "@keplr-wallet/unit": 0.13.14
+    buffer: ^6.0.3
+  peerDependencies:
+    mobx: ^6
+    mobx-utils: ^6
+    react: ^16.8.0 || ^17 || ^18
+  languageName: unknown
+  linkType: soft
+
 "@keplr-wallet/hooks-internal@0.13.14, @keplr-wallet/hooks-internal@workspace:apps/hooks-internal":
   version: 0.0.0-use.local
   resolution: "@keplr-wallet/hooks-internal@workspace:apps/hooks-internal"
   dependencies:
     "@keplr-wallet/hooks": 0.13.14
+    "@keplr-wallet/hooks-evm": 0.13.14
     "@keplr-wallet/stores": 0.13.14
     "@keplr-wallet/stores-eth": 0.13.14
     "@keplr-wallet/stores-internal": 0.13.14

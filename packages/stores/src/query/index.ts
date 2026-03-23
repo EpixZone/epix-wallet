@@ -1,6 +1,7 @@
 export * from "./queries";
 export * from "./chain-query";
 export * from "./balances";
+export * from "./simple";
 
 export * from "./agoric";
 export * from "./cosmos";

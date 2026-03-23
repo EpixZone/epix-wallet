@@ -5,8 +5,8 @@ import { useStore } from "../../../../stores";
 import { CoinPretty } from "@keplr-wallet/unit";
 import { MsgItemBase } from "./base";
 import { ItemLogo } from "./logo";
-import { ChainInfo } from "@keplr-wallet/types";
 import { isValidCoinStr, parseCoinStr } from "@keplr-wallet/common";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import { Buffer } from "buffer/";
 import { MessageSwapIcon } from "../../../../components/icon";
 import { SwapVenues } from "../../../../config.ui";
@@ -21,10 +21,10 @@ export const MsgRelationIBCSwapReceive: FunctionComponent<{
   ({ msg, prices, targetDenom, isInAllActivitiesPage, isLegacyOsmosis }) => {
     const { chainStore, queriesStore } = useStore();
 
-    const chainInfo = chainStore.getChain(msg.chainId);
+    const modularChainInfo = chainStore.getModularChain(msg.chainId);
 
     const sendAmountPretty = useMemo(() => {
-      const currency = chainInfo.forceFindCurrency(targetDenom);
+      const currency = modularChainInfo.forceFindCurrency(targetDenom);
 
       const receives = msg.meta["receives"];
       if (
@@ -44,9 +44,9 @@ export const MsgRelationIBCSwapReceive: FunctionComponent<{
       }
 
       return new CoinPretty(currency, "0");
-    }, [chainInfo, msg.meta, targetDenom]);
+    }, [modularChainInfo, msg.meta, targetDenom]);
 
-    const sourceChain: ChainInfo | undefined = (() => {
+    const sourceChain: IModularChainInfoImpl | undefined = (() => {
       if (!msg.ibcTracking) {
         return undefined;
       }
@@ -56,14 +56,14 @@ export const MsgRelationIBCSwapReceive: FunctionComponent<{
           if (!path.chainId) {
             return undefined;
           }
-          if (!chainStore.hasChain(path.chainId)) {
+          if (!chainStore.hasModularChain(path.chainId)) {
             return undefined;
           }
 
           if (!path.clientChainId) {
             return undefined;
           }
-          if (!chainStore.hasChain(path.clientChainId)) {
+          if (!chainStore.hasModularChain(path.clientChainId)) {
             return undefined;
           }
         }
@@ -73,10 +73,10 @@ export const MsgRelationIBCSwapReceive: FunctionComponent<{
           if (!path.chainId) {
             return undefined;
           }
-          if (!chainStore.hasChain(path.chainId)) {
+          if (!chainStore.hasModularChain(path.chainId)) {
             return undefined;
           }
-          return chainStore.getChain(path.chainId);
+          return chainStore.getModularChain(path.chainId);
         }
 
         return undefined;
@@ -88,7 +88,7 @@ export const MsgRelationIBCSwapReceive: FunctionComponent<{
 
     const swapVenueChain = (() => {
       if (isLegacyOsmosis) {
-        return chainStore.getChain("osmosis");
+        return chainStore.getModularChain("osmosis");
       }
 
       const swapVenue = msg.meta["swapVenue"];
@@ -98,8 +98,8 @@ export const MsgRelationIBCSwapReceive: FunctionComponent<{
         )?.chainId;
 
         if (swapVenueChainId) {
-          return chainStore.hasChain(swapVenueChainId)
-            ? chainStore.getChain(swapVenueChainId)
+          return chainStore.hasModularChain(swapVenueChainId)
+            ? chainStore.getModularChain(swapVenueChainId)
             : undefined;
         }
       }
@@ -291,7 +291,7 @@ export const MsgRelationIBCSwapReceive: FunctionComponent<{
         paragraph={(() => {
           if (srcDenom) {
             if (!msg.ibcTracking) {
-              return `From ${srcDenom} on ${chainInfo.chainName}`;
+              return `From ${srcDenom} on ${modularChainInfo.chainName}`;
             }
 
             if (sourceChain) {

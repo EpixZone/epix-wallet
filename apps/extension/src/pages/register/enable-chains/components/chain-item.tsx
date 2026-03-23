@@ -1,6 +1,7 @@
 import React, { FunctionComponent, useMemo, useState } from "react";
 import { ViewToken } from "../../../main";
-import { ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
+import { ChainInfo } from "@keplr-wallet/types";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import { CoinPretty } from "@keplr-wallet/unit";
 import { observer } from "mobx-react-lite";
 import { useStore } from "../../../../stores";
@@ -34,7 +35,7 @@ import { Tag } from "../../../../components/tag";
 import { FormattedMessage } from "react-intl";
 
 export const ChainItem: FunctionComponent<{
-  chainInfo: ChainInfo | ModularChainInfo;
+  chainInfo: ChainInfo | IModularChainInfoImpl;
   balance?: CoinPretty;
   isNativeChain?: boolean;
   enabled: boolean;

@@ -16,10 +16,10 @@ export const MsgRelationCancelUndelegate: FunctionComponent<{
 }> = observer(({ msg, prices, targetDenom, isInAllActivitiesPage }) => {
   const { chainStore, queriesStore } = useStore();
 
-  const chainInfo = chainStore.getChain(msg.chainId);
+  const modularChainInfo = chainStore.getModularChain(msg.chainId);
 
   const amountPretty = useMemo(() => {
-    const currency = chainInfo.forceFindCurrency(targetDenom);
+    const currency = modularChainInfo.forceFindCurrency(targetDenom);
 
     const amount = (msg.msg as any)["amount"] as {
       denom: string;
@@ -30,20 +30,20 @@ export const MsgRelationCancelUndelegate: FunctionComponent<{
       return new CoinPretty(currency, "0");
     }
     return new CoinPretty(currency, amount.amount);
-  }, [chainInfo, msg.msg, targetDenom]);
+  }, [modularChainInfo, msg.msg, targetDenom]);
 
   const validatorAddress: string = useMemo(() => {
     return (msg.msg as any)["validator_address"];
   }, [msg.msg]);
 
   const queryBonded = queriesStore
-    .get(chainInfo.chainId)
+    .get(modularChainInfo.chainId)
     .cosmos.queryValidators.getQueryStatus(Staking.BondStatus.Bonded);
   const queryUnbonding = queriesStore
-    .get(chainInfo.chainId)
+    .get(modularChainInfo.chainId)
     .cosmos.queryValidators.getQueryStatus(Staking.BondStatus.Unbonding);
   const queryUnbonded = queriesStore
-    .get(chainInfo.chainId)
+    .get(modularChainInfo.chainId)
     .cosmos.queryValidators.getQueryStatus(Staking.BondStatus.Unbonded);
 
   const moniker: string = (() => {

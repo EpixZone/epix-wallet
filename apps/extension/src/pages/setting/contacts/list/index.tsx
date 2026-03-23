@@ -16,6 +16,7 @@ import { useConfirm } from "../../../../hooks/confirm";
 import { EmptyView } from "../../../../components/empty-view";
 import { Gutter } from "../../../../components/gutter";
 import { useIntl } from "react-intl";
+import { filterGroupedModularChainInfosByKeyType } from "../../../../utils/is-chain-supported-by-key-type";
 
 const Styles = {
   Container: styled(Stack)`
@@ -27,7 +28,7 @@ const Styles = {
 };
 
 export const SettingContactsList: FunctionComponent = observer(() => {
-  const { chainStore, uiConfigStore } = useStore();
+  const { chainStore, keyRingStore, uiConfigStore } = useStore();
   const navigate = useNavigate();
   const intl = useIntl();
 
@@ -35,40 +36,34 @@ export const SettingContactsList: FunctionComponent = observer(() => {
   // Handle "chainId" state by search params to persist the state between page changes.
   const paramChainId = searchParams.get("chainId");
 
-  const chainId = paramChainId || chainStore.chainInfos[0].chainId;
+  const supportedGroups = filterGroupedModularChainInfosByKeyType(
+    keyRingStore.selectedKeyInfo?.type,
+    chainStore.groupedModularChainInfos
+  );
+  const firstSupportedChainId = supportedGroups[0].modularChainInfo.chainId;
+
+  const chainId = paramChainId || firstSupportedChainId;
   const confirm = useConfirm();
 
   useLayoutEffect(() => {
     if (!paramChainId) {
       setSearchParams(
-        { chainId: chainStore.chainInfos[0].chainId },
+        {
+          chainId: firstSupportedChainId,
+        },
         {
           replace: true,
         }
       );
     }
-  }, [chainStore.chainInfos, paramChainId, setSearchParams]);
+  }, [firstSupportedChainId, paramChainId, setSearchParams]);
 
-  const items = chainStore.chainInfos
-    .map((chainInfo) => {
-      return {
-        key: chainInfo.chainId,
-        label: chainInfo.chainName,
-      };
-    })
-    .concat(
-      chainStore.groupedModularChainInfos
-        .filter(
-          (modularChainInfo) =>
-            "starknet" in modularChainInfo || "bitcoin" in modularChainInfo
-        )
-        .map((modularChainInfo) => {
-          return {
-            key: modularChainInfo.chainId,
-            label: modularChainInfo.chainName,
-          };
-        })
-    );
+  const items = supportedGroups.map((group) => {
+    return {
+      key: group.modularChainInfo.chainId,
+      label: group.modularChainInfo.chainName,
+    };
+  });
 
   const addresses = uiConfigStore.addressBookConfig.getAddressBook(chainId);
 

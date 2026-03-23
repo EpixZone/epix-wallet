@@ -12,6 +12,7 @@ import {
   EthereumSignResponse,
   EthSignType,
   JsonRpcResponse,
+  isEthSignChain,
 } from "@keplr-wallet/types";
 import { Bech32Address } from "@keplr-wallet/cosmos";
 import { Buffer } from "buffer/";
@@ -84,19 +85,30 @@ export class KeyRingEthereumService {
     message: Uint8Array,
     signType: EthSignType
   ): Promise<EthereumSignResponse> {
-    const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
-    if (chainInfo.hideInUI) {
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    if (modularChainInfo.hideInUI) {
       throw new Error("Can't sign for hidden chain");
     }
-    const isEthermintLike = KeyRingService.isEthermintLike(chainInfo);
-    const evmInfo = ChainsService.getEVMInfo(chainInfo);
-    const forceEVMLedger = chainInfo.features?.includes(
-      "force-enable-evm-ledger"
-    );
-
-    if (!isEthermintLike && !evmInfo) {
+    if (!isEthSignChain(modularChainInfo)) {
       throw new Error("Not ethermint like and EVM chain");
     }
+    const forceEVMLedger = (() => {
+      if (
+        modularChainInfo.type === "cosmos" ||
+        modularChainInfo.type === "ethermint"
+      ) {
+        return modularChainInfo.cosmos.features?.includes(
+          "force-enable-evm-ledger"
+        );
+      }
+      if (modularChainInfo.type === "evm") {
+        return modularChainInfo.evm.features?.includes(
+          "force-enable-evm-ledger"
+        );
+      }
+      return false;
+    })();
 
     const keyInfo = this.keyRingService.getKeyInfo(vaultId);
     if (!keyInfo) {
@@ -341,14 +353,9 @@ export class KeyRingEthereumService {
     message: Uint8Array,
     signType: EthSignType
   ): Promise<EthereumSignResponse> {
-    const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
-    // if (chainInfo.hideInUI) {
-    //   throw new Error("Can't sign for hidden chain");
-    // }
-    const isEthermintLike = KeyRingService.isEthermintLike(chainInfo);
-    const evmInfo = ChainsService.getEVMInfo(chainInfo);
-
-    if (!isEthermintLike && !evmInfo) {
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    if (!isEthSignChain(modularChainInfo)) {
       throw new Error("Not ethermint like and EVM chain");
     }
 

@@ -21,6 +21,7 @@ import {
   GENESIS_HASH_TO_NETWORK,
   GenesisHash,
   Network,
+  isEthSignChain,
 } from "@keplr-wallet/types";
 import { EthereumAccountBase } from "@keplr-wallet/stores-eth";
 import { EthermintChainIdHelper } from "@keplr-wallet/cosmos";
@@ -52,13 +53,14 @@ export const QRCodeScene: FunctionComponent<{
   const theme = useTheme();
 
   const modularChainInfo = chainStore.getModularChain(chainId);
-  const isBitcoin =
-    "bitcoin" in modularChainInfo && modularChainInfo.bitcoin != null;
+  const isBitcoin = modularChainInfo.type === "bitcoin";
   const isEthereumAddress =
-    "cosmos" in modularChainInfo &&
+    (modularChainInfo.type === "cosmos" ||
+      modularChainInfo.type === "ethermint" ||
+      modularChainInfo.type === "evm") &&
     EthereumAccountBase.isEthereumHexAddressWithChecksum(address || "");
   const isStarknetAddress =
-    "starknet" in modularChainInfo &&
+    modularChainInfo.type === "starknet" &&
     StarknetAccountBase.isStarknetHexAddress(address || "");
 
   const account = accountStore.getAccount(chainId);
@@ -95,13 +97,21 @@ export const QRCodeScene: FunctionComponent<{
     }
 
     if (isEthereumAddress) {
-      const evmChainId = chainId.startsWith("eip155:")
-        ? chainId.replace("eip155:", "")
-        : modularChainInfo.cosmos.evm?.chainId ||
-          EthermintChainIdHelper.parse(chainId).ethChainId ||
-          null;
+      const u = modularChainInfo.unwrapped;
+      const evmChainId =
+        u.type === "evm"
+          ? u.evm.chainId
+          : (u.type === "ethermint" ? u.evm.chainId : null) ||
+            (() => {
+              try {
+                return EthermintChainIdHelper.parse(chainId).ethChainId;
+              } catch {
+                return null;
+              }
+            })() ||
+            null;
 
-      if (evmChainId) {
+      if (evmChainId != null) {
         const hex = `0x${Number(evmChainId).toString(16)}`;
         return `ethereum:${address}@${hex}`;
       }
@@ -122,7 +132,9 @@ export const QRCodeScene: FunctionComponent<{
     }
 
     if (isStarknetAddress) {
-      const prefix = modularChainInfo.starknet?.chainId.split(":")[1];
+      const u = modularChainInfo.unwrapped;
+      const prefix =
+        u.type === "starknet" ? u.starknet.chainId.split(":")[1] : "";
       return `${prefix}:${address}`;
     }
 
@@ -215,6 +227,7 @@ export const QRCodeScene: FunctionComponent<{
 
           <AddressDisplay
             chainId={chainId}
+            isEthereumAddress={isEthereumAddress}
             onClickCopy={() => {
               setIsCopied(true);
             }}
@@ -299,6 +312,7 @@ const ArrowLeftIcon: FunctionComponent<IconProps> = ({
 
 interface AddressDisplayProps {
   chainId: string;
+  isEthereumAddress?: boolean;
   onClickCopy: () => void;
   isCopied: boolean;
   floating: Pick<
@@ -308,6 +322,7 @@ interface AddressDisplayProps {
 }
 const AddressDisplay = ({
   chainId,
+  isEthereumAddress,
   onClickCopy,
   isCopied,
   floating,
@@ -317,30 +332,32 @@ const AddressDisplay = ({
   const account = accountStore.getAccount(chainId);
   const theme = useTheme();
 
-  const isEVMOnlyChain = (() => {
-    if ("cosmos" in modularChainInfo) {
-      return chainStore.isEvmOnlyChain(chainId);
+  const shouldShowEthereumAddress = (() => {
+    if (!isEthereumAddress || !account.hasEthereumHexAddress) {
+      return false;
     }
-    return false;
+    return isEthSignChain(modularChainInfo.unwrapped);
   })();
 
   const displayAddress = useMemo<DisplayAddress>(() => {
     const LENGTH_OF_FIRST_PART = 10;
     const LENGTH_OF_LAST_PART = 6;
 
-    if ("cosmos" in modularChainInfo) {
-      if (isEVMOnlyChain) {
-        return {
-          former: account.ethereumHexAddress.slice(0, LENGTH_OF_FIRST_PART),
-          middle: account.ethereumHexAddress.slice(
-            LENGTH_OF_FIRST_PART,
-            account.ethereumHexAddress.length - LENGTH_OF_LAST_PART
-          ),
-          latter: account.ethereumHexAddress.slice(
-            account.ethereumHexAddress.length - LENGTH_OF_LAST_PART
-          ),
-        };
-      }
+    if (modularChainInfo.type === "evm" || shouldShowEthereumAddress) {
+      return {
+        former: account.ethereumHexAddress.slice(0, LENGTH_OF_FIRST_PART),
+        middle: account.ethereumHexAddress.slice(
+          LENGTH_OF_FIRST_PART,
+          account.ethereumHexAddress.length - LENGTH_OF_LAST_PART
+        ),
+        latter: account.ethereumHexAddress.slice(
+          account.ethereumHexAddress.length - LENGTH_OF_LAST_PART
+        ),
+      };
+    } else if (
+      modularChainInfo.type === "cosmos" ||
+      modularChainInfo.type === "ethermint"
+    ) {
       return {
         former: account.bech32Address.slice(0, LENGTH_OF_FIRST_PART),
         middle: account.bech32Address.slice(
@@ -351,7 +368,7 @@ const AddressDisplay = ({
           account.bech32Address.length - LENGTH_OF_LAST_PART
         ),
       };
-    } else if ("starknet" in modularChainInfo) {
+    } else if (modularChainInfo.type === "starknet") {
       return {
         former: account.starknetHexAddress.slice(0, LENGTH_OF_FIRST_PART),
         middle: account.starknetHexAddress.slice(
@@ -362,7 +379,7 @@ const AddressDisplay = ({
           account.starknetHexAddress.length - LENGTH_OF_LAST_PART
         ),
       };
-    } else if ("bitcoin" in modularChainInfo) {
+    } else if (modularChainInfo.type === "bitcoin") {
       const bitcoinAddress = account.bitcoinAddress?.bech32Address ?? "";
       return {
         former: bitcoinAddress.slice(0, LENGTH_OF_FIRST_PART),
@@ -380,7 +397,7 @@ const AddressDisplay = ({
       middle: "",
       latter: "",
     };
-  }, [modularChainInfo, account, isEVMOnlyChain]);
+  }, [modularChainInfo, account, shouldShowEthereumAddress]);
 
   return (
     <React.Fragment>
@@ -389,15 +406,16 @@ const AddressDisplay = ({
           onClick={(e) => {
             e.preventDefault();
 
-            if ("cosmos" in modularChainInfo) {
-              navigator.clipboard.writeText(
-                isEVMOnlyChain
-                  ? account.ethereumHexAddress
-                  : account.bech32Address
-              );
-            } else if ("starknet" in modularChainInfo) {
+            if (modularChainInfo.type === "evm" || shouldShowEthereumAddress) {
+              navigator.clipboard.writeText(account.ethereumHexAddress);
+            } else if (
+              modularChainInfo.type === "cosmos" ||
+              modularChainInfo.type === "ethermint"
+            ) {
+              navigator.clipboard.writeText(account.bech32Address);
+            } else if (modularChainInfo.type === "starknet") {
               navigator.clipboard.writeText(account.starknetHexAddress);
-            } else if ("bitcoin" in modularChainInfo) {
+            } else if (modularChainInfo.type === "bitcoin") {
               navigator.clipboard.writeText(
                 account.bitcoinAddress?.bech32Address ?? ""
               );

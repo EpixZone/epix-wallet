@@ -31,9 +31,9 @@ import {
 import { Buffer } from "buffer/";
 import {
   AppCurrency,
-  ChainInfo,
   EthTxReceipt,
   EthTxStatus,
+  ModularChainInfo,
 } from "@keplr-wallet/types";
 import { CoinPretty } from "@keplr-wallet/unit";
 import { id } from "@ethersproject/hash";
@@ -310,24 +310,28 @@ export class RecentSendHistoryService {
     },
     shouldLegacyTrack: boolean = false
   ): Promise<Uint8Array> {
-    const sourceChainInfo =
-      this.chainsService.getChainInfoOrThrow(sourceChainId);
-    Bech32Address.validate(
-      sender,
-      sourceChainInfo.bech32Config?.bech32PrefixAccAddr
-    );
+    const sourceModularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(sourceChainId);
+    const sourceBech32Prefix =
+      sourceModularChainInfo.type === "cosmos" ||
+      sourceModularChainInfo.type === "ethermint"
+        ? sourceModularChainInfo.cosmos.bech32Config?.bech32PrefixAccAddr
+        : undefined;
+    Bech32Address.validate(sender, sourceBech32Prefix);
 
-    const destinationChainInfo =
-      this.chainsService.getChainInfoOrThrow(destinationChainId);
+    const destModularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(destinationChainId);
     if (recipient.startsWith("0x")) {
       if (!recipient.match(/^0x[0-9A-Fa-f]*$/) || recipient.length !== 42) {
         throw new Error("Recipient address is not valid hex address");
       }
     } else {
-      Bech32Address.validate(
-        recipient,
-        destinationChainInfo.bech32Config?.bech32PrefixAccAddr
-      );
+      const destBech32Prefix =
+        destModularChainInfo.type === "cosmos" ||
+        destModularChainInfo.type === "ethermint"
+          ? destModularChainInfo.cosmos.bech32Config?.bech32PrefixAccAddr
+          : undefined;
+      Bech32Address.validate(recipient, destBech32Prefix);
     }
 
     const txHash = await this.txService.sendTx(sourceChainId, tx, mode, {
@@ -449,14 +453,16 @@ export class RecentSendHistoryService {
     },
     shouldLegacyTrack: boolean = false
   ): Promise<Uint8Array> {
-    const sourceChainInfo =
-      this.chainsService.getChainInfoOrThrow(sourceChainId);
-    Bech32Address.validate(
-      sender,
-      sourceChainInfo.bech32Config?.bech32PrefixAccAddr
-    );
+    const sourceModularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(sourceChainId);
+    const sourceBech32Prefix =
+      sourceModularChainInfo.type === "cosmos" ||
+      sourceModularChainInfo.type === "ethermint"
+        ? sourceModularChainInfo.cosmos.bech32Config?.bech32PrefixAccAddr
+        : undefined;
+    Bech32Address.validate(sender, sourceBech32Prefix);
 
-    this.chainsService.getChainInfoOrThrow(destinationChainId);
+    this.chainsService.getModularChainInfoOrThrow(destinationChainId);
 
     const txHash = await this.txService.sendTx(sourceChainId, tx, mode, {
       silent,
@@ -635,17 +641,19 @@ export class RecentSendHistoryService {
 
   getRecentIBCHistories(): IBCHistory[] {
     return Array.from(this.recentIBCHistoryMap.values()).filter((history) => {
-      if (!this.chainsService.hasChainInfo(history.chainId)) {
+      if (!this.chainsService.hasModularChainInfo(history.chainId)) {
         return false;
       }
 
-      if (!this.chainsService.hasChainInfo(history.destinationChainId)) {
+      if (!this.chainsService.hasModularChainInfo(history.destinationChainId)) {
         return false;
       }
 
       if (
         history.ibcHistory.some((history) => {
-          return !this.chainsService.hasChainInfo(history.counterpartyChainId);
+          return !this.chainsService.hasModularChainInfo(
+            history.counterpartyChainId
+          );
         })
       ) {
         return false;
@@ -816,10 +824,10 @@ export class RecentSendHistoryService {
             history.notified = true;
           });
 
-          const chainInfo = this.chainsService.getChainInfo(
+          const modularChainInfo = this.chainsService.getModularChainInfo(
             history.destinationChainId
           );
-          if (chainInfo) {
+          if (modularChainInfo) {
             if ("swapType" in history) {
               if (history.resAmount.length > 0) {
                 const amount = history.resAmount[history.resAmount.length - 1];
@@ -845,7 +853,7 @@ export class RecentSendHistoryService {
                     iconRelativeUrl: "assets/logo-256.png",
                     title: "IBC Swap Succeeded",
                     message: `${assetsText.join(", ")} received on ${
-                      chainInfo.chainName
+                      modularChainInfo.chainName
                     }`,
                   });
                 }
@@ -873,7 +881,7 @@ export class RecentSendHistoryService {
                   iconRelativeUrl: "assets/logo-256.png",
                   title: "IBC Transfer Succeeded",
                   message: `${assetsText.join(", ")} sent to ${
-                    chainInfo.chainName
+                    modularChainInfo.chainName
                   }`,
                 });
               }
@@ -925,13 +933,13 @@ export class RecentSendHistoryService {
     onError: () => void;
   }): void => {
     const { chainId, txHash, onSuccess, onPending, onFailed, onError } = params;
-    const chainInfo = this.chainsService.getChainInfo(chainId);
-    if (!chainInfo) {
+    const modularChainInfo = this.chainsService.getModularChainInfo(chainId);
+    if (!modularChainInfo) {
       onFailed();
       return;
     }
 
-    this.resolveTxExecutionStatus(chainInfo, chainId, txHash)
+    this.resolveTxExecutionStatus(modularChainInfo, chainId, txHash)
       .then((status) => {
         switch (status) {
           case "success":
@@ -954,18 +962,20 @@ export class RecentSendHistoryService {
   };
 
   protected async resolveTxExecutionStatus(
-    chainInfo: ChainInfo,
+    modularChainInfo: ModularChainInfo,
     chainId: string,
     txHash: string
   ): Promise<"success" | "failed" | "pending" | "error"> {
     if (this.chainsService.isEvmChain(chainId)) {
-      const evmInfo = chainInfo.evm;
-      if (!evmInfo) {
+      if (
+        modularChainInfo.type !== "evm" &&
+        modularChainInfo.type !== "ethermint"
+      ) {
         return Promise.resolve("error");
       }
 
       const res = await requestEthTxReceipt({
-        rpc: evmInfo.rpc,
+        rpc: modularChainInfo.evm.rpc,
         txHash,
         origin,
       });
@@ -985,7 +995,17 @@ export class RecentSendHistoryService {
       return "failed";
     }
 
-    const txTracer = new TendermintTxTracer(chainInfo.rpc, "/websocket");
+    if (
+      modularChainInfo.type !== "cosmos" &&
+      modularChainInfo.type !== "ethermint"
+    ) {
+      return Promise.resolve("error");
+    }
+
+    const txTracer = new TendermintTxTracer(
+      modularChainInfo.cosmos.rpc,
+      "/websocket"
+    );
     txTracer.addEventListener("error", () => {
       txTracer.close();
     });
@@ -1040,8 +1060,8 @@ export class RecentSendHistoryService {
       onFulfill,
     } = params;
 
-    const chainInfo = this.chainsService.getChainInfo(chainId);
-    if (!chainInfo) {
+    const modularChainInfo = this.chainsService.getModularChainInfo(chainId);
+    if (!modularChainInfo) {
       onFulfill();
       return;
     }
@@ -1065,8 +1085,16 @@ export class RecentSendHistoryService {
       return;
     }
 
+    if (
+      modularChainInfo.type !== "cosmos" &&
+      modularChainInfo.type !== "ethermint"
+    ) {
+      onFulfill();
+      return;
+    }
+
     this.traceCosmosTransactionResult({
-      chainInfo,
+      rpc: modularChainInfo.cosmos.rpc,
       txHash,
       recipient,
       onResult,
@@ -1075,14 +1103,14 @@ export class RecentSendHistoryService {
   }
 
   protected traceCosmosTransactionResult(params: {
-    chainInfo: ChainInfo;
+    rpc: string;
     txHash: string;
     recipient: string;
     onResult: (resAmount: { amount: string; denom: string }[]) => void;
     onFulfill: () => void;
   }) {
-    const { chainInfo, txHash, recipient, onResult, onFulfill } = params;
-    const txTracer = new TendermintTxTracer(chainInfo.rpc, "/websocket");
+    const { rpc, txHash, recipient, onResult, onFulfill } = params;
+    const txTracer = new TendermintTxTracer(rpc, "/websocket");
     txTracer.addEventListener("error", () => onFulfill());
     txTracer
       .queryTx({
@@ -1128,28 +1156,24 @@ export class RecentSendHistoryService {
     const { chainId, txHash, recipient, targetDenom, onResult, onFulfill } =
       params;
 
-    const chainInfo = this.chainsService.getChainInfo(chainId);
-    if (!chainInfo) {
+    const modularChainInfo = this.chainsService.getModularChainInfo(chainId);
+    if (!modularChainInfo) {
       onResult({ success: false });
       onFulfill();
       return;
     }
 
-    if (!this.chainsService.isEvmChain(chainId)) {
+    if (
+      modularChainInfo.type !== "evm" &&
+      modularChainInfo.type !== "ethermint"
+    ) {
       onResult({ success: false, error: "Not an EVM chain" });
       onFulfill();
       return;
     }
 
-    const evmInfo = chainInfo.evm;
-    if (!evmInfo) {
-      onResult({ success: false });
-      onFulfill();
-      return;
-    }
-
     requestEthTxReceipt({
-      rpc: evmInfo.rpc,
+      rpc: modularChainInfo.evm.rpc,
       txHash,
       origin,
     })
@@ -1161,7 +1185,7 @@ export class RecentSendHistoryService {
         }
 
         requestEthTxTrace({
-          rpc: evmInfo.rpc,
+          rpc: modularChainInfo.evm.rpc,
           txHash,
           origin,
         }).then((traceRes) => {
@@ -1382,17 +1406,17 @@ export class RecentSendHistoryService {
 
   getRecentSkipHistories(): SkipHistory[] {
     return Array.from(this.recentSkipHistoryMap.values()).filter((history) => {
-      if (!this.chainsService.hasChainInfo(history.chainId)) {
+      if (!this.chainsService.hasModularChainInfo(history.chainId)) {
         return false;
       }
 
-      if (!this.chainsService.hasChainInfo(history.destinationChainId)) {
+      if (!this.chainsService.hasModularChainInfo(history.destinationChainId)) {
         return false;
       }
 
       if (
         history.simpleRoute.some((route) => {
-          return !this.chainsService.hasChainInfo(route.chainId);
+          return !this.chainsService.hasModularChainInfo(route.chainId);
         })
       ) {
         return false;
@@ -1866,10 +1890,10 @@ export class RecentSendHistoryService {
       return;
     }
 
-    const chainInfo = this.chainsService.getChainInfo(
+    const modularChainInfo = this.chainsService.getModularChainInfo(
       history.destinationChainId
     );
-    if (!chainInfo) {
+    if (!modularChainInfo) {
       onFulfill();
       return;
     }
@@ -2412,8 +2436,9 @@ export class RecentSendHistoryService {
       return;
     }
 
-    const chainInfo = this.chainsService.getChainInfo(targetChainId);
-    if (!chainInfo) {
+    const modularChainInfo =
+      this.chainsService.getModularChainInfo(targetChainId);
+    if (!modularChainInfo) {
       onFulfill();
       return;
     }
@@ -2457,17 +2482,17 @@ export class RecentSendHistoryService {
   getRecentSwapV2Histories(): SwapV2History[] {
     return Array.from(this.recentSwapV2HistoryMap.values()).filter(
       (history) => {
-        if (!this.chainsService.hasChainInfo(history.fromChainId)) {
+        if (!this.chainsService.hasModularChainInfo(history.fromChainId)) {
           return false;
         }
 
-        if (!this.chainsService.hasChainInfo(history.toChainId)) {
+        if (!this.chainsService.hasModularChainInfo(history.toChainId)) {
           return false;
         }
 
         if (
           history.simpleRoute.some((route) => {
-            return !this.chainsService.hasChainInfo(route.chainId);
+            return !this.chainsService.hasModularChainInfo(route.chainId);
           })
         ) {
           return false;
@@ -2526,8 +2551,10 @@ export class RecentSendHistoryService {
       return;
     }
 
-    const chainInfo = this.chainsService.getChainInfo(history.toChainId);
-    if (!chainInfo) {
+    const modularChainInfo = this.chainsService.getModularChainInfo(
+      history.toChainId
+    );
+    if (!modularChainInfo) {
       return;
     }
 
@@ -2560,7 +2587,9 @@ export class RecentSendHistoryService {
     this.notification.create({
       iconRelativeUrl: "assets/logo-256.png",
       title: "Swap Succeeded",
-      message: `${assetsText.join(", ")} received on ${chainInfo.chainName}`,
+      message: `${assetsText.join(", ")} received on ${
+        modularChainInfo.chainName
+      }`,
     });
   }
 
@@ -2959,13 +2988,20 @@ export class RecentSendHistoryService {
       onError,
     } = params;
 
-    const chainInfo = this.chainsService.getChainInfo(chainId);
-    if (!chainInfo) {
+    const modularChainInfo = this.chainsService.getModularChainInfo(chainId);
+    if (
+      !modularChainInfo ||
+      (modularChainInfo.type !== "cosmos" &&
+        modularChainInfo.type !== "ethermint")
+    ) {
       onFulfill();
       return;
     }
 
-    const txTracer = new TendermintTxTracer(chainInfo.rpc, "/websocket");
+    const txTracer = new TendermintTxTracer(
+      modularChainInfo.cosmos.rpc,
+      "/websocket"
+    );
     txTracer.addEventListener("close", onClose);
     txTracer.addEventListener("error", onError);
 
@@ -3071,26 +3107,26 @@ export class RecentSendHistoryService {
     );
     if (targetChannel !== undefined && targetChannel.sequence !== undefined) {
       const targetSequence = targetChannel.sequence;
-      const prevChainInfo = (() => {
+      const prevChain = (() => {
         const targetChannelIndex = ibcHistory.findIndex(
           (h) => h === targetChannel
         );
         if (targetChannelIndex < 0) {
           return undefined;
         }
-        if (targetChannelIndex === 0) {
-          return this.chainsService.getChainInfo(sourceChainId);
+        const prevChainId =
+          targetChannelIndex === 0
+            ? sourceChainId
+            : ibcHistory[targetChannelIndex - 1].counterpartyChainId;
+        const m = this.chainsService.getModularChainInfo(prevChainId);
+        if (m && (m.type === "cosmos" || m.type === "ethermint")) {
+          return { chainId: m.chainId, rpc: m.cosmos.rpc };
         }
-        return this.chainsService.getChainInfo(
-          ibcHistory[targetChannelIndex - 1].counterpartyChainId
-        );
+        return undefined;
       })();
 
-      if (prevChainInfo) {
-        const txTracer = new TendermintTxTracer(
-          prevChainInfo.rpc,
-          "/websocket"
-        );
+      if (prevChain) {
+        const txTracer = new TendermintTxTracer(prevChain.rpc, "/websocket");
         txTracer.addEventListener("close", onClose);
         txTracer.addEventListener("error", onError);
         txTracer
@@ -3166,7 +3202,7 @@ export class RecentSendHistoryService {
                           );
 
                       swapContext.setSwapRefundInfo?.({
-                        chainId: prevChainInfo.chainId,
+                        chainId: prevChain.chainId,
                         amount: refunded,
                       });
 
@@ -3400,8 +3436,13 @@ export class RecentSendHistoryService {
       prevChainId = sourceChainId;
     }
     if (prevChainId) {
-      const prevChainInfo = this.chainsService.getChainInfo(prevChainId);
-      if (prevChainInfo) {
+      const prevModularChainInfo =
+        this.chainsService.getModularChainInfo(prevChainId);
+      if (
+        prevModularChainInfo &&
+        (prevModularChainInfo.type === "cosmos" ||
+          prevModularChainInfo.type === "ethermint")
+      ) {
         const queryEvents: any = {
           // acknowledge_packet과는 다르게 timeout_packet은 이전의 체인의 이벤트로부터만 알 수 있다.
           // 방법이 없기 때문에 여기서 이전의 체인으로부터 subscribe를 해서 이벤트를 받아야 한다.
@@ -3413,7 +3454,7 @@ export class RecentSendHistoryService {
         };
 
         const txTracer = new TendermintTxTracer(
-          prevChainInfo.rpc,
+          prevModularChainInfo.cosmos.rpc,
           "/websocket"
         );
         registerClosable(txTracer);
@@ -3487,11 +3528,15 @@ export class RecentSendHistoryService {
     }
     const sequence = targetChannel.sequence;
 
-    const counterpartyChainInfo = this.chainsService.getChainInfo(
+    const counterpartyModularChainInfo = this.chainsService.getModularChainInfo(
       targetChannel.counterpartyChainId
     );
 
-    if (!counterpartyChainInfo) {
+    if (
+      !counterpartyModularChainInfo ||
+      (counterpartyModularChainInfo.type !== "cosmos" &&
+        counterpartyModularChainInfo.type !== "ethermint")
+    ) {
       onFulfill();
       return;
     }
@@ -3503,7 +3548,7 @@ export class RecentSendHistoryService {
     };
 
     const txTracer = new TendermintTxTracer(
-      counterpartyChainInfo.rpc,
+      counterpartyModularChainInfo.cosmos.rpc,
       "/websocket"
     );
     txTracer.addEventListener("close", onClose);
@@ -3533,7 +3578,9 @@ export class RecentSendHistoryService {
 
       const tx = matchedTx || txs[0];
 
-      targetChannel.completed = true;
+      runInAction(() => {
+        targetChannel.completed = true;
+      });
 
       let resAmount: { amount: string; denom: string }[] | undefined;
       const receiverIndex = targetChannelIndex + 1;
@@ -3604,15 +3651,14 @@ export class RecentSendHistoryService {
             // 예를 들어, source chain -> osmosis (swap) -> destination chain으로 이동하는 경우,
             // osmosis에서 IBC wrapped token이 destination chain으로 전송되고,
             // destination chain에서 IBC wrapped token을 unwrap하는 케이스가 있을 수 있다.
-            const destinationChainInfo = this.chainsService.getChainInfo(
-              destinationAsset.chainId
-            );
+            const destinationModularChainInfo =
+              this.chainsService.getModularChainInfo(destinationAsset.chainId);
 
-            if (destinationChainInfo) {
+            if (destinationModularChainInfo) {
               onDynamicHopDetected({
                 portId: "transfer", // CHECK: transfer를 하드코딩해도 되는지 확인
                 channelId: lastSendPacket.srcChannel,
-                counterpartyChainId: destinationChainInfo.chainId,
+                counterpartyChainId: destinationModularChainInfo.chainId,
                 sequence: lastSendPacket.sequence,
                 dstChannelId: lastSendPacket.dstChannel,
                 packetData: lastSendPacket.packetData,
@@ -4416,8 +4462,8 @@ export class RecentSendHistoryService {
   // ============================================================================
   // Chain removed handler
   // ============================================================================
-  protected readonly onChainRemoved = (chainInfo: ChainInfo) => {
-    const chainIdentifier = ChainIdHelper.parse(chainInfo.chainId).identifier;
+  protected readonly onChainRemoved = (chainId: string) => {
+    const chainIdentifier = ChainIdHelper.parse(chainId).identifier;
     try {
       this.removeIBCHistoriesByChainIdentifier(chainIdentifier);
       this.removeSkipHistoriesByChainIdentifier(chainIdentifier);

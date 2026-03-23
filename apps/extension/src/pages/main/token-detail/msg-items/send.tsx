@@ -16,10 +16,10 @@ export const MsgRelationSend: FunctionComponent<{
 }> = observer(({ msg, prices, targetDenom, isInAllActivitiesPage }) => {
   const { chainStore } = useStore();
 
-  const chainInfo = chainStore.getChain(msg.chainId);
+  const modularChainInfo = chainStore.getModularChain(msg.chainId);
 
   const sendAmountPretty = useMemo(() => {
-    const currency = chainInfo.forceFindCurrency(targetDenom);
+    const currency = modularChainInfo.forceFindCurrency(targetDenom);
 
     const amounts = (msg.msg as any)["amount"] as {
       denom: string;
@@ -31,7 +31,7 @@ export const MsgRelationSend: FunctionComponent<{
       return new CoinPretty(currency, "0");
     }
     return new CoinPretty(currency, amt.amount);
-  }, [chainInfo, msg.msg, targetDenom]);
+  }, [modularChainInfo, msg.msg, targetDenom]);
 
   const toAddress = (() => {
     try {

@@ -39,16 +39,15 @@ import { FeeSummary } from "../../components/fee-summary";
 import { FeeControl } from "../../../../components/input/fee-control";
 import {
   useAmountConfig,
-  useFeeConfig,
   useGasSimulator,
-  useSenderConfig,
   useTxConfigsValidate,
   useZeroAllowedGasConfig,
 } from "@keplr-wallet/hooks";
+import { GWEI, useFeeConfig, useSenderConfig } from "@keplr-wallet/hooks-evm";
 import { handleExternalInteractionWithNoProceedNext } from "../../../../utils";
 import { EthTxBase } from "../../components/eth-tx/render/tx-base";
 import { MemoryKVStore } from "@keplr-wallet/common";
-import { CoinPretty, Dec } from "@keplr-wallet/unit";
+import { Dec } from "@keplr-wallet/unit";
 import { Column, Columns } from "../../../../components/column";
 import { useNavigate } from "react-router";
 import { ApproveIcon, CancelIcon } from "../../../../components/button";
@@ -92,7 +91,7 @@ export const EthereumSignTxView: FunctionComponent<{
 
   const account = accountStore.getAccount(chainId);
   const ethereumAccount = ethereumAccountStore.getAccount(chainId);
-  const chainInfo = chainStore.getChain(chainId);
+  const chainInfo = chainStore.getModularChain(chainId);
 
   const senderConfig = useSenderConfig(chainStore, chainId, signer);
   const gasConfig = useZeroAllowedGasConfig(chainStore, chainId, 0);
@@ -138,6 +137,7 @@ export const EthereumSignTxView: FunctionComponent<{
     return Buffer.from(message);
   });
   const [preferNoSetFee, setPreferNoSetFee] = useState<boolean>(false);
+  const skipNextTypeChangeRef = useRef(false);
 
   const simulatorKey = useMemo(() => {
     if (requiredErc20Approvals.length === 0) {
@@ -154,7 +154,7 @@ export const EthereumSignTxView: FunctionComponent<{
     feeConfig,
     simulatorKey,
     () => {
-      if (chainInfo.evm == null) {
+      if (chainInfo.type !== "evm" && chainInfo.type !== "ethermint") {
         throw new Error("Gas simulator is only working with EVM info");
       }
 
@@ -201,11 +201,7 @@ export const EthereumSignTxView: FunctionComponent<{
 
   const { maxFeePerGas, maxPriorityFeePerGas, gasPrice } = (() => {
     const { maxFeePerGas, maxPriorityFeePerGas, gasPrice } =
-      feeConfig.getEIP1559TxFees(
-        feeConfig.type === "manual"
-          ? uiConfigStore.lastFeeOption || "average"
-          : feeConfig.type
-      );
+      feeConfig.getEIP1559TxFees(feeConfig.type);
 
     return maxFeePerGas && maxPriorityFeePerGas
       ? {
@@ -233,20 +229,33 @@ export const EthereumSignTxView: FunctionComponent<{
     if (gasLimitFromTx > 0) {
       gasConfig.setValue(gasLimitFromTx.toString());
 
+      // dApp이 제공한 gas price를 custom 타입으로 주입
+      // Some chains like Arbitrum/Arc can provide a zero priority fee, so only treat it as EIP-1559 when both fee fields are present.
+      const hasProvidedEip1559Fees =
+        unsignedTx.maxFeePerGas != null &&
+        unsignedTx.maxPriorityFeePerGas != null;
+      const maxPriorityFeeFromTx = BigInt(unsignedTx.maxPriorityFeePerGas ?? 0);
       const gasPriceFromTx = BigInt(
-        unsignedTx.maxFeePerGas ?? unsignedTx.gasPrice ?? 0
+        unsignedTx.gasPrice ?? unsignedTx.maxFeePerGas ?? 0
       );
-      if (gasPriceFromTx > 0) {
-        // 사이트에서 제공된 수수료를 사용하는 경우, fee type이 manual로 설정되며,
-        // 사용자가 수동으로 설정하는 것을 지양하기 위해 preferNoSetFee를 true로 설정
-        feeConfig.setFee(
-          new CoinPretty(
-            chainInfo.currencies[0],
-            new Dec(gasConfig.gas).mul(new Dec(gasPriceFromTx))
-          )
-        );
+
+      if (hasProvidedEip1559Fees || gasPriceFromTx > 0) {
+        // setType("custom")을 먼저 호출해야 초기화 로직이 이후 값을 덮어쓰지 않음
+        feeConfig.setType("custom");
+
+        if (hasProvidedEip1559Fees) {
+          // EIP-1559: priorityFee만 주입, maxFeePerGas는 현재 baseFee 기준으로 재계산됨
+          const gweiValue = new Dec(maxPriorityFeeFromTx).quo(GWEI).toString();
+          feeConfig.setCustomPriorityFee(gweiValue);
+        } else {
+          // Legacy gasPrice 주입 + EIP-1559 체인에서도 legacy로 처리되도록 강제
+          const gweiValue = new Dec(gasPriceFromTx).quo(GWEI).toString();
+          feeConfig.setCustomGasPrice(gweiValue);
+          feeConfig.setForceLegacyFeeMode(true);
+        }
 
         setPreferNoSetFee(!interactionData.isInternal);
+        skipNextTypeChangeRef.current = !interactionData.isInternal;
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -261,11 +270,6 @@ export const EthereumSignTxView: FunctionComponent<{
     // NOTE: set fee only for external requests
     if (!interactionData.isInternal) {
       const unsignedTx = JSON.parse(Buffer.from(message).toString("utf8"));
-
-      // 수수료 옵션을 사이트에서 제공하는 경우, 수수료 옵션을 사용하지 않음
-      if (feeConfig.type === "manual") {
-        return;
-      }
 
       if (gasConfig.gas > 0) {
         unsignedTx.gasLimit = `0x${gasConfig.gas.toString(16)}`;
@@ -368,7 +372,7 @@ export const EthereumSignTxView: FunctionComponent<{
 
   useEffect(() => {
     (async () => {
-      if (chainInfo.features.includes("op-stack-l1-data-fee")) {
+      if (chainInfo.hasFeature("op-stack-l1-data-fee")) {
         const { to, gasLimit, value, data, chainId }: UnsignedTransaction =
           JSON.parse(Buffer.from(message).toString("utf8"));
 
@@ -382,7 +386,7 @@ export const EthereumSignTxView: FunctionComponent<{
         feeConfig.setL1DataFee(new Dec(BigInt(l1DataFee)));
       }
     })();
-  }, [chainInfo.features, ethereumAccount, feeConfig, message]);
+  }, [chainInfo, ethereumAccount, feeConfig, message]);
 
   useEffect(() => {
     // If the signing request is internal or the fee is set by dApp,
@@ -400,12 +404,10 @@ export const EthereumSignTxView: FunctionComponent<{
   }, [feeConfig, preferNoSetFee, needHandleNonceMethod]);
 
   useEffect(() => {
-    if (feeConfig.type === "manual") {
+    if (skipNextTypeChangeRef.current) {
+      skipNextTypeChangeRef.current = false;
       return;
     }
-
-    // if fee type is changed from manual to auto(average, fast, fastest),
-    // we need to set preferNoSetFee to false to allow automatic fee set.
     setPreferNoSetFee(false);
   }, [feeConfig.type]);
 

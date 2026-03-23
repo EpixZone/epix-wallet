@@ -1,7 +1,6 @@
 import { EnigmaUtils } from "./enigma-utils";
 import { ChainsService } from "../chains";
 import { KVStore } from "@keplr-wallet/common";
-import { ChainInfo } from "@keplr-wallet/types";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { Buffer } from "buffer/";
 import { KeyRingCosmosService } from "../keyring-cosmos";
@@ -54,12 +53,22 @@ export class SecretWasmService {
     this.cacheEnigmaUtils = new Map();
   };
 
+  protected getCosmosRest(chainId: string): string {
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    if (
+      modularChainInfo.type !== "cosmos" &&
+      modularChainInfo.type !== "ethermint"
+    ) {
+      throw new Error(`Not a cosmos chain: ${chainId}`);
+    }
+    return modularChainInfo.cosmos.rest;
+  }
+
   async getPubkey(chainId: string): Promise<Uint8Array> {
-    const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
-
-    const seed = await this.getSeed(chainInfo);
-
-    const utils = this.getEnigmaUtils(chainInfo, seed);
+    const rest = this.getCosmosRest(chainId);
+    const seed = await this.getSeed(chainId);
+    const utils = this.getEnigmaUtils(chainId, rest, seed);
     return utils.pubkey;
   }
 
@@ -67,11 +76,9 @@ export class SecretWasmService {
     chainId: string,
     nonce: Uint8Array
   ): Promise<Uint8Array> {
-    const chainInfo = await this.chainsService.getChainInfoOrThrow(chainId);
-
-    const seed = await this.getSeed(chainInfo);
-
-    const utils = this.getEnigmaUtils(chainInfo, seed);
+    const rest = this.getCosmosRest(chainId);
+    const seed = await this.getSeed(chainId);
+    const utils = this.getEnigmaUtils(chainId, rest, seed);
     return utils.getTxEncryptionKey(nonce);
   }
 
@@ -81,16 +88,9 @@ export class SecretWasmService {
     // eslint-disable-next-line @typescript-eslint/ban-types
     msg: object
   ): Promise<Uint8Array> {
-    const chainInfo = await this.chainsService.getChainInfoOrThrow(chainId);
-
-    // XXX: Keplr should generate the seed deterministically according to the account.
-    // Otherwise, it will lost the encryption/decryption key if Keplr is uninstalled or local storage is cleared.
-    // For now, use the signature of some string to generate the seed.
-    // It need to more research.
-    const seed = await this.getSeed(chainInfo);
-
-    const utils = this.getEnigmaUtils(chainInfo, seed);
-
+    const rest = this.getCosmosRest(chainId);
+    const seed = await this.getSeed(chainId);
+    const utils = this.getEnigmaUtils(chainId, rest, seed);
     return await utils.encrypt(contractCodeHash, msg);
   }
 
@@ -99,52 +99,46 @@ export class SecretWasmService {
     ciphertext: Uint8Array,
     nonce: Uint8Array
   ): Promise<Uint8Array> {
-    const chainInfo = await this.chainsService.getChainInfoOrThrow(chainId);
-
-    // XXX: Keplr should generate the seed deterministically according to the account.
-    // Otherwise, it will lost the encryption/decryption key if Keplr is uninstalled or local storage is cleared.
-    // For now, use the signature of some string to generate the seed.
-    // It need to more research.
-    const seed = await this.getSeed(chainInfo);
-
-    const utils = this.getEnigmaUtils(chainInfo, seed);
-
+    const rest = this.getCosmosRest(chainId);
+    const seed = await this.getSeed(chainId);
+    const utils = this.getEnigmaUtils(chainId, rest, seed);
     return await utils.decrypt(ciphertext, nonce);
   }
 
-  private getEnigmaUtils(chainInfo: ChainInfo, seed: Uint8Array): EnigmaUtils {
-    const key = `${chainInfo.chainId}-${Buffer.from(seed).toString("hex")}`;
+  private getEnigmaUtils(
+    chainId: string,
+    rest: string,
+    seed: Uint8Array
+  ): EnigmaUtils {
+    const key = `${chainId}-${Buffer.from(seed).toString("hex")}`;
 
     if (this.cacheEnigmaUtils.has(key)) {
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       return this.cacheEnigmaUtils.get(key)!;
     }
 
-    const utils = new EnigmaUtils(chainInfo.rest, seed, chainInfo.rest);
+    const utils = new EnigmaUtils(rest, seed, rest);
     this.cacheEnigmaUtils.set(key, utils);
 
     return utils;
   }
 
-  protected async getSeed(chainInfo: ChainInfo): Promise<Uint8Array> {
-    const key = await this.keyRingCosmosService.getKeySelected(
-      chainInfo.chainId
-    );
-
-    return await this.getSeedInner(chainInfo, key);
+  protected async getSeed(chainId: string): Promise<Uint8Array> {
+    const key = await this.keyRingCosmosService.getKeySelected(chainId);
+    return await this.getSeedInner(chainId, key);
   }
 
   protected async getSeedInner(
-    chainInfo: ChainInfo,
+    chainId: string,
     key: {
       readonly bech32Address: string;
       readonly isNanoLedger: boolean;
       readonly isKeystone: boolean;
     }
   ): Promise<Uint8Array> {
-    const cacheKey = `seed-${
-      ChainIdHelper.parse(chainInfo.chainId).identifier
-    }-${key.bech32Address}`;
+    const cacheKey = `seed-${ChainIdHelper.parse(chainId).identifier}-${
+      key.bech32Address
+    }`;
 
     const cached = this.seedMap.get(cacheKey);
     if (cached) {
@@ -160,7 +154,7 @@ export class SecretWasmService {
 
       return Hash.sha256(
         await this.keyRingCosmosService.legacySignArbitraryInternal(
-          chainInfo.chainId,
+          chainId,
           "Create Keplr Secret encryption key. Only approve requests by Keplr."
         )
       );

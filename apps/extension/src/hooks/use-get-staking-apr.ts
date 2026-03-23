@@ -5,7 +5,7 @@ import { Dec } from "@keplr-wallet/unit";
 export function useGetStakingApr(chainId: string) {
   const { chainStore, starknetQueriesStore, queriesStore } = useStore();
 
-  const isStarknet = "starknet" in chainStore.getModularChain(chainId);
+  const isStarknet = chainStore.getModularChain(chainId).type === "starknet";
 
   if (isStarknet) {
     const queryApr = starknetQueriesStore.get(chainId).queryStakingApr;

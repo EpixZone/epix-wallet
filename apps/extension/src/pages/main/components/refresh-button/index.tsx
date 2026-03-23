@@ -136,15 +136,11 @@ export const RefreshButton: FunctionComponent<{
               account.bech32Address
             );
           promises.push(queryNeutronRewardInner.waitFreshResponse());
-        } else if ("cosmos" in modularChainInfo) {
-          const chainInfo = chainStore.getChain(modularChainInfo.chainId);
-          const account = accountStore.getAccount(chainInfo.chainId);
+        } else if (modularChainInfo.type === "cosmos") {
+          const account = accountStore.getAccount(modularChainInfo.chainId);
 
-          if (
-            !chainStore.isEvmChain(chainInfo.chainId) &&
-            account.bech32Address !== ""
-          ) {
-            const queries = queriesStore.get(chainInfo.chainId);
+          if (account.bech32Address !== "") {
+            const queries = queriesStore.get(modularChainInfo.chainId);
             const queryBalance = queries.queryBalances.getQueryBech32Address(
               account.bech32Address
             );
@@ -157,42 +153,79 @@ export const RefreshButton: FunctionComponent<{
 
             promises.push(queryRewards.waitFreshResponse());
           }
+        } else if (modularChainInfo.type === "ethermint") {
+          const account = accountStore.getAccount(modularChainInfo.chainId);
+          const u = modularChainInfo.unwrapped;
 
-          if (
-            chainStore.isEvmChain(chainInfo.chainId) &&
-            account.ethereumHexAddress
-          ) {
-            const queries = queriesStore.get(chainInfo.chainId);
+          // Ethermint: fetch bech32 balance for IBC tokens
+          if (account.bech32Address !== "") {
+            const queries = queriesStore.get(modularChainInfo.chainId);
+            const queryBalance = queries.queryBalances.getQueryBech32Address(
+              account.bech32Address
+            );
+            const queryRewards =
+              queries.cosmos.queryRewards.getQueryBech32Address(
+                account.bech32Address
+              );
+            queryBalance.fetch();
+            promises.push(queryRewards.waitFreshResponse());
+          }
+
+          // Ethermint: fetch EVM balance for erc20 tokens
+          if (account.ethereumHexAddress && u.type === "ethermint") {
+            const queries = queriesStore.get(modularChainInfo.chainId);
             const queryBalance =
               queries.queryBalances.getQueryEthereumHexAddress(
                 account.ethereumHexAddress
               );
-            // XXX: 얘는 구조상 waitFreshResponse()가 안되서 일단 쿼리가 끝인지 아닌지는 무시한다.
             queryBalance.fetch();
 
-            for (const currency of chainInfo.currencies) {
+            for (const currency of u.evm.tokens ?? []) {
               const query = queriesStore
-                .get(chainInfo.chainId)
+                .get(modularChainInfo.chainId)
                 .queryBalances.getQueryEthereumHexAddress(
                   account.ethereumHexAddress
                 );
 
               const denomHelper = new DenomHelper(currency.coinMinimalDenom);
               if (denomHelper.type === "erc20") {
-                // XXX: 얘는 구조상 waitFreshResponse()가 안되서 일단 쿼리가 끝인지 아닌지는 무시한다.
                 query.fetch();
               }
             }
           }
-        } else if ("starknet" in modularChainInfo) {
+        } else if (modularChainInfo.type === "evm") {
           const account = accountStore.getAccount(modularChainInfo.chainId);
+          const u = modularChainInfo.unwrapped;
 
-          if (account.starknetHexAddress) {
+          if (account.ethereumHexAddress && u.type === "evm") {
+            const queries = queriesStore.get(modularChainInfo.chainId);
+            const queryBalance =
+              queries.queryBalances.getQueryEthereumHexAddress(
+                account.ethereumHexAddress
+              );
+            queryBalance.fetch();
+
+            for (const currency of u.evm.tokens ?? []) {
+              const query = queriesStore
+                .get(modularChainInfo.chainId)
+                .queryBalances.getQueryEthereumHexAddress(
+                  account.ethereumHexAddress
+                );
+
+              const denomHelper = new DenomHelper(currency.coinMinimalDenom);
+              if (denomHelper.type === "erc20") {
+                query.fetch();
+              }
+            }
+          }
+        } else if (modularChainInfo.type === "starknet") {
+          const account = accountStore.getAccount(modularChainInfo.chainId);
+          const u = modularChainInfo.unwrapped;
+
+          if (account.starknetHexAddress && u.type === "starknet") {
             const queries = starknetQueriesStore.get(modularChainInfo.chainId);
 
-            for (const currency of chainStore
-              .getModularChainInfoImpl(modularChainInfo.chainId)
-              .getCurrencies("starknet")) {
+            for (const currency of u.starknet.currencies) {
               const query = queries.queryStarknetERC20Balance.getBalance(
                 modularChainInfo.chainId,
                 chainStore,
@@ -201,7 +234,6 @@ export const RefreshButton: FunctionComponent<{
               );
 
               if (query) {
-                // XXX: 얘는 구조상 waitFreshResponse()가 안되서 일단 쿼리가 끝인지 아닌지는 무시한다.
                 query.fetch();
               }
             }
@@ -212,11 +244,12 @@ export const RefreshButton: FunctionComponent<{
             );
             promises.push(stakingInfo.waitFreshResponse());
           }
-        } else if ("bitcoin" in modularChainInfo) {
+        } else if (modularChainInfo.type === "bitcoin") {
           const account = accountStore.getAccount(modularChainInfo.chainId);
-          const currency = modularChainInfo.bitcoin.currencies[0];
+          const u = modularChainInfo.unwrapped;
 
-          if (account.bitcoinAddress) {
+          if (account.bitcoinAddress && u.type === "bitcoin") {
+            const currency = u.bitcoin.currencies[0];
             const queries = bitcoinQueriesStore.get(modularChainInfo.chainId);
             const queryBalance = queries.queryBitcoinBalance.getBalance(
               modularChainInfo.chainId,
@@ -232,7 +265,10 @@ export const RefreshButton: FunctionComponent<{
         }
       }
 
-      for (const chainInfo of chainStore.chainInfosInUI) {
+      for (const chainInfo of chainStore.modularChainInfosInUI) {
+        if (chainInfo.type !== "cosmos" && chainInfo.type !== "ethermint") {
+          continue;
+        }
         const account = accountStore.getAccount(chainInfo.chainId);
         const isInitia = chainInfo.chainId === INITIA_CHAIN_ID;
 

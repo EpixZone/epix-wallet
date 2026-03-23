@@ -77,9 +77,14 @@ import { RouteStepType, SwapProvider } from "@keplr-wallet/stores-internal";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { amountToAmbiguousString, amountToAmbiguousAverage } from "../../utils";
 import { Button } from "../../components/button";
-import { EvmGasSimulationOutcome, EthTxStatus } from "@keplr-wallet/types";
+import {
+  EvmGasSimulationOutcome,
+  EthTxStatus,
+  isEthSignChain,
+} from "@keplr-wallet/types";
 import { useSwapAnalytics } from "./hooks/use-swap-analytics";
 import { StepIndicator } from "../../components/step-indicator";
+import { isEVMFeeConfig } from "../../hooks/fee";
 
 const TextButtonStyles = {
   Container: styled.div`
@@ -154,7 +159,8 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
     uiConfigStore.ibcSwapConfig
   );
 
-  const isInChainEVMOnly = chainStore.isEvmOnlyChain(inChainId);
+  const inModularChainInfo = chainStore.getModularChain(inChainId);
+  const inChainType = inModularChainInfo.type;
   const inChainAccount = accountStore.getAccount(inChainId);
   const isHardwareWallet =
     inChainAccount.isNanoLedger || inChainAccount.isKeystone;
@@ -164,10 +170,10 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
     "pending"
   );
   useEffect(() => {
-    if (!isInChainEVMOnly) {
+    if (inChainType !== "evm") {
       setNonceMethod("pending");
     }
-  }, [isInChainEVMOnly]);
+  }, [inChainType]);
 
   const [
     topUpForDisableSubFeeFromFaction,
@@ -182,7 +188,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
     ethereumAccountStore,
     swapQueriesStore,
     inChainId,
-    isInChainEVMOnly
+    inChainType === "evm"
       ? inChainAccount.ethereumHexAddress
       : inChainAccount.bech32Address,
     // TODO: config로 빼기
@@ -191,7 +197,8 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
     outCurrency,
     topUpForDisableSubFeeFromFaction,
     SwapFeeBps.value, // default swap fee bps for initial state
-    () => uiConfigStore.ibcSwapConfig.slippageNum
+    () => uiConfigStore.ibcSwapConfig.slippageNum,
+    inChainType === "evm"
   );
 
   const swapFeeBps = useSwapFeeBps(swapConfigs.amountConfig);
@@ -253,7 +260,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
         }
       }
 
-      if (isInChainEVMOnly) {
+      if (inChainType === "evm") {
         // EVM 트랜잭션의 gas estimated는 보낼 토큰 수량에 따라 차이가 꽤 클 수 있다.
         type = `${type}/${swapConfigs.amountConfig.amount[0].toCoin().amount}`;
       }
@@ -306,11 +313,10 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
                   throw new Error("Gas used is not positive");
                 }
 
-                if (
-                  chainStore
-                    .getChain(inChainId)
-                    .features.includes("op-stack-l1-data-fee")
-                ) {
+                const hasOpStackFee = inModularChainInfo.hasFeature(
+                  "op-stack-l1-data-fee"
+                );
+                if (hasOpStackFee) {
                   // L1 data fee는 직렬화된 tx 데이터 크기 기반이므로
                   // approval 상태와 관계없이 계산 가능
                   return ethereumAccount
@@ -397,7 +403,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
     const disposal = autorun(() => {
       noop(
         swapQueriesStore.querySwapHelper.getSwapDestinationCurrencyAlternativeChains(
-          chainStore.getChain(swapConfigs.amountConfig.outChainId),
+          chainStore.getModularChain(swapConfigs.amountConfig.outChainId),
           swapConfigs.amountConfig.outCurrency
         )
       );
@@ -431,7 +437,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
 
   const outCurrencyFetched =
     chainStore
-      .getChain(outChainId)
+      .getModularChain(outChainId)
       .findCurrency(outCurrency.coinMinimalDenom) != null;
 
   const interactionBlocked =
@@ -487,13 +493,15 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
     evmOutcome === EvmGasSimulationOutcome.TX_BUNDLE_SIMULATED;
 
   const hideStepIndicatorForEvmPendingSimulation =
-    isInChainEVMOnly && evmOutcome == null;
+    inChainType === "evm" && evmOutcome == null;
 
   const holdToSwapEnabled =
     swapConfigs.amountConfig.isQuoteReady &&
     !swapConfigs.amountConfig.requiresMultipleTxBundles &&
     !isHardwareWallet &&
-    (isInChainEVMOnly ? isEvmHoldToSwapEnabled : isCosmosHoldToSwapEnabled);
+    (inChainType === "evm"
+      ? isEvmHoldToSwapEnabled
+      : isCosmosHoldToSwapEnabled);
 
   const { showUSDNWarning, showCelestiaWarning } = getSwapWarnings(
     swapConfigs.amountConfig.currency,
@@ -555,7 +563,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
         }
 
         const evmSimulationOutcome = gasSimulator.evmSimulationOutcome;
-        if (isInChainEVMOnly && evmSimulationOutcome == null) {
+        if (inChainType === "evm" && evmSimulationOutcome == null) {
           // it should be set by the gas simulator
           throw new Error("EVM gas simulation outcome is not set");
         }
@@ -629,20 +637,17 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
               : receiverAccount.bech32Address;
 
             if (!address) {
-              const receiverChainInfo = chainStore.hasChain(chainIdInKeplr)
-                ? chainStore.getChain(chainIdInKeplr)
+              const receiverModularChainInfo = chainStore.hasModularChain(
+                chainIdInKeplr
+              )
+                ? chainStore.getModularChain(chainIdInKeplr)
                 : undefined;
-              if (
-                receiverAccount.isNanoLedger &&
-                receiverChainInfo &&
-                (receiverChainInfo.bip44.coinType === 60 ||
-                  receiverChainInfo.features.includes("eth-address-gen") ||
-                  receiverChainInfo.features.includes("eth-key-sign") ||
-                  receiverChainInfo.evm != null)
-              ) {
-                throw new Error(
-                  "Please connect Ethereum app on Ledger with Keplr to get the address"
-                );
+              if (receiverAccount.isNanoLedger && receiverModularChainInfo) {
+                if (isEthSignChain(receiverModularChainInfo.unwrapped)) {
+                  throw new Error(
+                    "Please connect Ethereum app on Ledger with Keplr to get the address"
+                  );
+                }
               }
 
               throw new Error(
@@ -730,9 +735,10 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
           },
           simpleRoute,
           sender: swapConfigs.senderConfig.sender,
-          recipient: chainStore.isEvmOnlyChain(outChainId)
-            ? accountStore.getAccount(outChainId).ethereumHexAddress
-            : accountStore.getAccount(outChainId).bech32Address,
+          recipient:
+            chainStore.getModularChain(outChainId).type === "evm"
+              ? accountStore.getAccount(outChainId).ethereumHexAddress
+              : accountStore.getAccount(outChainId).bech32Address,
           amount: [
             // Input amount
             ...swapConfigs.amountConfig.amount.map((amount) => ({
@@ -753,7 +759,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
             },
           ],
           notificationInfo: {
-            currencies: chainStore.getChain(outChainId).currencies,
+            currencies: chainStore.getModularChain(outChainId).currencies,
           },
           routeDurationSeconds: routeDurationSeconds ?? 0,
           squidQuoteId,
@@ -842,9 +848,8 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
 
         try {
           for (const tx of txs) {
-            if ("send" in tx) {
+            if ("send" in tx && !isEVMFeeConfig(swapConfigs.feeConfig)) {
               const msgs = await tx.msgs();
-
               const backgroundTx: CosmosBackgroundTx & {
                 status:
                   | BackgroundTxStatus.PENDING
@@ -871,7 +876,8 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
                   swapConfigs.feeConfig.topUpStatus.topUpOverrideStdFee ??
                   swapConfigs.feeConfig.toStdFee();
                 const feeType =
-                  swapConfigs.feeConfig.type === "manual"
+                  swapConfigs.feeConfig.type === "manual" ||
+                  swapConfigs.feeConfig.type === "custom"
                     ? undefined
                     : swapConfigs.feeConfig.type;
                 const feeCurrencyDenom =
@@ -909,7 +915,10 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
               }
 
               backgroundTxs.push(backgroundTx);
-            } else {
+            } else if (
+              isEVMFeeConfig(swapConfigs.feeConfig) &&
+              "requiredErc20Approvals" in tx
+            ) {
               const chainId = `eip155:${tx.chainId!}`;
               const ethereumAccount = ethereumAccountStore.getAccount(chainId);
               const sender = swapConfigs.senderConfig.sender;
@@ -953,9 +962,17 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
                   type: BackgroundTxType.EVM,
                   txData: evmTx,
                   feeType:
-                    swapConfigs.feeConfig.type === "manual"
-                      ? undefined
+                    swapConfigs.feeConfig.type === "custom"
+                      ? "custom"
                       : swapConfigs.feeConfig.type,
+                  customPriorityFee:
+                    swapConfigs.feeConfig.customPriorityFee.trim() !== ""
+                      ? swapConfigs.feeConfig.customPriorityFee
+                      : undefined,
+                  customGasPrice:
+                    swapConfigs.feeConfig.customGasPrice.trim() !== ""
+                      ? swapConfigs.feeConfig.customGasPrice
+                      : undefined,
                   status: BackgroundTxStatus.PENDING,
                 };
 
@@ -964,26 +981,29 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
                 );
 
                 if (requiresPreHandling) {
-                  const { maxFeePerGas, maxPriorityFeePerGas, gasPrice } =
-                    swapConfigs.feeConfig.getEIP1559TxFees(
-                      swapConfigs.feeConfig.type
-                    );
+                  const eip1559Fees = swapConfigs.feeConfig.getEIP1559TxFees(
+                    swapConfigs.feeConfig.type
+                  );
 
                   const buildEvmFeeObject = (gasLimit: number) =>
-                    maxFeePerGas && maxPriorityFeePerGas
+                    eip1559Fees.maxFeePerGas && eip1559Fees.maxPriorityFeePerGas
                       ? {
                           type: 2 as const,
                           maxFeePerGas: `0x${BigInt(
-                            maxFeePerGas.truncate().toString()
+                            eip1559Fees.maxFeePerGas.truncate().toString()
                           ).toString(16)}`,
                           maxPriorityFeePerGas: `0x${BigInt(
-                            maxPriorityFeePerGas.truncate().toString()
+                            eip1559Fees.maxPriorityFeePerGas
+                              .truncate()
+                              .toString()
                           ).toString(16)}`,
                           gasLimit: `0x${gasLimit.toString(16)}`,
                         }
                       : {
                           gasPrice: `0x${BigInt(
-                            gasPrice.truncate().toString()
+                            (eip1559Fees.gasPrice ?? new Dec(0))
+                              .truncate()
+                              .toString()
                           ).toString(16)}`,
                           gasLimit: `0x${swapConfigs.gasConfig.gas.toString(
                             16
@@ -1224,20 +1244,22 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
             chainStore.enableChainInfoInUI(swapConfigs.amountConfig.outChainId);
 
             if (keyRingStore.selectedKeyInfo) {
-              const outChainInfo = chainStore.getChain(
-                swapConfigs.amountConfig.outChainId
-              );
+              const outChainId = swapConfigs.amountConfig.outChainId;
               if (
                 keyRingStore.needKeyCoinTypeFinalize(
                   keyRingStore.selectedKeyInfo.id,
-                  outChainInfo
+                  outChainId
                 )
               ) {
-                keyRingStore.finalizeKeyCoinType(
-                  keyRingStore.selectedKeyInfo.id,
-                  outChainInfo.chainId,
-                  outChainInfo.bip44.coinType
-                );
+                const outMcInfo = chainStore.getModularChain(outChainId);
+                const outU = outMcInfo.unwrapped;
+                if (outU.type === "cosmos" || outU.type === "ethermint") {
+                  keyRingStore.finalizeKeyCoinType(
+                    keyRingStore.selectedKeyInfo.id,
+                    outChainId,
+                    outU.cosmos.bip44.coinType
+                  );
+                }
               }
             }
           }
@@ -1556,36 +1578,53 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
           }}
         />
         <Gutter size="1rem" />
-        <VerticalCollapseTransition collapsed={shouldTopUp}>
+        {inChainType === "evm" ? (
           <SwapFeeInfo
             senderConfig={swapConfigs.senderConfig}
             amountConfig={swapConfigs.amountConfig}
             gasConfig={swapConfigs.gasConfig}
             feeConfig={swapConfigs.feeConfig}
             gasSimulator={gasSimulator}
-            disableAutomaticFeeSet={shouldTopUp}
-            isForEVMTx={isInChainEVMOnly}
+            disableAutomaticFeeSet={false}
+            isForEVMTx={true}
             nonceMethod={nonceMethod}
             setNonceMethod={setNonceMethod}
-            shouldTopUp={shouldTopUp}
+            shouldTopUp={false}
           />
-        </VerticalCollapseTransition>
-        <VerticalCollapseTransition collapsed={!shouldTopUp}>
-          <FeeCoverageDescription isTopUpAvailable={isTopUpAvailable} />
-        </VerticalCollapseTransition>
-        <VerticalCollapseTransition collapsed={requiredStaking == null}>
-          {requiredStaking != null &&
-          coinDenom != null &&
-          stakingChainId != null &&
-          validatorAddress != null ? (
-            <StakingRequirementDescription
-              requiredStaking={requiredStaking}
-              coinDenom={coinDenom}
-              stakingChainId={stakingChainId}
-              validatorAddress={validatorAddress}
-            />
-          ) : null}
-        </VerticalCollapseTransition>
+        ) : (
+          <React.Fragment>
+            <VerticalCollapseTransition collapsed={shouldTopUp}>
+              <SwapFeeInfo
+                senderConfig={swapConfigs.senderConfig}
+                amountConfig={swapConfigs.amountConfig}
+                gasConfig={swapConfigs.gasConfig}
+                feeConfig={swapConfigs.feeConfig}
+                gasSimulator={gasSimulator}
+                disableAutomaticFeeSet={shouldTopUp}
+                isForEVMTx={false}
+                nonceMethod={nonceMethod}
+                setNonceMethod={setNonceMethod}
+                shouldTopUp={shouldTopUp}
+              />
+            </VerticalCollapseTransition>
+            <VerticalCollapseTransition collapsed={!shouldTopUp}>
+              <FeeCoverageDescription isTopUpAvailable={isTopUpAvailable} />
+            </VerticalCollapseTransition>
+            <VerticalCollapseTransition collapsed={requiredStaking == null}>
+              {requiredStaking != null &&
+              coinDenom != null &&
+              stakingChainId != null &&
+              validatorAddress != null ? (
+                <StakingRequirementDescription
+                  requiredStaking={requiredStaking}
+                  coinDenom={coinDenom}
+                  stakingChainId={stakingChainId}
+                  validatorAddress={validatorAddress}
+                />
+              ) : null}
+            </VerticalCollapseTransition>
+          </React.Fragment>
+        )}
 
         <VerticalCollapseTransition
           collapsed={shouldTopUp || isPriceCheckDelayed}
@@ -1708,7 +1747,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
               (shouldTopUp && !isTopUpAvailable)
             }
             text={
-              isInChainEVMOnly &&
+              inChainType === "evm" &&
               evmOutcome === EvmGasSimulationOutcome.TX_BUNDLE_SIMULATED
                 ? intl.formatMessage({
                     id: "page.ibc-swap.button.hold-to-approve-and-swap",

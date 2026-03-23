@@ -1,5 +1,5 @@
 import { ObservableChainQuery } from "../chain-query";
-import { ChainGetter } from "../../chain";
+import { ChainGetter, requireCosmosInfo } from "../../chain";
 import { QuerySharedContext } from "../../common";
 
 import { Buffer } from "buffer/";
@@ -30,8 +30,9 @@ export class ObservableCosmwasmContractChainQuery<
     super.onStart();
 
     this.disposer = autorun(() => {
-      const chainInfo = this.chainGetter.getChain(this.chainId);
-      if (chainInfo.features && chainInfo.features.includes("wasmd_0.24+")) {
+      const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
+      const cosmosInfo = requireCosmosInfo(mcInfo2);
+      if (cosmosInfo.features && cosmosInfo.features.includes("wasmd_0.24+")) {
         if (this.url.startsWith("/wasm/v1/")) {
           this.setUrl(`/cosmwasm${this.url}`);
         }

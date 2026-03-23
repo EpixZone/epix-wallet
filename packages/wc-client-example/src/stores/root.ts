@@ -6,7 +6,6 @@ import {
   CosmosQueries,
 } from "@keplr-wallet/stores";
 import { IndexedDBKVStore } from "@keplr-wallet/common";
-import { ChainInfo } from "@keplr-wallet/types";
 import { EmbedChainInfos } from "../config";
 import { getWCKeplr } from "../get-wc-keplr";
 
@@ -17,7 +16,7 @@ export class RootStore {
   public readonly accountStore: AccountStore<[CosmosAccount]>;
 
   constructor() {
-    this.chainStore = new ChainStore<ChainInfo>(EmbedChainInfos);
+    this.chainStore = new ChainStore(EmbedChainInfos);
 
     this.queriesStore = new QueriesStore(
       new IndexedDBKVStore("store_queries"),

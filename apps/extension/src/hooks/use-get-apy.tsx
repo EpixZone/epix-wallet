@@ -8,7 +8,7 @@ export function useGetEarnApy(chainId: string) {
     earnApy: number;
   }>(
     "https://apr-lambda.keplr.app",
-    `/earn-apy/${chainStore.getChain(chainId).chainIdentifier}`
+    `/earn-apy/${chainStore.getModularChain(chainId).chainIdentifier}`
   );
 
   const aprAvailable =

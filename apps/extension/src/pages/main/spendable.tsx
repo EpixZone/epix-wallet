@@ -42,7 +42,6 @@ import { FormattedMessage, useIntl } from "react-intl";
 import styled, { css, useTheme } from "styled-components";
 import { TokenDetailModal } from "./token-detail";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
 import { useGetSearchChains } from "../../hooks/use-get-search-chains";
 import { useEarnBottomTag } from "../earn/components/use-earn-bottom-tag";
 import { AdjustmentIcon } from "../../components/icon/adjustment";
@@ -60,6 +59,7 @@ import { Styles as AvailableCollapsibleListStyles } from "../../components/colla
 import { useGroupedTokensMap } from "../../hooks/use-grouped-tokens-map";
 import { useBalanceAnalytics } from "./hooks/use-balance-analytics";
 import { KeyRingCosmosService } from "@keplr-wallet/background";
+import { ChainInfo, isEthSignChain } from "@keplr-wallet/types";
 import { useSpringValue } from "@react-spring/web";
 import { usePageSimpleBar } from "../../hooks/page-simplebar";
 import { defaultSpringConfig } from "../../styles/spring";
@@ -155,17 +155,11 @@ const chainSearchFields = [
   "chainInfo.chainName",
   {
     key: "ethereum-and-bitcoin",
-    function: (item: { chainInfo: ChainInfo | ModularChainInfo }) => {
-      if (
-        "starknet" in item.chainInfo ||
-        item.chainInfo.chainName.toLowerCase().includes("ethereum")
-      ) {
+    function: (item: { chainInfo: { chainName: string } }) => {
+      if (item.chainInfo.chainName.toLowerCase().includes("ethereum")) {
         return "eth";
       }
-      if (
-        "bitcoin" in item.chainInfo ||
-        item.chainInfo.chainName.toLowerCase().includes("bitcoin")
-      ) {
+      if (item.chainInfo.chainName.toLowerCase().includes("bitcoin")) {
         return "btc";
       }
       return "";
@@ -393,50 +387,37 @@ export const SpendableAssetView: FunctionComponent<{
     });
 
     const lookingForChains = useMemo(() => {
-      let disabledChainInfos: (ChainInfo | ModularChainInfo)[] =
-        searchedChainInfos.filter(
-          (chainInfo) => !chainStore.isEnabledChain(chainInfo.chainId)
-        );
+      let disabledChainInfos: {
+        chainId: string;
+        chainName: string;
+        chainSymbolImageUrl?: string;
+      }[] = searchedChainInfos.filter(
+        (chainInfo) => !chainStore.isEnabledChain(chainInfo.chainId)
+      );
 
-      const disabledModularChainInfos =
-        chainStore.groupedModularChainInfos.filter(
-          (modularChainInfo) =>
-            ("starknet" in modularChainInfo || "bitcoin" in modularChainInfo) &&
-            !chainStore.isEnabledChain(modularChainInfo.chainId)
-        );
-
-      disabledChainInfos = [
-        ...new Set([...disabledChainInfos, ...disabledModularChainInfos]),
-      ].sort((a, b) => a.chainName.localeCompare(b.chainName));
+      disabledChainInfos = disabledChainInfos.sort((a, b) =>
+        a.chainName.localeCompare(b.chainName)
+      );
 
       return disabledChainInfos.reduce(
         (acc, chainInfo) => {
           let embedded: boolean | undefined = false;
           let stored: boolean = true;
 
-          const isModular = "starknet" in chainInfo || "bitcoin" in chainInfo;
-
-          try {
-            if (isModular) {
-              embedded = true;
-            } else {
-              const chainInfoInStore = chainStore.getChain(chainInfo.chainId);
-
-              if (!chainInfoInStore) {
-                stored = false;
-              } else {
-                if (chainInfoInStore.hideInUI) {
-                  return acc;
-                }
-
-                stored = true;
-                embedded = chainInfoInStore.embedded?.embedded;
-              }
-            }
-          } catch (e) {
-            // got an error while getting chain info
+          if (!chainStore.hasModularChain(chainInfo.chainId)) {
             embedded = undefined;
             stored = false;
+          } else {
+            const modularChainInfo = chainStore.getModularChain(
+              chainInfo.chainId
+            );
+
+            if (modularChainInfo.hideInUI) {
+              return acc;
+            }
+
+            stored = true;
+            embedded = modularChainInfo.embedded.isBuiltInChain;
           }
 
           const chainItem = {
@@ -452,7 +433,12 @@ export const SpendableAssetView: FunctionComponent<{
         [] as {
           embedded: boolean;
           stored: boolean;
-          chainInfo: ChainInfo | ModularChainInfo;
+          chainInfo: {
+            chainId: string;
+            chainName: string;
+            chainSymbolImageUrl?: string;
+            suggestChainInfo?: ChainInfo;
+          };
         }[]
       );
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -464,38 +450,39 @@ export const SpendableAssetView: FunctionComponent<{
       chainSearchFields
     ).filter(({ chainInfo }) => {
       if (keyRingStore.selectedKeyInfo?.type === "ledger") {
-        const cosmosChainInfo = (() => {
-          if ("cosmos" in chainInfo) {
-            return chainInfo.cosmos;
-          }
-          if ("currencies" in chainInfo && "feeCurrencies" in chainInfo) {
-            return chainInfo;
-          }
-        })();
-        if (cosmosChainInfo) {
-          const isEthermintLike =
-            cosmosChainInfo.bip44.coinType === 60 ||
-            !!cosmosChainInfo.features?.includes("eth-address-gen") ||
-            !!cosmosChainInfo.features?.includes("eth-key-sign");
+        try {
+          const modularChainInfo = chainStore.getModularChain(
+            chainInfo.chainId
+          );
+          const u = modularChainInfo.unwrapped;
+          if (u.type === "cosmos" || u.type === "ethermint") {
+            if (isEthSignChain(u)) {
+              try {
+                if (u.cosmos.features?.includes("force-enable-evm-ledger")) {
+                  return true;
+                }
 
-          if (isEthermintLike) {
-            // cosmos 계열이면서 ledger일때
-            // background에서 ledger를 지원하지 않는 체인은 다 지워줘야한다.
-            try {
-              if (
-                cosmosChainInfo.features?.includes("force-enable-evm-ledger")
-              ) {
+                KeyRingCosmosService.throwErrorIfEthermintWithLedgerButNotSupported(
+                  u.cosmos.chainId
+                );
                 return true;
+              } catch {
+                return false;
               }
-
+            }
+          } else if (isEthSignChain(u)) {
+            // Fallback for non-cosmos/ethermint chains that are still eth-sign
+            try {
               KeyRingCosmosService.throwErrorIfEthermintWithLedgerButNotSupported(
-                cosmosChainInfo.chainId
+                modularChainInfo.chainId
               );
               return true;
             } catch {
               return false;
             }
           }
+        } catch {
+          // chain not found in store, allow it
         }
       }
 
@@ -629,10 +616,15 @@ export const SpendableAssetView: FunctionComponent<{
           <TokenItem
             viewToken={{
               token: new CoinPretty(
-                chainStore.chainInfos[0].currencies[0],
+                (
+                  chainStore.modularChainInfosInUI[0] ??
+                  chainStore.modularChainInfos[0]
+                ).currencies[0],
                 new Dec(0)
               ),
-              chainInfo: chainStore.chainInfos[0],
+              chainInfo:
+                chainStore.modularChainInfosInUI[0] ??
+                chainStore.modularChainInfos[0],
               isFetching: false,
               error: undefined,
             }}

@@ -2,10 +2,10 @@ import { EVMInfo } from "@keplr-wallet/types";
 import { simpleFetch } from "@keplr-wallet/simple-fetch";
 import { UnsignedTransaction } from "@ethersproject/transactions";
 import { Dec } from "@keplr-wallet/unit";
-import { BackgroundTxFeeType } from "../types";
+import { BackgroundTxFeeType, EVMBackgroundTxFeeType } from "../types";
 import { JsonRpcResponse } from "@keplr-wallet/types";
 
-const ETH_FEE_HISTORY_REWARD_PERCENTILES = [25, 50, 75];
+const ETH_FEE_HISTORY_REWARD_PERCENTILES = [20, 40, 60];
 const ETH_FEE_SETTINGS_BY_FEE_TYPE: Record<
   BackgroundTxFeeType,
   {
@@ -36,6 +36,7 @@ const LATEST_BLOCK_ID = 2;
 const FEE_HISTORY_ID = 3;
 const ESTIMATE_GAS_ID = 4;
 const MAX_PRIORITY_FEE_ID = 5;
+const GAS_PRICE_ID = 6;
 
 type BigNumberishLike = string | number | bigint | { toString(): string };
 
@@ -60,10 +61,14 @@ export async function fillUnsignedEVMTx(
   evmInfo: EVMInfo,
   signer: string,
   tx: UnsignedTransaction,
-  feeType: BackgroundTxFeeType = "average"
+  feeType: EVMBackgroundTxFeeType = "average",
+  customPriorityFee?: string,
+  customGasPrice?: string
 ): Promise<UnsignedTransaction> {
   const hasProvidedPriorityFee = tx.maxPriorityFeePerGas != null;
   const hasProvidedGasLimit = tx.gasLimit != null;
+  const innerFeeType: BackgroundTxFeeType =
+    feeType === "custom" ? "average" : feeType;
 
   const getTransactionCountRequest = {
     jsonrpc: "2.0",
@@ -113,6 +118,13 @@ export async function fillUnsignedEVMTx(
         id: MAX_PRIORITY_FEE_ID,
       };
 
+  const getGasPriceRequest = {
+    jsonrpc: "2.0",
+    method: "eth_gasPrice",
+    params: [],
+    id: GAS_PRICE_ID,
+  };
+
   // rpc request in batch (as 2.0 jsonrpc supports batch requests)
   const batchRequest = [
     getTransactionCountRequest,
@@ -120,6 +132,7 @@ export async function fillUnsignedEVMTx(
     ...(getFeeHistoryRequest ? [getFeeHistoryRequest] : []),
     ...(estimateGasRequest ? [estimateGasRequest] : []),
     ...(getMaxPriorityFeePerGasRequest ? [getMaxPriorityFeePerGasRequest] : []),
+    getGasPriceRequest,
   ];
 
   const { data: rpcResponses } = await simpleFetch<
@@ -149,6 +162,9 @@ export async function fillUnsignedEVMTx(
       throw new Error(`No response for id=${id}`);
     }
     if (res.error) {
+      if (optional) {
+        return undefined;
+      }
       throw new Error(
         `RPC error (id=${id}): ${res.error.code} ${res.error.message}`
       );
@@ -166,6 +182,72 @@ export async function fillUnsignedEVMTx(
   if (!latestBlock) {
     throw new Error("Failed to get latest block to fill unsigned transaction");
   }
+
+  // Compute nonce and gas limit first (shared by legacy and EIP-1559 paths)
+  const finalNonce =
+    tx.nonce != null
+      ? Math.max(Number(tx.nonce), parseInt(nonceHex, 16))
+      : parseInt(nonceHex, 16);
+
+  const gasLimitHex = hasProvidedGasLimit
+    ? undefined
+    : getResult<string>(ESTIMATE_GAS_ID, true);
+
+  let finalGasLimit: UnsignedTransaction["gasLimit"];
+  if (tx.gasLimit != null) {
+    finalGasLimit = tx.gasLimit;
+  } else if (gasLimitHex) {
+    const estimatedGas = toBigIntFromTxField(gasLimitHex);
+    const adjustedGas =
+      (estimatedGas * GAS_ADJUSTMENT_NUM + (GAS_ADJUSTMENT_DEN - BigInt(1))) /
+      GAS_ADJUSTMENT_DEN;
+    finalGasLimit = `0x${adjustedGas.toString(16)}`;
+  } else {
+    throw new Error("Failed to estimate gas to fill unsigned transaction");
+  }
+
+  // Legacy chain detection: baseFeePerGas missing or zero
+  const isLegacy =
+    !latestBlock.baseFeePerGas || parseInt(latestBlock.baseFeePerGas, 16) === 0;
+
+  if (isLegacy) {
+    let gasPriceDec: Dec;
+
+    if (feeType === "custom" && customGasPrice != null) {
+      gasPriceDec = new Dec(customGasPrice);
+    } else {
+      const gasPriceHex = getResult<string>(GAS_PRICE_ID, true);
+      if (gasPriceHex) {
+        const multiplier = new Dec(FEE_MULTIPLIERS[innerFeeType]);
+        gasPriceDec = new Dec(BigInt(gasPriceHex)).mul(multiplier);
+      } else {
+        throw new Error(
+          "Failed to get gas price for legacy chain to fill unsigned transaction"
+        );
+      }
+    }
+
+    const gasPriceHexResult = `0x${gasPriceDec
+      .truncate()
+      .toBigNumber()
+      .toString(16)}`;
+
+    const {
+      maxFeePerGas: _maxFeePerGas,
+      maxPriorityFeePerGas: _maxPriorityFeePerGas,
+      ...legacyTx
+    } = tx;
+
+    return {
+      ...legacyTx,
+      nonce: finalNonce,
+      gasPrice: gasPriceHexResult,
+      gasLimit: finalGasLimit,
+      type: 0,
+    };
+  }
+
+  // EIP-1559 path
   const feeHistory = hasProvidedPriorityFee
     ? undefined
     : getResult<{
@@ -173,10 +255,8 @@ export async function fillUnsignedEVMTx(
         gasUsedRatio: number[];
         oldestBlock: string;
         reward?: string[][];
-      }>(FEE_HISTORY_ID);
-  const gasLimitHex = hasProvidedGasLimit
-    ? undefined
-    : getResult<string>(ESTIMATE_GAS_ID, true);
+      }>(FEE_HISTORY_ID, true);
+
   const networkMaxPriorityFeePerGasHex = hasProvidedPriorityFee
     ? undefined
     : getResult<string>(MAX_PRIORITY_FEE_ID, true);
@@ -190,9 +270,11 @@ export async function fillUnsignedEVMTx(
     maxPriorityFeePerGasDec = new Dec(
       toBigIntFromTxField(tx.maxPriorityFeePerGas)
     );
+  } else if (feeType === "custom" && customPriorityFee != null) {
+    maxPriorityFeePerGasDec = new Dec(customPriorityFee);
   } else if (feeHistory?.reward && feeHistory.reward.length > 0) {
     const percentile =
-      ETH_FEE_SETTINGS_BY_FEE_TYPE[feeType].percentile ??
+      ETH_FEE_SETTINGS_BY_FEE_TYPE[innerFeeType].percentile ??
       ETH_FEE_HISTORY_REWARD_PERCENTILES[1];
     const percentileIndex =
       ETH_FEE_HISTORY_REWARD_PERCENTILES.indexOf(percentile);
@@ -247,14 +329,10 @@ export async function fillUnsignedEVMTx(
     );
   }
 
-  if (!latestBlock.baseFeePerGas) {
-    throw new Error("Failed to get baseFeePerGas to fill unsigned transaction");
-  }
-
-  const multiplier = new Dec(FEE_MULTIPLIERS[feeType]);
+  const multiplier = new Dec(FEE_MULTIPLIERS[innerFeeType]);
 
   // Calculate maxFeePerGas = baseFeePerGas + maxPriorityFeePerGas
-  const baseFeePerGasDec = new Dec(BigInt(latestBlock.baseFeePerGas));
+  const baseFeePerGasDec = new Dec(BigInt(latestBlock.baseFeePerGas!));
   const suggestedFeeFromBase = baseFeePerGasDec.mul(multiplier);
 
   const providedMaxFeePerGasDec = tx.maxFeePerGas
@@ -279,24 +357,6 @@ export async function fillUnsignedEVMTx(
     .truncate()
     .toBigNumber()
     .toString(16)}`;
-
-  const finalNonce =
-    tx.nonce != null
-      ? Math.max(Number(tx.nonce), parseInt(nonceHex, 16))
-      : parseInt(nonceHex, 16);
-
-  let finalGasLimit: UnsignedTransaction["gasLimit"];
-  if (tx.gasLimit != null) {
-    finalGasLimit = tx.gasLimit;
-  } else if (gasLimitHex) {
-    const estimatedGas = toBigIntFromTxField(gasLimitHex);
-    const adjustedGas =
-      (estimatedGas * GAS_ADJUSTMENT_NUM + (GAS_ADJUSTMENT_DEN - BigInt(1))) /
-      GAS_ADJUSTMENT_DEN;
-    finalGasLimit = `0x${adjustedGas.toString(16)}`;
-  } else {
-    throw new Error("Failed to estimate gas to fill unsigned transaction");
-  }
 
   const newUnsignedTx: UnsignedTransaction = {
     ...tx,

@@ -1,7 +1,7 @@
 import { makeObservable, observable, runInAction } from "mobx";
-import { AppCurrency, ChainInfo, ERC20Currency } from "@keplr-wallet/types";
+import { AppCurrency, ERC20Currency } from "@keplr-wallet/types";
 import {
-  IChainInfoImpl,
+  IModularChainInfoImpl,
   ChainStore,
   CosmosQueries,
   CosmwasmQueries,
@@ -68,8 +68,8 @@ export class IBCCurrencyRegistrar {
         clientChainId?: string;
       }[];
     },
-    _: ChainInfo | undefined,
-    counterpartyChainInfo: ChainInfo | undefined,
+    _: IModularChainInfoImpl | undefined,
+    counterpartyChainInfo: IModularChainInfoImpl | undefined,
     originCurrency: AppCurrency | undefined
   ): string {
     if (originCurrency) {
@@ -129,8 +129,8 @@ export class IBCCurrencyRegistrar {
           clientChainId?: string;
         }[];
       },
-      originChainInfo: IChainInfoImpl | undefined,
-      counterpartyChainInfo: IChainInfoImpl | undefined,
+      originChainInfo: IModularChainInfoImpl | undefined,
+      counterpartyChainInfo: IModularChainInfoImpl | undefined,
       originCurrency: AppCurrency | undefined
     ) => string = IBCCurrencyRegistrar.defaultCoinDenomGenerator,
     protected readonly cw20BaseURL: string = "",
@@ -187,7 +187,11 @@ export class IBCCurrencyRegistrar {
         done: boolean;
       }
     | undefined {
-    if (!this.chainStore.hasChain(chainId)) {
+    if (!this.chainStore.hasModularChain(chainId)) {
+      return;
+    }
+    const mcInfo2 = this.chainStore.getModularChain(chainId);
+    if (mcInfo2.type !== "cosmos" && mcInfo2.type !== "ethermint") {
       return;
     }
 
@@ -212,8 +216,8 @@ export class IBCCurrencyRegistrar {
 
       const hash = denomHelper.denom.replace("ibc/", "");
 
-      let counterpartyChainInfo: IChainInfoImpl | undefined;
-      let originChainInfo: IChainInfoImpl | undefined;
+      let counterpartyChainInfo: IModularChainInfoImpl | undefined;
+      let originChainInfo: IModularChainInfoImpl | undefined;
       let denomTrace:
         | {
             denom: string;
@@ -237,22 +241,24 @@ export class IBCCurrencyRegistrar {
             if (!path.clientChainId) {
               return true;
             }
-            return !this.chainStore.hasChain(path.clientChainId);
+            return !this.chainStore.hasModularChain(path.clientChainId);
           })
         ) {
           fromCache = true;
           denomTrace = cached.denomTrace;
           if (
             cached.originChainId &&
-            this.chainStore.hasChain(cached.originChainId)
+            this.chainStore.hasModularChain(cached.originChainId)
           ) {
-            originChainInfo = this.chainStore.getChain(cached.originChainId);
+            originChainInfo = this.chainStore.getModularChain(
+              cached.originChainId
+            );
           }
           if (
             cached.counterpartyChainId &&
-            this.chainStore.hasChain(cached.counterpartyChainId)
+            this.chainStore.hasModularChain(cached.counterpartyChainId)
           ) {
-            counterpartyChainInfo = this.chainStore.getChain(
+            counterpartyChainInfo = this.chainStore.getModularChain(
               cached.counterpartyChainId
             );
           }
@@ -278,10 +284,10 @@ export class IBCCurrencyRegistrar {
             // 현재는 알게된 경우에는 cache를 사용하지않고 지운다.
             if (
               (cached.originChainId &&
-                this.chainStore.hasChain(cached.originChainId) &&
+                this.chainStore.hasModularChain(cached.originChainId) &&
                 cached.originChainUnknown) ||
               (cached.counterpartyChainId &&
-                this.chainStore.hasChain(cached.counterpartyChainId) &&
+                this.chainStore.hasModularChain(cached.counterpartyChainId) &&
                 cached.counterpartyChainUnknown)
             ) {
               cached = undefined;
@@ -329,7 +335,9 @@ export class IBCCurrencyRegistrar {
               // 현재 ethereum ibc의 경우 ethereum까지 타고 들어가서 nested하게 처리할 방법은 없다.
               // 마지막 path일 경우만 처리한다.
               isLast &&
-              this.chainStore.getChain(chainIdBefore).hasFeature("ibc-v2") &&
+              this.chainStore
+                .getModularChain(chainIdBefore)
+                .hasFeature("ibc-v2") &&
               denomTrace.denom.startsWith("0x")
             ) {
               const clientState = this.queriesStore
@@ -347,7 +355,7 @@ export class IBCCurrencyRegistrar {
                 if (!rawCounterpartyChainId) {
                   rawCounterpartyChainId = ethereumChainId;
                 }
-                if (this.chainStore.hasChain(ethereumChainId)) {
+                if (this.chainStore.hasModularChain(ethereumChainId)) {
                   // TODO: counterparty channel id를 구해야할듯한데
                   //       https://github.com/cosmos/ibc-go/blob/a8b4af9c757f5235a965718597f73f039c4a5708/proto/ibc/core/client/v2/query.proto#L15
                   //       이것으로 추정되지만 현재 cosmos testnet에서 해당 쿼리가 501 not implemented로 반환되기 때문에 일단 패스...
@@ -355,10 +363,11 @@ export class IBCCurrencyRegistrar {
                   path.clientChainId = ethereumChainId;
 
                   chainIdBefore = ethereumChainId;
-                  originChainInfo = this.chainStore.getChain(ethereumChainId);
+                  originChainInfo =
+                    this.chainStore.getModularChain(ethereumChainId);
                   if (!counterpartyChainInfo) {
                     counterpartyChainInfo =
-                      this.chainStore.getChain(ethereumChainId);
+                      this.chainStore.getModularChain(ethereumChainId);
                   }
                 } else {
                   originChainInfo = undefined;
@@ -400,16 +409,16 @@ export class IBCCurrencyRegistrar {
             }
             if (
               clientState.clientChainId &&
-              this.chainStore.hasChain(clientState.clientChainId)
+              this.chainStore.hasModularChain(clientState.clientChainId)
             ) {
               path.clientChainId = clientState.clientChainId;
 
               chainIdBefore = clientState.clientChainId;
-              originChainInfo = this.chainStore.getChain(
+              originChainInfo = this.chainStore.getModularChain(
                 clientState.clientChainId
               );
               if (!counterpartyChainInfo) {
-                counterpartyChainInfo = this.chainStore.getChain(
+                counterpartyChainInfo = this.chainStore.getModularChain(
                   clientState.clientChainId
                 );
               }
@@ -442,16 +451,18 @@ export class IBCCurrencyRegistrar {
           if (
             !originChainInfo &&
             cached.originChainId &&
-            this.chainStore.hasChain(cached.originChainId)
+            this.chainStore.hasModularChain(cached.originChainId)
           ) {
-            originChainInfo = this.chainStore.getChain(cached.originChainId);
+            originChainInfo = this.chainStore.getModularChain(
+              cached.originChainId
+            );
           }
           if (
             !counterpartyChainInfo &&
             cached.counterpartyChainId &&
-            this.chainStore.hasChain(cached.counterpartyChainId)
+            this.chainStore.hasModularChain(cached.counterpartyChainId)
           ) {
-            counterpartyChainInfo = this.chainStore.getChain(
+            counterpartyChainInfo = this.chainStore.getModularChain(
               cached.counterpartyChainId
             );
           }
@@ -460,7 +471,7 @@ export class IBCCurrencyRegistrar {
 
       if (originChainInfo && denomTrace) {
         // 이 경우 ethereum 계열이기 때문에 다르게 처리해야한다.
-        if (this.chainStore.isEvmOnlyChain(originChainInfo.chainId)) {
+        if (originChainInfo.type === "evm") {
           // 유저가 Add Token을 통해서 추가했을 경우
           const currency = originChainInfo.currencies.find((cur) => {
             return cur.coinMinimalDenom === `erc20:${denomTrace!.denom}`;
@@ -562,7 +573,7 @@ export class IBCCurrencyRegistrar {
           switch (true) {
             case isCW20Currency:
               const isSecret20Currency =
-                originChainInfo.features?.includes("secretwasm");
+                originChainInfo.hasFeature("secretwasm");
 
               if (!isSecret20Currency) {
                 // If the origin currency is ics20-cw20.
@@ -573,7 +584,7 @@ export class IBCCurrencyRegistrar {
                 );
                 if (
                   !cw20Currency &&
-                  this.chainStore.hasChain(originChainInfo.chainId)
+                  this.chainStore.hasModularChain(originChainInfo.chainId)
                 ) {
                   const contractAddress = denomTrace.denom.replace("cw20:", "");
                   const cw20CurrencyRes = this.getCW20TokenInfo(
@@ -653,7 +664,7 @@ export class IBCCurrencyRegistrar {
                 );
                 if (
                   !secret20Currency &&
-                  this.chainStore.hasChain(originChainInfo.chainId)
+                  this.chainStore.hasModularChain(originChainInfo.chainId)
                 ) {
                   const contractAddress = denomTrace.denom.replace("cw20:", "");
                   const secret20CurrencyRes = this.getCW20TokenInfo(
@@ -736,7 +747,7 @@ export class IBCCurrencyRegistrar {
               );
               if (
                 !erc20Currency &&
-                this.chainStore.hasChain(originChainInfo.chainId)
+                this.chainStore.hasModularChain(originChainInfo.chainId)
               ) {
                 const originQueries = this.queriesStore.get(
                   originChainInfo.chainId

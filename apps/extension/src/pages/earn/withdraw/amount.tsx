@@ -66,15 +66,21 @@ export const EarnWithdrawAmountPage: FunctionComponent = observer(() => {
   const initialChainId = searchParams.get("chainId");
   const initialCoinMinimalDenom = searchParams.get("coinMinimalDenom");
 
-  const chainId = initialChainId || chainStore.chainInfosInUI[0].chainId;
-  const chainInfo = chainStore.getChain(chainId);
+  const chainId = initialChainId || chainStore.modularChainInfosInUI[0].chainId;
+  const modularChainInfo = chainStore.getModularChain(chainId);
   const account = accountStore.getAccount(chainId);
 
-  const coinMinimalDenom =
-    initialCoinMinimalDenom || chainInfo.currencies[0].coinMinimalDenom;
-  const currency = chainInfo.forceFindCurrency(coinMinimalDenom);
+  const coinMinimalDenom = (() => {
+    if (initialCoinMinimalDenom) return initialCoinMinimalDenom;
+    const u = modularChainInfo.unwrapped;
+    if (u.type === "cosmos" || u.type === "ethermint") {
+      return u.cosmos.currencies[0].coinMinimalDenom;
+    }
+    return "uusdc";
+  })();
+  const currency = modularChainInfo.forceFindCurrency(coinMinimalDenom);
 
-  const outCurrency = chainInfo.forceFindCurrency(
+  const outCurrency = modularChainInfo.forceFindCurrency(
     NOBLE_EARN_WITHDRAW_OUT_COIN_MINIMAL_DENOM
   );
 
@@ -399,7 +405,7 @@ export const EarnWithdrawAmountPage: FunctionComponent = observer(() => {
                 <Subtitle3 color={ColorPalette["gray-300"]}>
                   {intl.formatMessage(
                     { id: "page.earn.amount.balance.current-chain" },
-                    { chain: chainInfo.chainName }
+                    { chain: modularChainInfo.chainName }
                   )}
                 </Subtitle3>
               </XAxis>
@@ -438,7 +444,7 @@ export const EarnWithdrawAmountPage: FunctionComponent = observer(() => {
                   </Box>
                   <Gutter size="0.5rem" />
                   <Subtitle3 color={ColorPalette["gray-300"]}>
-                    {`on ${chainInfo.chainName}`}
+                    {`on ${modularChainInfo.chainName}`}
                   </Subtitle3>
                 </Fragment>
               )}
@@ -500,7 +506,7 @@ const ConfirmView: FunctionComponent<{
             },
             {
               to: amountConfig.expectedOutAmount.trim(true).toString(),
-              chain: amountConfig.chainInfo.chainName,
+              chain: amountConfig.modularChainInfo.chainName,
             }
           )}
         </Body2>
@@ -535,7 +541,7 @@ const ConfirmView: FunctionComponent<{
             color={ColorPalette["gray-300"]}
             style={{ textAlign: "right" }}
           >
-            {`on ${amountConfig.chainInfo.chainName}`}
+            {`on ${amountConfig.modularChainInfo.chainName}`}
           </Body3>
 
           <Gutter size="0.25rem" />
@@ -582,7 +588,7 @@ const ConfirmView: FunctionComponent<{
             color={ColorPalette["gray-300"]}
             style={{ textAlign: "right" }}
           >
-            {`on ${amountConfig.chainInfo.chainName}`}
+            {`on ${amountConfig.modularChainInfo.chainName}`}
           </Body3>
         </Box>
       </Stack>

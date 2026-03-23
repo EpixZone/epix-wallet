@@ -40,7 +40,15 @@ export class BackgroundTxService {
       onFulfill?: (tx: any) => void;
     }
   ): Promise<Uint8Array> {
-    const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    if (
+      modularChainInfo.type !== "cosmos" &&
+      modularChainInfo.type !== "ethermint"
+    ) {
+      throw new Error(`Not a cosmos chain: ${chainId}`);
+    }
+    const cosmosInfo = modularChainInfo.cosmos;
 
     if (!options.silent) {
       this.notification.create({
@@ -75,7 +83,7 @@ export class BackgroundTxService {
 
     try {
       const result = await simpleFetch<any>(
-        chainInfo.rest,
+        cosmosInfo.rest,
         isProtoTx ? "/cosmos/tx/v1beta1/txs" : "/txs",
         {
           method: "POST",
@@ -103,7 +111,7 @@ export class BackgroundTxService {
           () => {
             return new Promise<void>((resolve, reject) => {
               const txTracer = new TendermintTxTracer(
-                chainInfo.rpc,
+                cosmosInfo.rpc,
                 "/websocket"
               );
               txTracer.addEventListener("close", () => {
@@ -166,13 +174,23 @@ export class BackgroundTxService {
   }
 
   async traceTx(chainId: string, txHash: string): Promise<any> {
-    const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
+    const modularChainInfo =
+      this.chainsService.getModularChainInfoOrThrow(chainId);
+    if (
+      modularChainInfo.type !== "cosmos" &&
+      modularChainInfo.type !== "ethermint"
+    ) {
+      throw new Error(`Not a cosmos chain: ${chainId}`);
+    }
     const txHashBuffer = Buffer.from(txHash, "hex");
 
     return await retry(
       () => {
         return new Promise<any>((resolve, reject) => {
-          const txTracer = new TendermintTxTracer(chainInfo.rpc, "/websocket");
+          const txTracer = new TendermintTxTracer(
+            modularChainInfo.cosmos.rpc,
+            "/websocket"
+          );
           txTracer.addEventListener("close", () => {
             // reject if ws closed before fulfilled
             // 하지만 로직상 fulfill 되기 전에 ws가 닫히는게 되기 때문에
@@ -243,12 +261,11 @@ export class BackgroundTxService {
     let message = e.message;
 
     // Tendermint rpc error.
-    const regResult = /code:\s*(-?\d+),\s*message:\s*(.+),\sdata:\s(.+)/g.exec(
-      e.message
-    );
-    if (regResult && regResult.length === 4) {
+    const tendermintRpcErrorMessage =
+      BackgroundTxService.parseTendermintRpcErrorMessage(e.message);
+    if (tendermintRpcErrorMessage) {
       // If error is from tendermint
-      message = regResult[3];
+      message = tendermintRpcErrorMessage;
     }
 
     try {
@@ -286,6 +303,37 @@ export class BackgroundTxService {
     });
   }
 
+  // Keep the Tendermint RPC parsing best-effort only and avoid regex backtracking
+  // on raw error strings from external nodes/libraries.
+  private static parseTendermintRpcErrorMessage(
+    message: string
+  ): string | undefined {
+    if (!message.startsWith("code:")) {
+      return undefined;
+    }
+
+    const messageIndex = message.indexOf("message:");
+    const dataIndex = message.indexOf("data:");
+
+    if (messageIndex < 0 || dataIndex < 0 || messageIndex > dataIndex) {
+      return undefined;
+    }
+
+    const messageBody = message.slice(messageIndex + "message:".length);
+    const dataDelimiter =
+      messageBody.indexOf(", data:") >= 0 ? ", data:" : ",data:";
+    const dataDelimiterIndex = messageBody.indexOf(dataDelimiter);
+
+    if (dataDelimiterIndex < 0) {
+      return undefined;
+    }
+
+    const dataMessage = messageBody
+      .slice(dataDelimiterIndex + dataDelimiter.length)
+      .trim();
+    return dataMessage.length > 0 ? dataMessage : undefined;
+  }
+
   async waitStarknetTransaction(
     chainId: string,
     txHash: string
@@ -294,7 +342,7 @@ export class BackgroundTxService {
     if (!modularChainInfo) {
       throw new Error("Invalid chain id");
     }
-    if (!("starknet" in modularChainInfo)) {
+    if (modularChainInfo.type !== "starknet") {
       throw new Error("Chain is not for starknet");
     }
     const starknet = modularChainInfo.starknet;
@@ -340,7 +388,7 @@ export class BackgroundTxService {
       throw new Error("Invalid chain id");
     }
 
-    if (!("bitcoin" in modularChainInfo)) {
+    if (modularChainInfo.type !== "bitcoin") {
       throw new Error("Chain is not for bitcoin");
     }
 

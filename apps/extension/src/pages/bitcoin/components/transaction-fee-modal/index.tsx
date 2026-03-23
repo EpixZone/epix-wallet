@@ -58,7 +58,7 @@ export const TransactionFeeModal: FunctionComponent<{
   const theme = useTheme();
 
   const modularChainInfo = chainStore.getModularChain(senderConfig.chainId);
-  if (!("bitcoin" in modularChainInfo)) {
+  if (modularChainInfo.type !== "bitcoin") {
     throw new Error("This chain doesn't support bitcoin");
   }
 

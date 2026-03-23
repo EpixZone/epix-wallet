@@ -70,26 +70,25 @@ export const StakeExplorePage: FunctionComponent = observer(() => {
 
   const stakeCurrencyItems = useMemo<StakeCurrencyItem[]>(() => {
     const items: StakeCurrencyItem[] = [];
-    for (const chainInfo of chainStore.chainInfos) {
-      if (chainInfo.isTestnet || !chainInfo.stakeCurrency) {
-        continue;
-      }
-      const hasNativeUrl =
-        !!chainInfo.embedded.embedded &&
-        !!chainInfo.embedded.walletUrlForStaking;
-      if (!hasNativeUrl && !hasKcrStakingUrl(chainInfo.chainId)) {
-        continue;
-      }
-      const key = `${chainInfo.chainIdentifier}/${chainInfo.stakeCurrency.coinMinimalDenom}`;
-      items.push({
-        key,
-        chainInfo: chainInfo,
-        currency: chainInfo.stakeCurrency,
-      });
-    }
-
     for (const modularChainInfo of chainStore.modularChainInfos) {
-      if ("starknet" in modularChainInfo) {
+      const u = modularChainInfo.unwrapped;
+      if (u.type === "cosmos" || u.type === "ethermint") {
+        if (modularChainInfo.isTestnet || !u.cosmos.stakeCurrency) {
+          continue;
+        }
+        const hasNativeUrl =
+          !!modularChainInfo.embedded.isBuiltInChain &&
+          !!u.cosmos.walletUrlForStaking;
+        if (!hasNativeUrl && !hasKcrStakingUrl(modularChainInfo.chainId)) {
+          continue;
+        }
+        const key = `${modularChainInfo.chainIdentifier}/${u.cosmos.stakeCurrency.coinMinimalDenom}`;
+        items.push({
+          key,
+          chainInfo: modularChainInfo,
+          currency: u.cosmos.stakeCurrency,
+        });
+      } else if (u.type === "starknet") {
         if (modularChainInfo.isTestnet) {
           continue;
         }
@@ -98,20 +97,9 @@ export const StakeExplorePage: FunctionComponent = observer(() => {
           modularChainInfo.chainId
         ).identifier;
 
-        const modularChainInfoImpl = chainStore.getModularChainInfoImpl(
-          modularChainInfo.chainId
-        );
-        const currencies = modularChainInfoImpl.getCurrencies("starknet");
-        if (currencies.length === 0) {
-          continue;
-        }
-
-        const strkContractAddress =
-          modularChainInfo.starknet.strkContractAddress;
+        const strkContractAddress = u.starknet.strkContractAddress;
         const strkDenom = `erc20:${strkContractAddress.toLowerCase()}`;
-        const strkCurrency = currencies.find(
-          (currency) => currency.coinMinimalDenom === strkDenom
-        );
+        const strkCurrency = modularChainInfo.findCurrency(strkDenom);
         if (!strkCurrency) {
           continue;
         }

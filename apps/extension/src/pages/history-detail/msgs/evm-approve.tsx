@@ -17,7 +17,7 @@ export const HistoryDetailEvmApprove: FunctionComponent<{
 }> = observer(({ msg, targetDenom }) => {
   const { chainStore } = useStore();
 
-  const chainInfo = chainStore.getChain(msg.chainId);
+  const chainInfo = chainStore.getModularChain(msg.chainId);
   const meta = msg.meta as ERC20ApproveRelMeta;
 
   const approveCurrency = useMemo(() => {

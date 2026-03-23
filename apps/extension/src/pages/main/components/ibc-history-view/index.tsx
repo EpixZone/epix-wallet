@@ -48,7 +48,7 @@ import {
 } from "../../../../components/icon";
 import { useStore } from "../../../../stores";
 import { CoinPretty, Dec, DecUtils } from "@keplr-wallet/unit";
-import { IChainInfoImpl, MakeTxResponse } from "@keplr-wallet/stores";
+import { MakeTxResponse, IModularChainInfoImpl } from "@keplr-wallet/stores";
 import { ChainImageFallback } from "../../../../components/image";
 import { IconProps } from "../../../../components/icon/types";
 import { useSpringValue, animated, easings } from "@react-spring/web";
@@ -560,15 +560,15 @@ const IbcHistoryViewItem: FunctionComponent<{
           }
         >
           {(() => {
-            const sourceChain = chainStore.getChain(history.chainId);
-            const destinationChain = chainStore.getChain(
+            const sourceChain = chainStore.getModularChain(history.chainId);
+            const destinationChain = chainStore.getModularChain(
               history.destinationChainId
             );
 
             if ("swapType" in history) {
               if (historyCompleted && failedChannelIndex < 0) {
                 const chainId = history.destinationChainId;
-                const chainInfo = chainStore.getChain(chainId);
+                const chainInfo = chainStore.getModularChain(chainId);
                 const assets = (() => {
                   if (
                     history.resAmount.length !==
@@ -625,7 +625,7 @@ const IbcHistoryViewItem: FunctionComponent<{
                   assets,
                   destinationDenom: (() => {
                     const currency = chainStore
-                      .getChain(history.destinationAsset.chainId)
+                      .getModularChain(history.destinationAsset.chainId)
                       .forceFindCurrency(history.destinationAsset.denom);
 
                     if (
@@ -687,7 +687,7 @@ const IbcHistoryViewItem: FunctionComponent<{
               ];
 
               return chainIds.map((chainId, i) => {
-                const chainInfo = chainStore.getChain(chainId);
+                const chainInfo = chainStore.getModularChain(chainId);
 
                 const completed = (() => {
                   if (i === 0) {
@@ -790,14 +790,16 @@ const IbcHistoryViewItem: FunctionComponent<{
                         id: "page.main.components.ibc-history-view.ibc-swap.failed.after-swap.complete",
                       },
                       {
-                        chain: chainStore.getChain(
+                        chain: chainStore.getModularChain(
                           history.swapRefundInfo.chainId
                         ).chainName,
                         assets: history.swapRefundInfo.amount
                           .map((amount) => {
                             return new CoinPretty(
                               chainStore
-                                .getChain(history.swapRefundInfo!.chainId)
+                                .getModularChain(
+                                  history.swapRefundInfo!.chainId
+                                )
                                 .forceFindCurrency(amount.denom),
                               amount.amount
                             )
@@ -1100,13 +1102,13 @@ const SkipHistoryViewItem: FunctionComponent<{
           }
         >
           {(() => {
-            const sourceChain = chainStore.getChain(history.chainId);
+            const sourceChain = chainStore.getModularChain(history.chainId);
 
             if (historyCompleted && failedRouteIndex < 0) {
               const destinationAssets = (() => {
                 if (!history.resAmount[0]) {
                   return chainStore
-                    .getChain(history.destinationAsset.chainId)
+                    .getModularChain(history.destinationAsset.chainId)
                     .forceFindCurrency(history.destinationAsset.denom)
                     .coinDenom;
                 }
@@ -1115,7 +1117,7 @@ const SkipHistoryViewItem: FunctionComponent<{
                   .map((amount) => {
                     return new CoinPretty(
                       chainStore
-                        .getChain(history.destinationAsset.chainId)
+                        .getModularChain(history.destinationAsset.chainId)
                         .forceFindCurrency(amount.denom),
                       amount.amount
                     )
@@ -1156,7 +1158,7 @@ const SkipHistoryViewItem: FunctionComponent<{
 
             const destinationDenom = (() => {
               const currency = chainStore
-                .getChain(history.destinationAsset.chainId)
+                .getModularChain(history.destinationAsset.chainId)
                 .forceFindCurrency(history.destinationAsset.denom);
 
               if ("originCurrency" in currency && currency.originCurrency) {
@@ -1167,8 +1169,8 @@ const SkipHistoryViewItem: FunctionComponent<{
             })();
 
             if (history.isOnlyUseBridge) {
-              const sourceChain = chainStore.getChain(history.chainId);
-              const destinationChain = chainStore.getChain(
+              const sourceChain = chainStore.getModularChain(history.chainId);
+              const destinationChain = chainStore.getModularChain(
                 history.destinationChainId
               );
 
@@ -1214,7 +1216,7 @@ const SkipHistoryViewItem: FunctionComponent<{
               });
 
               return chainIds.map((chainId, i) => {
-                const chainInfo = chainStore.getChain(chainId);
+                const chainInfo = chainStore.getModularChain(chainId);
                 // Only mark as completed based on routeIndex, not trackDone
                 const completed =
                   i < history.routeIndex ||
@@ -1283,8 +1285,10 @@ const SkipHistoryViewItem: FunctionComponent<{
                   transferAssetRelease.released
                 ) {
                   if (history.swapRefundInfo) {
-                    if (chainStore.hasChain(history.swapRefundInfo.chainId)) {
-                      const swapRefundChain = chainStore.getChain(
+                    if (
+                      chainStore.hasModularChain(history.swapRefundInfo.chainId)
+                    ) {
+                      const swapRefundChain = chainStore.getModularChain(
                         history.swapRefundInfo.chainId
                       );
 
@@ -1298,7 +1302,9 @@ const SkipHistoryViewItem: FunctionComponent<{
                             .map((amount) => {
                               return new CoinPretty(
                                 chainStore
-                                  .getChain(history.swapRefundInfo!.chainId)
+                                  .getModularChain(
+                                    history.swapRefundInfo!.chainId
+                                  )
                                   .forceFindCurrency(amount.denom),
                                 amount.amount
                               )
@@ -1320,8 +1326,9 @@ const SkipHistoryViewItem: FunctionComponent<{
                     ? `eip155:${transferAssetRelease.chain_id}`
                     : transferAssetRelease.chain_id;
 
-                  if (chainStore.hasChain(chainIdInKeplr)) {
-                    const releasedChain = chainStore.getChain(chainIdInKeplr);
+                  if (chainStore.hasModularChain(chainIdInKeplr)) {
+                    const releasedChain =
+                      chainStore.getModularChain(chainIdInKeplr);
 
                     const destinationDenom = (() => {
                       const currency = releasedChain.forceFindCurrency(
@@ -1667,11 +1674,11 @@ const SwapV2HistoryViewItem: FunctionComponent<{
 
           // get fee (similar to getEIP1559TxFees logic, using "average" fee type)
           const ETH_FEE_HISTORY_BLOCK_COUNT = 20;
-          const ETH_FEE_HISTORY_REWARD_PERCENTILES = [50];
+          const ETH_FEE_HISTORY_REWARD_PERCENTILES = [40];
           const ETH_FEE_HISTORY_NEWEST_BLOCK = "latest";
           const baseFeePercentageMultiplier = new Dec(1.25);
           const gasAdjustment = 1.3;
-          const percentile = 50;
+          const percentile = 40;
 
           let feeObject:
             | {
@@ -1828,7 +1835,7 @@ const SwapV2HistoryViewItem: FunctionComponent<{
           switch (msg.type) {
             case "cosmos-sdk/MsgTransfer": {
               const currency = chainStore
-                .getChain(chainId)
+                .getModularChain(chainId)
                 .forceFindCurrency(msg.value.token.denom);
               const normalizedAmount = new Dec(msg.value.token.amount)
                 .quo(DecUtils.getPrecisionDec(currency.coinDecimals))
@@ -1985,17 +1992,27 @@ const SwapV2HistoryViewItem: FunctionComponent<{
           }
 
           const simulateResult = await cosmosTx.simulate({}, txData.memo);
-          const gasAdjustment = chainStore
-            .getChain(chainId)
-            .hasFeature("feemarket")
-            ? 1.6
-            : 1.4;
+          const cosmosModularChainInfo = chainStore.getModularChain(chainId);
+          const cosmosU = cosmosModularChainInfo.unwrapped;
+          const gasAdjustment = (() => {
+            if (cosmosU.type === "cosmos" || cosmosU.type === "ethermint") {
+              return cosmosU.cosmos.features?.includes("feemarket") ? 1.6 : 1.4;
+            }
+            return 1.4;
+          })();
 
           const fee = {
             amount: [
               {
-                denom:
-                  chainStore.getChain(chainId).currencies[0].coinMinimalDenom,
+                denom: (() => {
+                  if (
+                    cosmosU.type === "cosmos" ||
+                    cosmosU.type === "ethermint"
+                  ) {
+                    return cosmosU.cosmos.feeCurrencies[0].coinMinimalDenom;
+                  }
+                  return "";
+                })(),
                 amount: "1",
               },
             ],
@@ -2225,7 +2242,7 @@ const SwapV2HistoryViewItem: FunctionComponent<{
           }
         >
           {(() => {
-            const sourceChain = chainStore.getChain(history.fromChainId);
+            const sourceChain = chainStore.getModularChain(history.fromChainId);
 
             if (historyCompleted && failedRouteIndex < 0) {
               const destinationAssets = (() => {
@@ -2247,7 +2264,7 @@ const SwapV2HistoryViewItem: FunctionComponent<{
                       .map((amount) => {
                         return new CoinPretty(
                           chainStore
-                            .getChain(history.destinationAsset.chainId)
+                            .getModularChain(history.destinationAsset.chainId)
                             .forceFindCurrency(amount.denom),
                           amount.amount
                         )
@@ -2264,7 +2281,7 @@ const SwapV2HistoryViewItem: FunctionComponent<{
 
                 if (!history.resAmount[0]) {
                   return chainStore
-                    .getChain(history.destinationAsset.chainId)
+                    .getModularChain(history.destinationAsset.chainId)
                     .forceFindCurrency(history.destinationAsset.denom)
                     .coinDenom;
                 }
@@ -2273,7 +2290,7 @@ const SwapV2HistoryViewItem: FunctionComponent<{
                   .map((amount) => {
                     return new CoinPretty(
                       chainStore
-                        .getChain(history.destinationAsset.chainId)
+                        .getModularChain(history.destinationAsset.chainId)
                         .forceFindCurrency(amount.denom),
                       amount.amount
                     )
@@ -2323,7 +2340,7 @@ const SwapV2HistoryViewItem: FunctionComponent<{
 
             const destinationDenom = (() => {
               const currency = chainStore
-                .getChain(history.destinationAsset.chainId)
+                .getModularChain(history.destinationAsset.chainId)
                 .forceFindCurrency(history.destinationAsset.denom);
 
               if ("originCurrency" in currency && currency.originCurrency) {
@@ -2334,8 +2351,12 @@ const SwapV2HistoryViewItem: FunctionComponent<{
             })();
 
             if (history.isOnlyUseBridge) {
-              const sourceChain = chainStore.getChain(history.fromChainId);
-              const destinationChain = chainStore.getChain(history.toChainId);
+              const sourceChain = chainStore.getModularChain(
+                history.fromChainId
+              );
+              const destinationChain = chainStore.getModularChain(
+                history.toChainId
+              );
 
               return intl.formatMessage(
                 {
@@ -2414,7 +2435,7 @@ const SwapV2HistoryViewItem: FunctionComponent<{
                 !!history.additionalTrackError;
 
               return chainIds.map((chainId, i) => {
-                const chainInfo = chainStore.getChain(chainId);
+                const chainInfo = chainStore.getModularChain(chainId);
                 // Asset이 릴리즈된 체인까지는 성공으로 처리
                 const completed =
                   i < history.routeIndex ||
@@ -2560,8 +2581,12 @@ const SwapV2HistoryViewItem: FunctionComponent<{
                 (hasError || history.status === SwapV2TxStatus.FAILED)
               ) {
                 if (history.assetLocationInfo) {
-                  if (chainStore.hasChain(history.assetLocationInfo.chainId)) {
-                    const assetLocationChain = chainStore.getChain(
+                  if (
+                    chainStore.hasModularChain(
+                      history.assetLocationInfo.chainId
+                    )
+                  ) {
+                    const assetLocationChain = chainStore.getModularChain(
                       history.assetLocationInfo.chainId
                     );
 
@@ -2575,7 +2600,9 @@ const SwapV2HistoryViewItem: FunctionComponent<{
                           .map((amount) => {
                             return new CoinPretty(
                               chainStore
-                                .getChain(history.assetLocationInfo!.chainId)
+                                .getModularChain(
+                                  history.assetLocationInfo!.chainId
+                                )
                                 .forceFindCurrency(amount.denom),
                               amount.amount
                             )
@@ -2922,7 +2949,7 @@ const InlineCopyText: FunctionComponent<{
 const ChainImageFallbackAnimated = animated(ChainImageFallback);
 
 const IbcHistoryViewItemChainImage: FunctionComponent<{
-  chainInfo: IChainInfoImpl;
+  chainInfo: IModularChainInfoImpl;
 
   completed: boolean;
   notCompletedBlink: boolean;

@@ -3,7 +3,7 @@ import {
   ObservableChainQueryMap,
 } from "../../chain-query";
 import { Delegation, Delegations } from "./types";
-import { ChainGetter } from "../../../chain";
+import { ChainGetter, requireCosmosInfo } from "../../../chain";
 import { CoinPretty, Dec, Int } from "@keplr-wallet/unit";
 import { computed, makeObservable } from "mobx";
 import { computedFn } from "mobx-utils";
@@ -33,13 +33,17 @@ export class ObservableQueryDelegationsInner extends ObservableChainQuery<Delega
     // If bech32 address is empty, it will always fail, so don't need to fetch it.
     return (
       this.bech32Address.length > 0 ||
-      this.chainGetter.getChain(this.chainId).stakeCurrency != null
+      requireCosmosInfo(this.chainGetter.getModularChain(this.chainId))
+        .stakeCurrency != null
     );
   }
 
   @computed
   get total(): CoinPretty | undefined {
-    const stakeCurrency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+    const stakeCurrency = cosmosInfo.stakeCurrency;
 
     if (!stakeCurrency) {
       return;
@@ -69,7 +73,10 @@ export class ObservableQueryDelegationsInner extends ObservableChainQuery<Delega
       return [];
     }
 
-    const stakeCurrency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+    const stakeCurrency = cosmosInfo.stakeCurrency;
 
     if (!stakeCurrency) {
       return [];
@@ -108,9 +115,10 @@ export class ObservableQueryDelegationsInner extends ObservableChainQuery<Delega
     (validatorAddress: string): CoinPretty | undefined => {
       const delegations = this.delegations;
 
-      const stakeCurrency = this.chainGetter.getChain(
-        this.chainId
-      ).stakeCurrency;
+      const cosmosInfo = requireCosmosInfo(
+        this.chainGetter.getModularChain(this.chainId)
+      );
+      const stakeCurrency = cosmosInfo.stakeCurrency;
 
       if (!stakeCurrency) {
         return;

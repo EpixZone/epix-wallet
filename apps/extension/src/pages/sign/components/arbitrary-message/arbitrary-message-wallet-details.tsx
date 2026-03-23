@@ -10,11 +10,11 @@ import { ProfileOutlinedIcon } from "../../../../components/icon";
 import { FormattedMessage } from "react-intl";
 import { hexToRgba } from "../../../../utils";
 import { Bech32Address } from "@keplr-wallet/cosmos";
-import { ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 
 interface ArbitraryMsgWalletDetailsProps {
   walletName: string;
-  chainInfo: ChainInfo | ModularChainInfo;
+  chainInfo: IModularChainInfoImpl;
   addressInfo: {
     type: "bech32" | "ethereum" | "starknet" | "bitcoin";
     address: string;

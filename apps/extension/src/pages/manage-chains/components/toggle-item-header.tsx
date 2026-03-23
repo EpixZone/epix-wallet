@@ -10,10 +10,11 @@ import { ChainImageFallback } from "../../../components/image";
 import { NativeChainMarkIcon } from "../../../components/icon";
 import { ColorPalette } from "../../../styles";
 import { ArrowIcon, StackIcon } from "../../main/components/token/grouped";
-import { ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
+import { ChainInfo } from "@keplr-wallet/types";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 
 interface ToggleItemHeaderProps {
-  chainInfo: ChainInfo | ModularChainInfo;
+  chainInfo: ChainInfo | IModularChainInfoImpl;
   title?: string;
   subtitle?: string;
   enabled: boolean;

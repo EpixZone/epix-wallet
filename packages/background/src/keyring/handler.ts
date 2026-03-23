@@ -523,28 +523,43 @@ const handleGetAllWalletsMsg: (
           const modularChainInfo =
             chainsService.getModularChainInfoOrThrow(chainIdentifier);
 
-          if ("cosmos" in modularChainInfo) {
-            const key = await keyRingCosmosService.getKey(
-              keyInfo.id,
-              modularChainInfo.chainId
-            );
-            const chainInfo = modularChainInfo.cosmos;
-            const isEthermintLike = KeyRingService.isEthermintLike(chainInfo);
-            const evmInfo = ChainsService.getEVMInfo(chainInfo);
-
-            if (isEthermintLike || evmInfo !== undefined) {
-              addresses[modularChainInfo.chainId] = key.ethereumHexAddress;
-            } else {
+          switch (modularChainInfo.type) {
+            case "cosmos": {
+              const key = await keyRingCosmosService.getKey(
+                keyInfo.id,
+                modularChainInfo.chainId
+              );
               addresses[modularChainInfo.chainId] = key.bech32Address;
+              break;
             }
-          } else if ("starknet" in modularChainInfo) {
-            const starknetKey = await keyRingStarknetService.getStarknetKey(
-              keyInfo.id,
-              modularChainInfo.chainId
-            );
-            addresses[modularChainInfo.chainId] = starknetKey.hexAddress;
+            case "ethermint": {
+              const key = await keyRingCosmosService.getKey(
+                keyInfo.id,
+                modularChainInfo.chainId
+              );
+              addresses[modularChainInfo.chainId] = key.ethereumHexAddress;
+              break;
+            }
+            case "evm": {
+              const key = await keyRingCosmosService.getKey(
+                keyInfo.id,
+                modularChainInfo.chainId
+              );
+              addresses[modularChainInfo.chainId] = key.ethereumHexAddress;
+              break;
+            }
+            case "starknet": {
+              const starknetKey = await keyRingStarknetService.getStarknetKey(
+                keyInfo.id,
+                modularChainInfo.chainId
+              );
+              addresses[modularChainInfo.chainId] = starknetKey.hexAddress;
+              break;
+            }
+            case "bitcoin":
+              // Bitcoin: skip (out of scope)
+              break;
           }
-          // Bitcoin: skip (out of scope)
         } catch (e) {
           console.log(e);
           continue;

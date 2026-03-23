@@ -9,7 +9,8 @@ import { Button2, Subtitle3, Subtitle4 } from "../../../components/typography";
 import { Gutter } from "../../../components/gutter";
 import { MsgHistory } from "../../main/token-detail/types";
 import { isValidCoinStr, parseCoinStr } from "@keplr-wallet/common";
-import { AppCurrency, ChainInfo } from "@keplr-wallet/types";
+import { AppCurrency } from "@keplr-wallet/types";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import styled, { useTheme } from "styled-components";
 import { CurrencyImageFallback } from "../../../components/image";
 import { VerticalCollapseTransition } from "../../../components/transition/vertical-collapse";
@@ -24,7 +25,7 @@ export const HistoryDetailMergedClaimRewards: FunctionComponent<{
 
   const theme = useTheme();
 
-  const chainInfo = chainStore.getChain(msg.chainId);
+  const chainInfo = chainStore.getModularChain(msg.chainId);
 
   const isNobleClaimMessage = msg.relation === "noble-claim-yield";
 
@@ -187,7 +188,7 @@ const RewardItem: FunctionComponent<{
   length: number;
   currency: AppCurrency;
   amount: CoinPretty;
-  chainInfo: ChainInfo;
+  chainInfo: IModularChainInfoImpl;
 }> = observer(({ index, length, currency, amount, chainInfo }) => {
   const { priceStore } = useStore();
 

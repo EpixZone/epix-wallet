@@ -21,9 +21,10 @@ export class ObservableEvmChainJsonRpcQuery<
     method: string,
     params?: unknown[] | Record<string, unknown>
   ) {
-    const chainInfo = chainGetter.getChain(chainId);
+    const u = chainGetter.getModularChain(chainId).unwrapped;
+    const evmRpc = u.type === "evm" || u.type === "ethermint" ? u.evm.rpc : "";
 
-    super(sharedContext, chainInfo.evm?.rpc ?? "", "", method, params);
+    super(sharedContext, evmRpc, "", method, params);
 
     this._chainId = chainId;
     this.chainGetter = chainGetter;

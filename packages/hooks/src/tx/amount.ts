@@ -165,7 +165,7 @@ export class AmountConfig extends TxChainSetter implements IAmountConfig {
 
   @computed
   get currency(): AppCurrency {
-    const chainInfo = this.chainInfo;
+    const chainInfo = this.modularChainInfo;
 
     if (this._currency) {
       const find = chainInfo.findCurrency(this._currency.coinMinimalDenom);
@@ -201,7 +201,9 @@ export class AmountConfig extends TxChainSetter implements IAmountConfig {
   }
 
   canUseCurrency(currency: AppCurrency): boolean {
-    return this.chainInfo.findCurrency(currency.coinMinimalDenom) != null;
+    return (
+      this.modularChainInfo.findCurrency(currency.coinMinimalDenom) != null
+    );
   }
 
   @computed

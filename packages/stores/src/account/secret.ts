@@ -2,7 +2,7 @@ import { AccountSetBase, AccountSetBaseSuper, MsgOpt } from "./base";
 import { SecretQueries, QueriesSetBase, IQueriesStore } from "../query";
 import { Buffer } from "buffer/";
 import { CoinPrimitive } from "../common";
-import { ChainGetter } from "../chain";
+import { ChainGetter, requireCosmosInfo } from "../chain";
 import { DenomHelper } from "@keplr-wallet/common";
 import { MsgExecuteContract } from "@keplr-wallet/proto-types/secret/compute/v1beta1/msg";
 import { Bech32Address } from "@keplr-wallet/cosmos";
@@ -117,8 +117,8 @@ export class SecretAccountImpl {
 
       Bech32Address.validate(
         recipient,
-        this.chainGetter.getChain(this.chainId).bech32Config
-          ?.bech32PrefixAccAddr
+        requireCosmosInfo(this.chainGetter.getModularChain(this.chainId))
+          .bech32Config?.bech32PrefixAccAddr
       );
 
       return this.makeExecuteSecretContractTx(
@@ -206,7 +206,8 @@ export class SecretAccountImpl {
   ) {
     Bech32Address.validate(
       contractAddress,
-      this.chainGetter.getChain(this.chainId).bech32Config?.bech32PrefixAccAddr
+      requireCosmosInfo(this.chainGetter.getModularChain(this.chainId))
+        .bech32Config?.bech32PrefixAccAddr
     );
 
     let encryptedMsg: Uint8Array;

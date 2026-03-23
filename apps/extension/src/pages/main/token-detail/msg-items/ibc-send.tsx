@@ -17,10 +17,10 @@ export const MsgRelationIBCSend: FunctionComponent<{
 }> = observer(({ msg, prices, targetDenom, isInAllActivitiesPage }) => {
   const { chainStore } = useStore();
 
-  const chainInfo = chainStore.getChain(msg.chainId);
+  const modularChainInfo = chainStore.getModularChain(msg.chainId);
 
   const sendAmountPretty = useMemo(() => {
-    const currency = chainInfo.forceFindCurrency(targetDenom);
+    const currency = modularChainInfo.forceFindCurrency(targetDenom);
 
     const token = (msg.msg as any)["token"] as {
       denom: string;
@@ -31,7 +31,7 @@ export const MsgRelationIBCSend: FunctionComponent<{
       return new CoinPretty(currency, "0");
     }
     return new CoinPretty(currency, token.amount);
-  }, [chainInfo, msg.msg, targetDenom]);
+  }, [modularChainInfo, msg.msg, targetDenom]);
 
   const toAddress = (() => {
     if (!msg.ibcTracking) {

@@ -3,6 +3,7 @@ import React, {
   useState,
   useMemo,
   useCallback,
+  useEffect,
 } from "react";
 import { HeaderLayout } from "../../layouts/header";
 import { BackButton } from "../../layouts/header/components";
@@ -14,7 +15,11 @@ import { useSearchParams } from "react-router-dom";
 import { ChainToggleItem } from "./components/chain-toggle-item";
 import { useSearch } from "../../hooks/use-search";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
-import { ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
+import { ChainInfo, isEthSignChain } from "@keplr-wallet/types";
+import {
+  IModularChainInfoImpl,
+  getKeplrFromWindow,
+} from "@keplr-wallet/stores";
 import { CoinPretty, Dec } from "@keplr-wallet/unit";
 import { Stack } from "../../components/stack";
 import { observer } from "mobx-react-lite";
@@ -32,10 +37,13 @@ import { SelectDerivationPathModal } from "./components/select-derivation-path-m
 import { ConnectLedgerModal } from "./components/connect-ledger-modal";
 import { useKeyCoinTypeFinalize } from "./hooks/use-key-coin-type-finalize";
 import { EmbedChainInfos } from "../../config";
-import { getKeplrFromWindow } from "@keplr-wallet/stores";
-import { KeyRingCosmosService } from "@keplr-wallet/background";
+import {
+  KeyRingCosmosService,
+  convertModularChainInfoToChainInfo,
+} from "@keplr-wallet/background";
 import { determineLedgerApp } from "../../utils/determine-ledger-app";
 import { COMMON_HOVER_OPACITY } from "../../styles/constant";
+import { isChainSupportedByKeyType } from "../../utils/is-chain-supported-by-key-type";
 
 export const Ecosystem = {
   All: "All",
@@ -68,21 +76,32 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
 
   const keyType = keyRingStore.selectedKeyInfo?.type;
 
+  const availableEcosystems = useMemo(() => {
+    if (keyType === "keystone") {
+      return [Ecosystem.All, Ecosystem.Cosmos, Ecosystem.EVM];
+    }
+
+    return Object.values(Ecosystem);
+  }, [keyType]);
+
+  useEffect(() => {
+    if (!availableEcosystems.includes(selectedEcosystem)) {
+      setSelectedEcosystem(Ecosystem.All);
+    }
+  }, [availableEcosystems, selectedEcosystem]);
+
   const checkIsLedgerSupportedEthermintChain = useCallback(
     (chainInfo: ChainInfo): boolean => {
       if (keyType !== "ledger") {
         return true;
       }
 
-      const isEthermintLike =
-        chainInfo.bip44.coinType === 60 ||
-        !!chainInfo.features?.includes("eth-address-gen") ||
-        !!chainInfo.features?.includes("eth-key-sign");
+      const modularChainInfo = chainStore.hasModularChain(chainInfo.chainId)
+        ? chainStore.getModularChain(chainInfo.chainId)
+        : undefined;
 
-      if (isEthermintLike) {
-        const isEvmOnlyChain =
-          chainStore.hasChain(chainInfo.chainId) &&
-          chainStore.isEvmOnlyChain(chainInfo.chainId);
+      if (modularChainInfo && isEthSignChain(modularChainInfo.unwrapped)) {
+        const isEvmOnlyChain = modularChainInfo.type === "evm";
 
         if (isEvmOnlyChain) {
           return true;
@@ -139,7 +158,7 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
       if (!vaultId || !chainId) return;
 
       if (enable) {
-        if (!chainStore.hasChain(chainId)) {
+        if (!chainStore.hasModularChain(chainId)) {
           const keplr = await getKeplrFromWindow();
           const chainInfoToSuggest = searchedNonNativeChainInfos.find(
             (c) =>
@@ -158,29 +177,31 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
           }
         }
 
-        if (chainStore.hasChain(chainId)) {
-          const chainInfo = chainStore.getChain(chainId);
-          const needModal = await needFinalizeKeyCoinTypeAction(
-            vaultId,
-            chainInfo
-          );
-
-          if (needModal) {
-            setDerivationChainIds((prev) =>
-              prev.includes(chainId) ? prev : [...prev, chainId]
+        if (chainStore.hasModularChain(chainId)) {
+          const mcType = chainStore.getModularChain(chainId).type;
+          if (
+            mcType === "cosmos" ||
+            mcType === "ethermint" ||
+            mcType === "evm"
+          ) {
+            const needModal = await needFinalizeKeyCoinTypeAction(
+              vaultId,
+              chainId
             );
-            setIsDerivationModalOpen(true);
+
+            if (needModal) {
+              setDerivationChainIds((prev) =>
+                prev.includes(chainId) ? prev : [...prev, chainId]
+              );
+              setIsDerivationModalOpen(true);
+            }
           }
         }
 
         if (chainStore.hasModularChain(chainId)) {
           if (keyRingStore.selectedKeyInfo?.type === "ledger") {
             const modularChainInfo = chainStore.getModularChain(chainId);
-            const ledgerApp = determineLedgerApp(
-              chainStore,
-              modularChainInfo,
-              chainId
-            );
+            const ledgerApp = determineLedgerApp(modularChainInfo);
 
             const alreadyAppended = Boolean(
               keyRingStore.selectedKeyInfo?.insensitive?.[ledgerApp]
@@ -235,21 +256,12 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
 
   const chainSort = useCallback(
     (
-      aModularChainInfo:
-        | ModularChainInfo
-        | (ModularChainInfo & {
-            linkedModularChainInfos?: ModularChainInfo[] | undefined;
-          }),
-      bModularChainInfo:
-        | ModularChainInfo
-        | (ModularChainInfo & {
-            linkedModularChainInfos?: ModularChainInfo[] | undefined;
-          })
+      aModularChainInfo: IModularChainInfoImpl | ChainInfo,
+      bModularChainInfo: IModularChainInfoImpl | ChainInfo
     ) => {
-      const getBaseIdentifier = (info: ModularChainInfo): string => {
-        if ("bitcoin" in info) {
-          return ChainIdHelper.parse(info.bitcoin.chainId).identifier;
-        }
+      const getBaseIdentifier = (
+        info: IModularChainInfoImpl | ChainInfo
+      ): string => {
         return ChainIdHelper.parse(info.chainId).identifier;
       };
 
@@ -318,17 +330,12 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
       }
 
       if (keyType === "ledger") {
-        const cosmosChainInfo = (() => {
-          if ("cosmos" in chainInfo) {
-            return chainInfo.cosmos;
-          }
-          if ("bip44" in chainInfo && "features" in chainInfo) {
-            return chainInfo;
-          }
-        })();
-
-        if (cosmosChainInfo) {
-          return checkIsLedgerSupportedEthermintChain(cosmosChainInfo);
+        const ci =
+          "type" in chainInfo
+            ? convertModularChainInfoToChainInfo(chainInfo)
+            : (chainInfo as ChainInfo);
+        if (ci) {
+          return checkIsLedgerSupportedEthermintChain(ci);
         }
       }
 
@@ -344,25 +351,25 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
 
   const { nativeGroupedModularChainInfos, suggestGroupedModularChainInfos } =
     useMemo(() => {
-      const modularChainInfos =
-        chainStore.groupedModularChainInfosInListUI.slice();
+      const groups = chainStore.groupedModularChainInfosInListUI.slice();
 
-      const nativeGroupedModularChainInfos = modularChainInfos
-        .filter((modularChainInfo) =>
-          nativeChainIdentifierSet.has(
-            ChainIdHelper.parse(modularChainInfo.chainId).identifier
-          )
-        )
-        .sort(chainSort);
-
-      const suggestGroupedModularChainInfos = modularChainInfos
+      const nativeGroupedModularChainInfos = groups
         .filter(
-          (modularChainInfo) =>
-            !nativeChainIdentifierSet.has(
-              ChainIdHelper.parse(modularChainInfo.chainId).identifier
-            )
+          (group) =>
+            nativeChainIdentifierSet.has(
+              ChainIdHelper.parse(group.modularChainInfo.chainId).identifier
+            ) && isChainSupportedByKeyType(keyType, group.modularChainInfo)
         )
-        .sort(chainSort);
+        .sort((a, b) => chainSort(a.modularChainInfo, b.modularChainInfo));
+
+      const suggestGroupedModularChainInfos = groups
+        .filter(
+          (group) =>
+            !nativeChainIdentifierSet.has(
+              ChainIdHelper.parse(group.modularChainInfo.chainId).identifier
+            ) && isChainSupportedByKeyType(keyType, group.modularChainInfo)
+        )
+        .sort((a, b) => chainSort(a.modularChainInfo, b.modularChainInfo));
 
       return {
         nativeGroupedModularChainInfos,
@@ -370,6 +377,7 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
       };
     }, [
       chainStore.groupedModularChainInfosInListUI,
+      keyType,
       nativeChainIdentifierSet,
       chainSort,
     ]);
@@ -379,26 +387,32 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
       "chainName",
       {
         key: "chainInfo.currency.coinDenom",
-        function: (chainInfo: ModularChainInfo | ChainInfo) => {
-          if (
-            "cosmos" in chainInfo &&
-            chainStore.hasChain(chainInfo.chainId) &&
-            "cosmos" in chainInfo
-          ) {
-            const cosmosChainInfo = chainStore.getChain(
-              chainInfo.cosmos.chainId
-            );
+        function: (chainInfo: IModularChainInfoImpl | ChainInfo) => {
+          if ("type" in chainInfo) {
+            const u = chainInfo.unwrapped;
+            if (u.type === "cosmos" || u.type === "ethermint") {
+              return CoinPretty.makeCoinDenomPretty(
+                (u.cosmos.stakeCurrency || u.cosmos.currencies[0]).coinDenom
+              );
+            } else if (u.type === "evm") {
+              return CoinPretty.makeCoinDenomPretty(
+                u.evm.nativeCurrency.coinDenom
+              );
+            } else if (u.type === "starknet") {
+              return CoinPretty.makeCoinDenomPretty(
+                u.starknet.currencies[0].coinDenom
+              );
+            } else if (u.type === "bitcoin") {
+              return CoinPretty.makeCoinDenomPretty(
+                u.bitcoin.currencies[0].coinDenom
+              );
+            }
+            return "";
+          }
+          // ChainInfo (non-native suggest chains)
+          if ("currencies" in chainInfo && chainInfo.currencies.length > 0) {
             return CoinPretty.makeCoinDenomPretty(
-              (cosmosChainInfo.stakeCurrency || cosmosChainInfo.currencies[0])
-                .coinDenom
-            );
-          } else if ("starknet" in chainInfo) {
-            return CoinPretty.makeCoinDenomPretty(
-              chainInfo.starknet.currencies[0].coinDenom
-            );
-          } else if ("bitcoin" in chainInfo) {
-            return CoinPretty.makeCoinDenomPretty(
-              chainInfo.bitcoin.currencies[0].coinDenom
+              chainInfo.currencies[0].coinDenom
             );
           }
           return "";
@@ -410,8 +424,8 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
 
   const nativeChains = Array.from(
     new Set([
-      ...nativeGroupedModularChainInfos,
-      ...suggestGroupedModularChainInfos,
+      ...nativeGroupedModularChainInfos.map((g) => g.modularChainInfo),
+      ...suggestGroupedModularChainInfos.map((g) => g.modularChainInfo),
     ])
   ).sort(chainSort);
 
@@ -425,18 +439,22 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
     search,
     searchFields
   ).filter((chainInfo) => {
-    if (keyType === "ledger") {
-      const cosmosChainInfo = (() => {
-        if ("cosmos" in chainInfo) {
-          return chainInfo.cosmos;
-        }
-        if ("currencies" in chainInfo && "feeCurrencies" in chainInfo) {
-          return chainInfo;
-        }
-      })();
+    if (!isChainSupportedByKeyType(keyType, chainInfo)) {
+      return false;
+    }
 
-      if (cosmosChainInfo) {
-        return checkIsLedgerSupportedEthermintChain(cosmosChainInfo);
+    if (keyType === "ledger") {
+      if ("type" in chainInfo) {
+        // v2: IModularChainInfoImpl
+        const ci = convertModularChainInfoToChainInfo(chainInfo.unwrapped);
+        if (ci) {
+          return checkIsLedgerSupportedEthermintChain(ci);
+        }
+        return true;
+      }
+      // ChainInfo (non-native suggest chains)
+      if ("currencies" in chainInfo && "feeCurrencies" in chainInfo) {
+        return checkIsLedgerSupportedEthermintChain(chainInfo as ChainInfo);
       }
 
       return true;
@@ -447,40 +465,37 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
 
   const ecosystemFilteredChainInfos = useMemo(() => {
     return searchedAllChains.filter((ci) => {
-      const cosmosChainInfo = (() => {
-        if ("cosmos" in ci) {
-          return ci.cosmos;
+      if (selectedEcosystem === "All") return true;
+
+      if ("type" in ci) {
+        // v2 IModularChainInfoImpl
+        switch (selectedEcosystem) {
+          case "Cosmos":
+            return ci.type === "cosmos" || ci.type === "ethermint";
+          case "EVM":
+            return ci.type === "evm";
+          case "Bitcoin":
+            return ci.type === "bitcoin";
+          case "Starknet":
+            return ci.type === "starknet";
+          default:
+            return true;
         }
-        if ("currencies" in ci && "feeCurrencies" in ci) {
-          return ci;
-        }
-      })();
-      const isEvmOnlyChainId = (chainId: string) => {
-        const chainIdLikeCAIP2 = chainId.split(":");
-        return (
-          chainIdLikeCAIP2.length === 2 && chainIdLikeCAIP2[0] === "eip155"
-        );
-      };
+      }
+
+      // ChainInfo (non-native suggest chains from registry — always cosmos/evm family)
+      if (!("currencies" in ci && "feeCurrencies" in ci)) {
+        return false;
+      }
+      const isEvmOnly = ci.chainId.startsWith("eip155:");
       switch (selectedEcosystem) {
-        case "All":
-          return true;
         case "Cosmos":
-          return (
-            cosmosChainInfo != null &&
-            "bech32Config" in cosmosChainInfo &&
-            !isEvmOnlyChainId(ci.chainId)
-          );
+          return "bech32Config" in ci && !isEvmOnly;
         case "EVM":
-          return (
-            cosmosChainInfo != null &&
-            !("bech32Config" in cosmosChainInfo) &&
-            "evm" in cosmosChainInfo &&
-            isEvmOnlyChainId(ci.chainId)
-          );
+          return "evm" in ci && isEvmOnly;
         case "Bitcoin":
-          return "bitcoin" in ci;
         case "Starknet":
-          return "starknet" in ci;
+          return false;
         default:
           return true;
       }
@@ -504,12 +519,10 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
 
       const modInfo = chainStore.getModularChain(chainIdentifier);
 
-      if ("linkedChainKey" in modInfo) {
-        const key = (modInfo as any).linkedChainKey;
+      if (modInfo.embedded.linkedChainKey) {
+        const key = modInfo.embedded.linkedChainKey;
         return chainStore.modularChainInfos
-          .filter(
-            (ci) => "linkedChainKey" in ci && (ci as any).linkedChainKey === key
-          )
+          .filter((ci) => ci.embedded.linkedChainKey === key)
           .map((ci) => ChainIdHelper.parse(ci.chainId).identifier);
       }
 
@@ -526,41 +539,34 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
     );
   };
 
-  const processFinalize = async (ids: string[]) => {
+  const processFinalize = async (chainIds: string[]) => {
     if (!vaultId) return;
     let needToOpenModal = false;
-    const chainIds = new Set<string>();
+    const needDerivationChainIds = new Set<string>();
 
     await Promise.all(
-      ids.map(async (id) => {
-        if (!id || !chainStore.hasChain(id)) return;
+      chainIds.map(async (chainId) => {
+        if (!chainId || !chainStore.hasModularChain(chainId)) return;
+        const mcType = chainStore.getModularChain(chainId).type;
+        if (mcType !== "cosmos" && mcType !== "ethermint" && mcType !== "evm")
+          return;
 
-        const chainInfo = chainStore.getChain(id);
-        const needModal = await needFinalizeKeyCoinTypeAction(
-          vaultId,
-          chainInfo
-        );
+        const needModal = await needFinalizeKeyCoinTypeAction(vaultId, chainId);
         if (needModal) {
-          chainIds.add(id);
+          needDerivationChainIds.add(chainId);
           needToOpenModal = true;
         }
       })
     );
 
-    if (needToOpenModal && chainIds.size > 0) {
-      setDerivationChainIds(Array.from(chainIds).sort());
+    if (needToOpenModal && needDerivationChainIds.size > 0) {
+      setDerivationChainIds(Array.from(needDerivationChainIds).sort());
       setIsDerivationModalOpen(true);
     }
   };
 
   const handleToggleAllNative = async () => {
     if (!vaultId) return;
-    if (keyRingStore.selectedKeyInfo?.type === "ledger") {
-      setOpenEnableChainsRoute(true);
-      setIsConnectLedgerModalOpen(true);
-      return;
-    }
-
     const nativeIds = Array.from(nativeChainIdentifierSet);
     const enabledNativeIds = nativeIds.filter((id) =>
       chainStore.isEnabledChain(id)
@@ -579,13 +585,15 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
         await chainStore.disableChainInfoInUIWithVaultId(vaultId, ...toDisable);
       } else {
         const [first, ...rest] = nativeGroupedModularChainInfos;
-        await applyEnableChange(first.chainId, true);
+        await applyEnableChange(first.modularChainInfo.chainId, true);
         await chainStore.disableChainInfoInUIWithVaultId(
           vaultId,
-          ...rest.flatMap((ci) => {
-            const ids = [ci.chainId];
-            if (ci.linkedModularChainInfos) {
-              ids.push(...ci.linkedModularChainInfos.map((lc) => lc.chainId));
+          ...rest.flatMap((group) => {
+            const ids = [group.modularChainInfo.chainId];
+            if (group.linkedModularChainInfos) {
+              ids.push(
+                ...group.linkedModularChainInfos.map((lc) => lc.chainId)
+              );
             }
             return ids;
           })
@@ -597,6 +605,35 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
       const idsToEnable = nativeIds.filter(
         (id) => !enabledNativeIds.includes(id)
       );
+
+      if (keyRingStore.selectedKeyInfo?.type === "ledger") {
+        const missingLedgerApps = new Set<string>();
+
+        for (const group of nativeGroupedModularChainInfos) {
+          const chainId = group.modularChainInfo.chainId;
+          const identifier = ChainIdHelper.parse(chainId).identifier;
+
+          if (!idsToEnable.includes(identifier)) {
+            continue;
+          }
+
+          const ledgerApp = determineLedgerApp(group.modularChainInfo);
+          if (!keyRingStore.selectedKeyInfo?.insensitive?.[ledgerApp]) {
+            missingLedgerApps.add(ledgerApp);
+          }
+        }
+
+        if (missingLedgerApps.size > 0) {
+          setOpenEnableChainsRoute(true);
+          setConnectLedgerApp(Array.from(missingLedgerApps)[0]);
+          setConnectLedgerChainId(
+            nativeGroupedModularChainInfos[0]?.modularChainInfo.chainId ?? ""
+          );
+          setIsConnectLedgerModalOpen(true);
+          return;
+        }
+      }
+
       await chainStore.enableChainInfoInUIWithVaultId(vaultId, ...idsToEnable);
       await processFinalize(idsToEnable);
     }
@@ -608,11 +645,13 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
 
       await Promise.all(
         derivationChainIds.map(async (chainId) => {
-          if (!chainId || !chainStore.hasChain(chainId)) return;
-          const chainInfo = chainStore.getChain(chainId);
+          if (!chainId || !chainStore.hasModularChain(chainId)) return;
+          const mcType = chainStore.getModularChain(chainId).type;
+          if (mcType !== "cosmos" && mcType !== "ethermint" && mcType !== "evm")
+            return;
           const stillNeed = await needFinalizeKeyCoinTypeAction(
             vaultId,
-            chainInfo
+            chainId
           );
 
           if (stillNeed) {
@@ -655,6 +694,7 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
 
         <Columns sum={1} gutter="0.25rem" alignY="center">
           <EcosystemFilterDropdown
+            items={availableEcosystems}
             selected={selectedEcosystem}
             onSelect={setSelectedEcosystem}
           />
@@ -692,7 +732,9 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
         <Gutter size="1rem" />
         <Stack gutter="0.5rem">
           <AllNativeToggleItem
-            nativeChainInfos={nativeGroupedModularChainInfos}
+            nativeChainInfos={nativeGroupedModularChainInfos.map(
+              (g) => g.modularChainInfo
+            )}
             nativeChainIdentifierSet={nativeChainIdentifierSet}
             onToggleAll={() => handleToggleAllNative()}
           />
@@ -702,10 +744,15 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
               ci.chainId
             ).identifier;
 
-            const baseIdentifier =
-              "bitcoin" in ci
-                ? ChainIdHelper.parse(ci.bitcoin.chainId).identifier
-                : variantIdentifier;
+            const baseIdentifier = (() => {
+              if ("type" in ci && ci.type === "bitcoin") {
+                const u = ci.unwrapped;
+                if (u.type === "bitcoin") {
+                  return ChainIdHelper.parse(u.bitcoin.chainId).identifier;
+                }
+              }
+              return variantIdentifier;
+            })();
 
             const tokens = tokensByIdentifier.get(baseIdentifier) || [];
             const identifier = variantIdentifier;
@@ -719,8 +766,13 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
                     chainStore.hasModularChain(ci.chainId)
                   }
                   disabled={
-                    "cosmos" in ci
-                      ? chainStore.hasChain(ci.chainId)
+                    "type" in ci &&
+                    (ci.type === "cosmos" || ci.type === "ethermint")
+                      ? chainStore.hasModularChain(ci.chainId)
+                        ? !chainStore.isInChainInfosInListUI(ci.chainId)
+                        : false
+                      : "currencies" in ci && "feeCurrencies" in ci
+                      ? chainStore.hasModularChain(ci.chainId)
                         ? !chainStore.isInChainInfosInListUI(ci.chainId)
                         : false
                       : false

@@ -9,7 +9,7 @@ import {
   toJS,
 } from "mobx";
 import { KVStore } from "@keplr-wallet/common";
-import { ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
+import { ModularChainInfo } from "@keplr-wallet/types";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { computedFn } from "mobx-utils";
 import { VaultService } from "../vault";
@@ -76,8 +76,9 @@ export class ChainsUIService {
       if (chainIdentifiers.length === 0) {
         // Should be enabled at least one chain.
         return [
-          ChainIdHelper.parse(this.chainsService.getChainInfos()[0].chainId)
-            .identifier,
+          ChainIdHelper.parse(
+            this.chainsService.getModularChainInfos()[0].chainId
+          ).identifier,
         ];
       } else {
         return chainIdentifiers;
@@ -140,7 +141,7 @@ export class ChainsUIService {
         return ChainIdHelper.parse(chainId).identifier;
       })
       .filter((chainIdentifier) => {
-        return this.chainsService.hasChainInfo(chainIdentifier);
+        return this.chainsService.hasModularChainInfo(chainIdentifier);
       });
 
     const identifierMap = this.enabledChainIdentifierMapForVault(vaultId);
@@ -253,7 +254,7 @@ export class ChainsUIService {
       }
     }
     return Array.from(set).filter((chainIdentifier) => {
-      return this.chainsService.hasChainInfo(chainIdentifier);
+      return this.chainsService.hasModularChainInfo(chainIdentifier);
     });
   }
 
@@ -261,9 +262,9 @@ export class ChainsUIService {
     this.onChainUIEnabledChangedHandlers.push(handler);
   }
 
-  protected readonly onChainRemoved = (chainInfo: ChainInfo) => {
+  protected readonly onChainRemoved = (chainId: string) => {
     runInAction(() => {
-      const identifier = ChainIdHelper.parse(chainInfo.chainId).identifier;
+      const identifier = ChainIdHelper.parse(chainId).identifier;
       const vaultIds = this.enabledChainIdentifiersMap.keys();
       for (const vaultId of vaultIds) {
         const map = (() => {

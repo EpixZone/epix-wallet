@@ -95,15 +95,15 @@ export class AxelarEVMBridgeCurrencyRegistrar {
         done: boolean;
       }
     | undefined {
-    if (!this.chainStore.hasChain(chainId)) {
+    if (!this.chainStore.hasModularChain(chainId)) {
+      return;
+    }
+    const mcInfo2 = this.chainStore.getModularChain(chainId);
+    if (mcInfo2.type !== "cosmos" && mcInfo2.type !== "ethermint") {
       return;
     }
 
-    const chainInfo = this.chainStore.getChain(chainId);
-    if (
-      !chainInfo.features ||
-      !chainInfo.features.includes("axelar-evm-bridge")
-    ) {
+    if (!mcInfo2.hasFeature("axelar-evm-bridge")) {
       return;
     }
 

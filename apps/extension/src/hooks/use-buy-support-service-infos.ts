@@ -63,20 +63,28 @@ export const useBuySupportServiceInfos = (selectedTokenInfo?: {
                 Object.entries(
                   serviceInfo.buySupportCoinDenomsByChainId
                 ).reduce((finalAcc, [chainId, coinDenoms]) => {
-                  if (chainStore.hasChain(chainId)) {
+                  if (chainStore.hasModularChain(chainId)) {
+                    const modularChainInfo =
+                      chainStore.getModularChain(chainId);
+                    if (
+                      modularChainInfo.type !== "cosmos" &&
+                      modularChainInfo.type !== "ethermint"
+                    ) {
+                      return finalAcc;
+                    }
                     const currencyCodeMap = coinDenoms?.reduce(
                       (acc, coinDenom) => {
-                        const chainInfo = chainStore.getChain(chainId);
-                        const matchedCurrency = chainInfo.currencies.find(
-                          (currency) => currency.coinDenom === coinDenom
-                        );
+                        const matchedCurrency =
+                          modularChainInfo.currencies.find(
+                            (currency) => currency.coinDenom === coinDenom
+                          );
                         const currencyCode = getCurrencyCodeForMoonpay(
                           matchedCurrency?.coinDenom
                         );
 
                         if (currencyCode) {
                           acc[currencyCode] = accountStore.getAccount(
-                            chainInfo.chainId
+                            modularChainInfo.chainId
                           ).bech32Address;
                         }
                         return acc;
@@ -106,18 +114,30 @@ export const useBuySupportServiceInfos = (selectedTokenInfo?: {
                   serviceInfo.buySupportCoinDenomsByChainId
                 ).reduce(
                   (finalAcc, [chainId, coinDenoms]) => {
-                    if (chainStore.hasChain(chainId)) {
-                      const chainInfo = chainStore.getChain(chainId);
+                    if (chainStore.hasModularChain(chainId)) {
+                      const modularChainInfo =
+                        chainStore.getModularChain(chainId);
+                      if (
+                        modularChainInfo.type !== "cosmos" &&
+                        modularChainInfo.type !== "ethermint" &&
+                        modularChainInfo.type !== "evm"
+                      ) {
+                        return finalAcc;
+                      }
                       const coins = coinDenoms?.reduce(
                         (coinsAcc, coinDenom) => {
-                          const matchedCurrency = chainInfo.currencies.find(
-                            (currency) => currency.coinDenom === coinDenom
-                          );
+                          const matchedCurrency =
+                            modularChainInfo.currencies.find(
+                              (currency) => currency.coinDenom === coinDenom
+                            );
 
                           if (matchedCurrency) {
                             const currencyCode = matchedCurrency.coinDenom;
+                            const isEvm =
+                              modularChainInfo.type === "evm" ||
+                              modularChainInfo.type === "ethermint";
                             coinsAcc[currencyCode] = {
-                              address: chainStore.isEvmChain(chainId)
+                              address: isEvm
                                 ? accountStore.getAccount(chainId)
                                     .ethereumHexAddress
                                 : accountStore.getAccount(chainId)
@@ -157,33 +177,36 @@ export const useBuySupportServiceInfos = (selectedTokenInfo?: {
               .reduce<string[]>((pairs, [chainId, coinDenoms]) => {
                 if (!coinDenoms) return pairs;
 
-                const modularChainInfo = chainStore.modularChainInfos.find(
-                  (modularChainInfo) => modularChainInfo.chainId === chainId
-                );
+                if (chainStore.hasModularChain(chainId)) {
+                  const modularChainInfo = chainStore.getModularChain(chainId);
 
-                if (chainStore.hasChain(chainId)) {
-                  const address = chainStore.isEvmChain(chainId)
-                    ? accountStore.getAccount(chainId).ethereumHexAddress
-                    : accountStore.getAccount(chainId).bech32Address;
+                  if (modularChainInfo.type === "bitcoin") {
+                    const account = accountStore.getAccount(
+                      modularChainInfo.chainId
+                    );
+                    const coinDenom = coinDenoms[0];
+                    if (account.bitcoinAddress) {
+                      if (!seenCoinDenoms.has(coinDenom)) {
+                        pairs.push(
+                          `${coinDenom}:${account.bitcoinAddress.bech32Address}`
+                        );
+                        seenCoinDenoms.add(coinDenom);
+                      }
+                    }
+                  } else {
+                    const isEvm =
+                      modularChainInfo.type === "evm" ||
+                      modularChainInfo.type === "ethermint";
+                    const address = isEvm
+                      ? accountStore.getAccount(chainId).ethereumHexAddress
+                      : accountStore.getAccount(chainId).bech32Address;
 
-                  coinDenoms.forEach((coinDenom) => {
-                    if (!seenCoinDenoms.has(coinDenom)) {
-                      pairs.push(`${coinDenom}:${address}`);
-                      seenCoinDenoms.add(coinDenom);
-                    }
-                  });
-                } else if (modularChainInfo && "bitcoin" in modularChainInfo) {
-                  const account = accountStore.getAccount(
-                    modularChainInfo.chainId
-                  );
-                  const coinDenom = coinDenoms[0];
-                  if (account.bitcoinAddress) {
-                    if (!seenCoinDenoms.has(coinDenom)) {
-                      pairs.push(
-                        `${coinDenom}:${account.bitcoinAddress.bech32Address}`
-                      );
-                      seenCoinDenoms.add(coinDenom);
-                    }
+                    coinDenoms.forEach((coinDenom) => {
+                      if (!seenCoinDenoms.has(coinDenom)) {
+                        pairs.push(`${coinDenom}:${address}`);
+                        seenCoinDenoms.add(coinDenom);
+                      }
+                    });
                   }
                 }
 

@@ -23,13 +23,17 @@ export const FeeSummary: FunctionComponent<{
   const theme = useTheme();
 
   const modularChainInfo = chainStore.getModularChain(feeConfig.chainId);
-  if (!("bitcoin" in modularChainInfo)) {
+  if (modularChainInfo.type !== "bitcoin") {
+    throw new Error("This chain doesn't support bitcoin");
+  }
+  const uBtcFee = modularChainInfo.unwrapped;
+  if (uBtcFee.type !== "bitcoin") {
     throw new Error("This chain doesn't support bitcoin");
   }
 
   const fee = (() => {
     if (!feeConfig.fee) {
-      return new CoinPretty(modularChainInfo.bitcoin.currencies[0], new Dec(0));
+      return new CoinPretty(uBtcFee.bitcoin.currencies[0], new Dec(0));
     }
 
     return feeConfig.fee;

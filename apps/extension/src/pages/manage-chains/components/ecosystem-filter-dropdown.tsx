@@ -14,11 +14,13 @@ import { ContextMenuStyles } from "../../../components/context-menu";
 import { COMMON_HOVER_OPACITY } from "../../../styles/constant";
 
 interface Props {
+  items: Ecosystem[];
   selected: Ecosystem;
   onSelect: (value: Ecosystem) => void;
 }
 
 export const EcosystemFilterDropdown: FunctionComponent<Props> = ({
+  items,
   onSelect,
   selected,
 }) => {
@@ -94,7 +96,7 @@ export const EcosystemFilterDropdown: FunctionComponent<Props> = ({
       </Styles.MenuButton>
       {isOpen && (
         <Styles.ContextMenuContent>
-          {Object.values(Ecosystem).map((item) => (
+          {items.map((item) => (
             <Styles.MenuItem
               key={item}
               onClick={() => {

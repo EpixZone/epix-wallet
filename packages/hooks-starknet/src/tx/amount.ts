@@ -127,12 +127,12 @@ export class AmountConfig extends TxChainSetter implements IAmountConfig {
 
   @computed
   get currency(): ERC20Currency {
-    const modularChainInfoImpl = this.modularChainInfo;
-    if (!("starknet" in modularChainInfoImpl.embedded)) {
+    const u = this.modularChainInfo.unwrapped;
+    if (u.type !== "starknet") {
       throw new Error("Chain doesn't support the starknet");
     }
 
-    const currencies = modularChainInfoImpl.getCurrencies("starknet");
+    const currencies = u.starknet.currencies;
 
     if (this._currency) {
       const find = currencies.find(
@@ -166,12 +166,12 @@ export class AmountConfig extends TxChainSetter implements IAmountConfig {
   }
 
   canUseCurrency(currency: ERC20Currency): boolean {
-    const modularChainInfoImpl = this.modularChainInfo;
-    if (!("starknet" in modularChainInfoImpl.embedded)) {
+    const u = this.modularChainInfo.unwrapped;
+    if (u.type !== "starknet") {
       throw new Error("Chain doesn't support the starknet");
     }
 
-    const currencies = modularChainInfoImpl.getCurrencies("starknet");
+    const currencies = u.starknet.currencies;
 
     return (
       currencies.find(

@@ -27,7 +27,7 @@ import { ColorPalette } from "../../styles";
 import { SpendableAssetView } from "./spendable";
 import { animated, useSpringValue } from "@react-spring/web";
 import { defaultSpringConfig } from "../../styles/spring";
-import { IChainInfoImpl, QueryError } from "@keplr-wallet/stores";
+import { QueryError, IModularChainInfoImpl } from "@keplr-wallet/stores";
 import { Skeleton } from "../../components/skeleton";
 import { useIntl } from "react-intl";
 import { usePageSimpleBar } from "../../hooks/page-simplebar";
@@ -37,13 +37,9 @@ import { XAxis } from "../../components/axis";
 import { MainHeaderLayout } from "./layouts/header";
 import { amountToAmbiguousAverage } from "../../utils";
 import { InExtensionMessageRequester } from "@keplr-wallet/router-extension";
-import {
-  ChainInfoWithCoreTypes,
-  LogAnalyticsEventMsg,
-} from "@keplr-wallet/background";
+import { LogAnalyticsEventMsg } from "@keplr-wallet/background";
 import { BACKGROUND_PORT } from "@keplr-wallet/router";
 import { useBuySupportServiceInfos } from "../../hooks/use-buy-support-service-infos";
-import { ModularChainInfo } from "@keplr-wallet/types";
 import { MainH1 } from "../../components/typography/main-h1";
 import { LockIcon } from "../../components/icon/lock";
 import { DepositModal } from "./components/deposit-modal";
@@ -57,7 +53,7 @@ import SimpleBarCore from "simplebar-core";
 
 export interface ViewToken {
   token: CoinPretty;
-  chainInfo: IChainInfoImpl | ModularChainInfo;
+  chainInfo: IModularChainInfoImpl;
   isFetching: boolean;
   error: QueryError<any> | undefined;
 }
@@ -65,7 +61,7 @@ export interface ViewToken {
 export const useIsNotReady = () => {
   const { chainStore, queriesStore } = useStore();
 
-  const query = queriesStore.get(chainStore.chainInfos[0].chainId).cosmos
+  const query = queriesStore.get(chainStore.modularChainInfos[0].chainId).cosmos
     .queryRPCStatus;
 
   return query.response == null && query.error == null;
@@ -135,11 +131,7 @@ export const MainPage: FunctionComponent<{
   const availableTotalPriceEmbedOnlyUSD = useMemo(() => {
     let result: PricePretty | undefined;
     for (const bal of hugeQueriesStore.allKnownBalances) {
-      // TODO: 이거 starknet에서도 embedded를 확인할 수 있도록 수정해야함.
-      if (!("currencies" in bal.chainInfo)) {
-        continue;
-      }
-      if (!(bal.chainInfo.embedded as ChainInfoWithCoreTypes).embedded) {
+      if (!bal.chainInfo.embedded.isBuiltInChain) {
         continue;
       }
       if (bal.price) {

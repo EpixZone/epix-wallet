@@ -46,16 +46,12 @@ export class ObservableQueryBitcoinBalanceImpl
   get currency(): AppCurrency {
     const denom = this.denomHelper.denom;
 
-    const modularChainInfo = this.chainGetter.getModularChain(this.chainId);
-    if (!("bitcoin" in modularChainInfo)) {
+    const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
+    if (mcInfo2.type !== "bitcoin") {
       throw new Error(`${this.chainId} is not bitcoin chain`);
     }
 
-    const modularChainInfoImpl = this.chainGetter.getModularChainInfoImpl(
-      this.chainId
-    );
-
-    const currencies = modularChainInfoImpl.getCurrencies("bitcoin");
+    const currencies = mcInfo2.currencies;
     const currency = currencies.find((cur) => cur.coinMinimalDenom === denom);
 
     if (!currency) {
@@ -84,8 +80,8 @@ export class ObservableQueryBitcoinBalance {
     }
 
     const denomHelper = new DenomHelper(minimalDenom);
-    const modularChainInfo = chainGetter.getModularChain(chainId);
-    if (!("bitcoin" in modularChainInfo)) {
+    const mcInfo2 = chainGetter.getModularChain(chainId);
+    if (mcInfo2.type !== "bitcoin") {
       return;
     }
 

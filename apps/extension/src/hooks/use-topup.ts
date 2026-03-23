@@ -1,5 +1,9 @@
-import { FeeConfig, InsufficientFeeError } from "@keplr-wallet/hooks";
-import { SenderConfig } from "@keplr-wallet/hooks";
+import {
+  FeeConfig,
+  IFeeConfig,
+  ISenderConfig,
+  InsufficientFeeError,
+} from "@keplr-wallet/hooks";
 import { useStore } from "../stores";
 import { useEffect, useState } from "react";
 import { TopUpClient } from "@keplr-wallet/topup-client";
@@ -7,8 +11,8 @@ import { TendermintTxTracer } from "@keplr-wallet/cosmos";
 import { useIntl } from "react-intl";
 
 export interface TopUpParams {
-  feeConfig: FeeConfig;
-  senderConfig: SenderConfig;
+  feeConfig: IFeeConfig;
+  senderConfig: ISenderConfig;
   hasHardwareWalletError?: boolean;
 }
 
@@ -43,14 +47,18 @@ export function useTopUp({
   const topupApiKey = process.env["KEPLR_EXT_TOPUP_API_KEY"] || "";
   const isTopupConfigured = !!(topupBaseURL.trim() && topupApiKey.trim());
 
+  // topUpStatus는 cosmos FeeConfig에만 존재. EVM FeeConfig에는 없으므로 런타임 가드 필요.
+  const cosmosFeeConfig =
+    "topUpStatus" in feeConfig ? (feeConfig as FeeConfig) : undefined;
+
   const shouldTopUp =
     isTopupConfigured && // 환경 변수가 설정되어 있어야 함
     !topUpCompleted &&
     !hasHardwareWalletError &&
-    feeConfig.topUpStatus.shouldTopUp;
+    !!cosmosFeeConfig?.topUpStatus.shouldTopUp;
 
   const isTopUpAvailable =
-    isTopupConfigured && feeConfig.topUpStatus.isTopUpAvailable;
+    isTopupConfigured && !!cosmosFeeConfig?.topUpStatus.isTopUpAvailable;
 
   const [remainingTimeMs, setRemainingTimeMs] = useState<number>();
 
@@ -79,7 +87,8 @@ export function useTopUp({
   })();
 
   useEffect(() => {
-    const serverRemaining = feeConfig.topUpStatus.remainingTimeMs;
+    if (!cosmosFeeConfig) return;
+    const serverRemaining = cosmosFeeConfig.topUpStatus.remainingTimeMs;
 
     setRemainingTimeMs((prev) => {
       if (serverRemaining === undefined) {
@@ -90,7 +99,8 @@ export function useTopUp({
       }
       return Math.min(prev, serverRemaining);
     });
-  }, [feeConfig.topUpStatus.remainingTimeMs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cosmosFeeConfig?.topUpStatus.remainingTimeMs]);
 
   useEffect(() => {
     if (remainingTimeMs === undefined || remainingTimeMs <= 0) return;
@@ -99,12 +109,12 @@ export function useTopUp({
       setRemainingTimeMs((prev) => {
         if (prev === undefined) {
           clearInterval(interval);
-          feeConfig.refreshTopUpStatus();
+          cosmosFeeConfig?.refreshTopUpStatus();
           return undefined;
         }
         if (prev <= 0) {
           clearInterval(interval);
-          feeConfig.refreshTopUpStatus();
+          cosmosFeeConfig?.refreshTopUpStatus();
           return 0;
         }
         return Math.max(prev - 1000, 0);
@@ -118,7 +128,7 @@ export function useTopUp({
   }, [remainingTimeMs !== undefined && remainingTimeMs > 0]);
 
   async function executeTopUpIfAvailable() {
-    if (!shouldTopUp || isTopUpInProgress) {
+    if (!shouldTopUp || isTopUpInProgress || !cosmosFeeConfig) {
       return;
     }
 
@@ -127,7 +137,8 @@ export function useTopUp({
 
     try {
       const stdFee =
-        feeConfig.topUpStatus.topUpOverrideStdFee ?? feeConfig.toStdFee();
+        cosmosFeeConfig.topUpStatus.topUpOverrideStdFee ??
+        cosmosFeeConfig.toStdFee();
       const client = new TopUpClient(
         process.env["KEPLR_EXT_TOPUP_BASE_URL"] || "",
         process.env["KEPLR_EXT_TOPUP_API_KEY"] || ""
@@ -139,7 +150,12 @@ export function useTopUp({
         fee: stdFee,
       });
 
-      const rpc = chainStore.getChain(feeConfig.chainId).rpc;
+      const modularChainInfo = chainStore.getModularChain(feeConfig.chainId);
+      const uTopUp = modularChainInfo.unwrapped;
+      if (uTopUp.type !== "cosmos" && uTopUp.type !== "ethermint") {
+        throw new Error("Top up is only supported for cosmos chains");
+      }
+      const rpc = uTopUp.cosmos.rpc;
       const tracer = new TendermintTxTracer(rpc, "/websocket");
 
       try {
@@ -171,7 +187,7 @@ export function useTopUp({
 
       // 마지막으로 query의 상태를 최신화한다.
       // (서명 이후 extension을 끄지 않고 바로 다시 tx를 시도할때 ui flickering 방지)
-      feeConfig.refreshTopUpStatus();
+      cosmosFeeConfig?.refreshTopUpStatus();
     }
   }
 
@@ -183,15 +199,16 @@ export function useTopUp({
     topUpCompleted,
     executeTopUpIfAvailable,
     topUpError,
-    ...(feeConfig.uiProperties.error instanceof InsufficientFeeError
+    ...(cosmosFeeConfig &&
+    feeConfig.uiProperties.error instanceof InsufficientFeeError
       ? {
-          stakingChainId: feeConfig.topUpStatus.stakingChainId,
-          validatorAddress: feeConfig.topUpStatus.validatorAddress,
-          coinDenom: feeConfig.topUpStatus.coinDenom,
-          coinMinimalDenom: feeConfig.topUpStatus.coinMinimalDenom,
-          requiredStaking: feeConfig.topUpStatus.requiredStaking,
+          stakingChainId: cosmosFeeConfig.topUpStatus.stakingChainId,
+          validatorAddress: cosmosFeeConfig.topUpStatus.validatorAddress,
+          coinDenom: cosmosFeeConfig.topUpStatus.coinDenom,
+          coinMinimalDenom: cosmosFeeConfig.topUpStatus.coinMinimalDenom,
+          requiredStaking: cosmosFeeConfig.topUpStatus.requiredStaking,
           additionalStakingNeeded:
-            feeConfig.topUpStatus.additionalStakingNeeded,
+            cosmosFeeConfig.topUpStatus.additionalStakingNeeded,
         }
       : {}),
   };

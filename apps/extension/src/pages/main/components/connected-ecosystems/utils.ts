@@ -3,6 +3,7 @@ import { BACKGROUND_PORT } from "@keplr-wallet/router";
 import { SetPreferredBitcoinPaymentTypeMsg } from "@keplr-wallet/background";
 import { SupportedPaymentType as BitcoinPaymentType } from "@keplr-wallet/types";
 import { Bech32Address } from "@keplr-wallet/cosmos";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import {
   EcosystemType,
   EcosystemSpecificOption,
@@ -65,6 +66,20 @@ export const createBitcoinSpecificOptions = (
         "Select the address type you'd like to use with the web application.",
     },
   ];
+};
+
+export const getBitcoinBaseChainId = (
+  chainInfo: IModularChainInfoImpl
+): string => {
+  const u = chainInfo.unwrapped;
+  return u.type === "bitcoin" ? u.bitcoin.chainId : chainInfo.chainId;
+};
+
+export const isBitcoinChainSelected = (
+  chainInfo: IModularChainInfoImpl,
+  currentChainId: string
+): boolean => {
+  return getBitcoinBaseChainId(chainInfo) === currentChainId;
 };
 
 export const parseEcosystemSpecificOptions = (section: EcosystemSection) => {

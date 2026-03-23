@@ -134,8 +134,8 @@ export class ObservableQueryStakingInfo {
 
   protected getRpcUrl(): string {
     const modularChainInfo = this.chainGetter.getModularChain(this.chainId);
-    if ("starknet" in modularChainInfo) {
-      return modularChainInfo.starknet.rpc;
+    if (modularChainInfo.unwrapped.type === "starknet") {
+      return modularChainInfo.unwrapped.starknet.rpc;
     }
     return "";
   }
@@ -380,15 +380,13 @@ export class ObservableQueryStakingInfo {
   );
 
   private get stakingCurrency(): ERC20Currency | undefined {
-    const modularChainInfo = this.chainGetter.getModularChain(this.chainId);
-    if (!("starknet" in modularChainInfo)) {
+    const u = this.chainGetter.getModularChain(this.chainId).unwrapped;
+    if (u.type !== "starknet") {
       return;
     }
 
-    return modularChainInfo.starknet.currencies.find(
-      (c) =>
-        c.coinMinimalDenom ===
-        `erc20:${modularChainInfo.starknet.strkContractAddress}`
+    return u.starknet.currencies.find(
+      (c) => c.coinMinimalDenom === `erc20:${u.starknet.strkContractAddress}`
     );
   }
 }

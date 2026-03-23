@@ -86,12 +86,12 @@ export const EarnTransferAmountPage: FunctionComponent = observer(() => {
   const chainId = initialChainId;
   const ibcTransferDestinationChainId =
     initialIBCTransferDestinationChainId ?? NOBLE_CHAIN_ID;
-  const chainInfo = chainStore.getChain(chainId);
-  const ibcTransferDestinationChainInfo = chainStore.getChain(
+  const modularChainInfo = chainStore.getModularChain(chainId);
+  const ibcTransferDestinationModularChainInfo = chainStore.getModularChain(
     ibcTransferDestinationChainId
   );
 
-  const currency = chainInfo.forceFindCurrency(initialCoinMinimalDenom);
+  const currency = modularChainInfo.forceFindCurrency(initialCoinMinimalDenom);
   const account = accountStore.getAccount(chainId);
 
   const queryBalances = queriesStore.get(chainId).queryBalances;
@@ -383,7 +383,8 @@ export const EarnTransferAmountPage: FunctionComponent = observer(() => {
                     msg = msg.withIBCPacketForwarding(
                       sendConfigs.channelConfig.channels,
                       {
-                        currencies: chainStore.getChain(chainId).currencies,
+                        currencies:
+                          chainStore.getModularChain(chainId).currencies,
                       }
                     );
                   } else {
@@ -431,7 +432,7 @@ export const EarnTransferAmountPage: FunctionComponent = observer(() => {
                       originDenom: ibcChannelFluent.originDenom,
                       originCommonDenom: (() => {
                         const currency = chainStore
-                          .getChain(ibcChannelFluent.originChainId)
+                          .getModularChain(ibcChannelFluent.originChainId)
                           .forceFindCurrency(ibcChannelFluent.originDenom);
                         if ("paths" in currency && currency.originCurrency) {
                           return currency.originCurrency.coinDenom;
@@ -675,7 +676,7 @@ export const EarnTransferAmountPage: FunctionComponent = observer(() => {
                 </XAxis>
               </HorizontalCollapseTransition>
               <Subtitle3 color={ColorPalette["gray-300"]}>
-                {`on ${chainInfo.chainName}`}
+                {`on ${modularChainInfo.chainName}`}
               </Subtitle3>
             </XAxis>
           </Box>
@@ -711,7 +712,7 @@ export const EarnTransferAmountPage: FunctionComponent = observer(() => {
               </Box>
               <Gutter size="0.5rem" />
               <Subtitle3 color={ColorPalette["gray-300"]}>
-                {`on ${ibcTransferDestinationChainInfo.chainName}`}
+                {`on ${ibcTransferDestinationModularChainInfo.chainName}`}
               </Subtitle3>
             </Fragment>
           )}

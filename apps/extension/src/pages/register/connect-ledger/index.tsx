@@ -417,38 +417,30 @@ export const ConnectLedgerScene: FunctionComponent<{
         case "Bitcoin Test": {
           let btcApp = new AppClient(transport as any);
 
-          if (step === "unknown") {
-            try {
-              const coinType = propApp === "Bitcoin" ? 0 : 1;
+          try {
+            const coinType = propApp === "Bitcoin" ? 0 : 1;
 
-              await btcApp.getExtendedPubkey(`m/44'/${coinType}'/0'/0/0`);
+            await btcApp.getExtendedPubkey(`m/44'/${coinType}'/0'/0/0`);
+          } catch (e) {
+            if (
+              e?.message.includes("(0x6b0c)") ||
+              e?.message.includes("(0x6511)") ||
+              e?.message.includes("(0x6e00)") ||
+              e?.message.includes("(0x6e01)") ||
+              e?.message.includes("(0x6a82)")
+            ) {
               setStep("connected");
+            } else {
+              console.log(e);
+              setStep("unknown");
               await transport.close();
               setIsLoading(false);
               return;
-            } catch (e) {
-              if (
-                e?.message.includes("(0x6b0c)") ||
-                e?.message.includes("(0x6511)") ||
-                e?.message.includes("(0x6e00)") ||
-                e?.message.includes("(0x6a82)")
-              ) {
-                setStep("connected");
-                await transport.close();
-                setIsLoading(false);
-                return;
-              } else {
-                console.log(e);
-                setStep("unknown");
-                await transport.close();
-
-                setIsLoading(false);
-                return;
-              }
             }
           }
 
-          await LedgerUtils.tryAppOpen(transport, propApp);
+          setStep("connected");
+          transport = await LedgerUtils.tryAppOpen(transport, propApp);
           btcApp = new AppClient(transport as any);
 
           try {
@@ -464,12 +456,13 @@ export const ConnectLedgerScene: FunctionComponent<{
 
               for (const chainId of appendModeInfo.afterEnableChains) {
                 const modularChainInfo = chainStore.getModularChain(chainId);
+                const bu = modularChainInfo.unwrapped;
 
-                if (!("bitcoin" in modularChainInfo)) {
+                if (bu.type !== "bitcoin") {
                   throw new Error("Bitcoin not found");
                 }
 
-                const bip44 = modularChainInfo.bitcoin.bip44;
+                const bip44 = bu.bitcoin.bip44;
 
                 if (!bip44.purpose) {
                   throw new Error("Purpose not found");

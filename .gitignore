@@ -49,3 +49,4 @@ build-storybook.log
 
 .claude/*
 !.claude/settings.json
+!.claude/rules

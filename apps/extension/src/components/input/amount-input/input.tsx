@@ -185,10 +185,15 @@ export const AmountInput: FunctionComponent<{
           // However, in this case, the tax itself changes the fee,
           // so if you use the max function, it will fall into infinite repetition.
           // We currently disable if chain is terra classic because we can't handle it properly.
-          chainStore.hasChain(amountConfig.chainId) &&
-          chainStore
-            .getChain(amountConfig.chainId)
-            .hasFeature("terra-classic-fee")
+          chainStore.hasModularChain(amountConfig.chainId) &&
+          (() => {
+            const mc = chainStore.getModularChain(amountConfig.chainId);
+            const uw = mc.unwrapped;
+            return (
+              (uw.type === "cosmos" || uw.type === "ethermint") &&
+              uw.cosmos.features?.includes("terra-classic-fee")
+            );
+          })()
         ) {
           return undefined;
         }

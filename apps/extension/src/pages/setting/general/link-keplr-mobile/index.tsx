@@ -299,7 +299,7 @@ const QRCodeView: FunctionComponent<{
           [chainId: string]: AddressBookData[] | undefined;
         } = {};
 
-        for (const chainInfo of chainStore.chainInfos) {
+        for (const chainInfo of chainStore.modularChainInfos) {
           const addressBookData =
             uiConfigStore.addressBookConfig.getAddressBook(chainInfo.chainId);
 

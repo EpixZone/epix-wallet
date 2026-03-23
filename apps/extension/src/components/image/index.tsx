@@ -1,5 +1,6 @@
 import React, { FunctionComponent, useLayoutEffect, useState } from "react";
-import { AppCurrency, ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
+import { AppCurrency, ChainInfo } from "@keplr-wallet/types";
+import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import { observer } from "mobx-react-lite";
 import { useStore } from "../../stores";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
@@ -72,7 +73,7 @@ export const RawImageFallback: FunctionComponent<
 
 export const ChainImageFallback: FunctionComponent<
   Omit<React.ImgHTMLAttributes<HTMLImageElement>, "src" | "alt"> & {
-    chainInfo: ChainInfo | ModularChainInfo;
+    chainInfo: ChainInfo | IModularChainInfoImpl;
 
     size: string;
     alt?: string;
@@ -106,7 +107,7 @@ export const ChainImageFallback: FunctionComponent<
 
 export const CurrencyImageFallback: FunctionComponent<
   Omit<React.ImgHTMLAttributes<HTMLImageElement>, "src" | "alt"> & {
-    chainInfo: ChainInfo | ModularChainInfo;
+    chainInfo: ChainInfo | IModularChainInfoImpl;
     currency: AppCurrency;
 
     size: string;
@@ -158,9 +159,9 @@ export const CurrencyImageFallback: FunctionComponent<
               currency.originCurrency
             ) {
               if (
-                chainStore.hasChain(currency.originChainId) &&
-                chainStore.getChain(currency.originChainId).chainIdentifier ===
-                  axelarChainIdentifier &&
+                chainStore.hasModularChain(currency.originChainId) &&
+                chainStore.getModularChain(currency.originChainId)
+                  .chainIdentifier === axelarChainIdentifier &&
                 currency.originCurrency.coinMinimalDenom !== "uaxl"
               ) {
                 isAxelarBridged = true;
@@ -176,9 +177,12 @@ export const CurrencyImageFallback: FunctionComponent<
             }
           }
 
-          if (isAxelarBridged && chainStore.hasChain(axelarChainIdentifier)) {
+          if (
+            isAxelarBridged &&
+            chainStore.hasModularChain(axelarChainIdentifier)
+          ) {
             const axlCurrency = chainStore
-              .getChain(axelarChainIdentifier)
+              .getModularChain(axelarChainIdentifier)
               .findCurrency("uaxl");
 
             if (axlCurrency && axlCurrency.coinImageUrl) {

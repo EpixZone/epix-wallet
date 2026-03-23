@@ -37,11 +37,10 @@ import { FormattedMessage, useIntl } from "react-intl";
 import SimpleBar from "simplebar-react";
 import { KeystoneSign } from "../../components/keystone";
 import { ErrModuleKeystoneSign, KeystoneUR } from "../../utils/keystone";
-import { KeyRingService } from "@keplr-wallet/background";
 import styled, { useTheme } from "styled-components";
 import { defaultProtoCodec } from "@keplr-wallet/cosmos";
 import { MsgGrant } from "@keplr-wallet/proto-types/cosmos/authz/v1beta1/tx";
-import { GenericAuthorization } from "@keplr-wallet/stores/build/query/cosmos/authz/types";
+import { GenericAuthorization } from "@keplr-wallet/stores";
 import { Checkbox } from "../../../../components/checkbox";
 import { FeeSummary } from "../../components/fee-summary";
 import { FeeControl } from "../../../../components/input/fee-control";
@@ -160,7 +159,7 @@ export const CosmosTxView: FunctionComponent<{
       feeConfig.setFee(
         data.data.signDocWrapper.fees.map((fee) => {
           const currency = chainStore
-            .getChain(data.data.chainId)
+            .getModularChain(data.data.chainId)
             .forceFindCurrency(fee.denom);
           return new CoinPretty(currency, new Int(fee.amount));
         })
@@ -397,7 +396,7 @@ export const CosmosTxView: FunctionComponent<{
       let sumPrice = new Dec(0);
       for (const fee of feeConfig.fees) {
         const currency = chainStore
-          .getChain(chainId)
+          .getModularChain(chainId)
           .findCurrency(fee.currency.coinMinimalDenom);
         if (currency && currency.coinGeckoId) {
           const price = priceStore.calculatePrice(
@@ -455,18 +454,22 @@ export const CosmosTxView: FunctionComponent<{
           setLedgerInteractingError(undefined);
           presignOptions = {
             useWebHID: uiConfigStore.useWebHIDLedger,
-            signEthPlainJSON: chainStore
-              .getChain(
+            signEthPlainJSON: (() => {
+              const u = chainStore.getModularChain(
                 signInteractionStore.waitingData?.data.chainId ?? chainId
-              )
-              .hasFeature("evm-ledger-sign-plain-json"),
+              ).unwrapped;
+              return (
+                (u.type === "cosmos" || u.type === "ethermint") &&
+                (u.cosmos.features?.includes("evm-ledger-sign-plain-json") ??
+                  false)
+              );
+            })(),
           };
         } else if (interactionData.data.keyType === "keystone") {
           setIsKeystoneInteracting(true);
           setKeystoneInteractingError(undefined);
-          const isEthSigning = KeyRingService.isEthermintLike(
-            chainStore.getChain(chainId)
-          );
+          const isEthSigning =
+            chainStore.getModularChain(chainId).type === "ethermint";
           presignOptions = {
             isEthSigning,
             displayQRCode: async (ur: KeystoneUR) => {
@@ -551,8 +554,10 @@ export const CosmosTxView: FunctionComponent<{
   const isLavaEndpoint = (() => {
     try {
       const lavaBaseHostName = "lava.build";
-      const rpcUrl = new URL(chainStore.getChain(chainId).rpc);
-      const lcdUrl = new URL(chainStore.getChain(chainId).rest);
+      const u = chainStore.getModularChain(chainId).unwrapped;
+      if (u.type !== "cosmos" && u.type !== "ethermint") return false;
+      const rpcUrl = new URL(u.cosmos.rpc);
+      const lcdUrl = new URL(u.cosmos.rest);
 
       return (
         rpcUrl.hostname.endsWith(lavaBaseHostName) ||

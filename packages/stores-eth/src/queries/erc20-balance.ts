@@ -4,7 +4,7 @@ import {
   IObservableQueryBalanceImpl,
   QuerySharedContext,
 } from "@keplr-wallet/stores";
-import { AppCurrency, ChainInfo } from "@keplr-wallet/types";
+import { AppCurrency } from "@keplr-wallet/types";
 import { CoinPretty, Int } from "@keplr-wallet/unit";
 import { computed, makeObservable } from "mobx";
 import bigInteger from "big-integer";
@@ -42,10 +42,9 @@ export class ObservableQueryEthereumERC20BalanceImpl
   get balance(): CoinPretty {
     const denom = this.denomHelper.denom;
 
-    const chainInfo = this.chainGetter.getChain(this.chainId);
-    const currency = chainInfo.currencies.find(
-      (cur) => cur.coinMinimalDenom === denom
-    );
+    const currency = this.chainGetter
+      .getModularChain(this.chainId)
+      .findCurrency(denom);
 
     if (!currency) {
       throw new Error(`Unknown currency: ${this.contractAddress}`);
@@ -65,8 +64,9 @@ export class ObservableQueryEthereumERC20BalanceImpl
   get currency(): AppCurrency {
     const denom = this.denomHelper.denom;
 
-    const chainInfo = this.chainGetter.getChain(this.chainId);
-    return chainInfo.forceFindCurrency(denom);
+    return this.chainGetter
+      .getModularChain(this.chainId)
+      .forceFindCurrency(denom);
   }
 }
 
@@ -77,18 +77,18 @@ export class ObservableQueryEthereumERC20BalanceRegistry
 
   getBalanceImpl(
     chainId: string,
-    chainGetter: ChainGetter<ChainInfo>,
+    chainGetter: ChainGetter,
     address: string,
     minimalDenom: string
   ): IObservableQueryBalanceImpl | undefined {
     const denomHelper = new DenomHelper(minimalDenom);
-    const chainInfo = chainGetter.getChain(chainId);
+    const mcInfo = chainGetter.getModularChain(chainId);
     const isHexAddress =
       EthereumAccountBase.isEthereumHexAddressWithChecksum(address);
     if (
       denomHelper.type !== "erc20" ||
       !isHexAddress ||
-      chainInfo.evm == null
+      (mcInfo.type !== "evm" && mcInfo.type !== "ethermint")
     ) {
       return;
     }

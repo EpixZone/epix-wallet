@@ -41,7 +41,7 @@ import {
 import { BondStatus } from "../query/cosmos/staking/types";
 import { CosmosQueries, IQueriesStore, QueriesSetBase } from "../query";
 import { DeepPartial, DeepReadonly, Mutable } from "utility-types";
-import { ChainGetter } from "../chain";
+import { ChainGetter, requireCosmosInfo } from "../chain";
 import deepmerge from "deepmerge";
 import { Buffer } from "buffer/";
 import {
@@ -204,8 +204,8 @@ export class CosmosAccountImpl {
 
       Bech32Address.validate(
         recipient,
-        this.chainGetter.getChain(this.chainId).bech32Config
-          ?.bech32PrefixAccAddr
+        requireCosmosInfo(this.chainGetter.getModularChain(this.chainId))
+          .bech32Config?.bech32PrefixAccAddr
       );
 
       const isThorchain = this.chainId.startsWith("thorchain-");
@@ -347,7 +347,7 @@ export class CosmosAccountImpl {
     }
 
     const txTracer = new TendermintTxTracer(
-      this.chainGetter.getChain(this.chainId).rpc,
+      requireCosmosInfo(this.chainGetter.getModularChain(this.chainId)).rpc,
       "/websocket",
       {
         wsObject: this.txOpts.wsObject,
@@ -426,16 +426,18 @@ export class CosmosAccountImpl {
       }
     }
 
+    const cosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+
     const account = await BaseAccount.fetchFromRest(
-      this.chainGetter.getChain(this.chainId).rest,
+      cosmosInfo.rest,
       this.base.bech32Address,
       true
     );
 
     const useEthereumSign =
-      this.chainGetter
-        .getChain(this.chainId)
-        .features?.includes("eth-key-sign") === true;
+      cosmosInfo.features?.includes("eth-key-sign") === true;
 
     const eip712Signing = useEthereumSign && this.base.isNanoLedger;
 
@@ -472,13 +474,12 @@ export class CosmosAccountImpl {
           memo: escapeHTML(memo),
         };
 
-        const chainInfo = this.chainGetter.getChain(this.chainId);
         const chainIsInjective = this.chainId.startsWith("injective");
         const chainIsStratos = this.chainId.startsWith("stratos");
         const chainIsCysic = this.chainId.startsWith("cysic");
         const ethSignPlainJson: boolean =
-          chainInfo.features &&
-          chainInfo.features.includes("evm-ledger-sign-plain-json");
+          cosmosInfo.features != null &&
+          cosmosInfo.features.includes("evm-ledger-sign-plain-json");
 
         if (eip712Signing) {
           if (chainIsInjective) {
@@ -534,7 +535,12 @@ export class CosmosAccountImpl {
             this.chainId,
             this.base.bech32Address,
             getEip712TypedDataBasedOnChainInfo(
-              this.chainGetter.getChain(this.chainId),
+              {
+                chainId: this.chainId,
+                features: requireCosmosInfo(
+                  this.chainGetter.getModularChain(this.chainId)
+                ).features,
+              },
               msgs
             ),
             signDoc,
@@ -589,11 +595,15 @@ export class CosmosAccountImpl {
                         return "/stratos.crypto.v1.ethsecp256k1.PubKey";
                       }
 
-                      if (chainInfo.hasFeature("eth-secp256k1-cosmos")) {
+                      if (
+                        cosmosInfo.features?.includes("eth-secp256k1-cosmos")
+                      ) {
                         return "/cosmos.evm.crypto.v1.ethsecp256k1.PubKey";
                       }
 
-                      if (chainInfo.hasFeature("eth-secp256k1-initia")) {
+                      if (
+                        cosmosInfo.features?.includes("eth-secp256k1-initia")
+                      ) {
                         return "/initia.crypto.v1beta1.ethsecp256k1.PubKey";
                       }
 
@@ -675,10 +685,12 @@ export class CosmosAccountImpl {
     tx: Uint8Array;
     signDoc: SignDoc;
   }> {
+    const cosmosInfoForSign = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+
     const useEthereumSign =
-      this.chainGetter
-        .getChain(this.chainId)
-        .features?.includes("eth-key-sign") === true;
+      cosmosInfoForSign.features?.includes("eth-key-sign") === true;
 
     const chainIsInjective = this.chainId.startsWith("injective");
     const chainIsStratos = this.chainId.startsWith("stratos");
@@ -718,16 +730,12 @@ export class CosmosAccountImpl {
                   }
 
                   if (
-                    this.chainGetter
-                      .getChain(this.chainId)
-                      .hasFeature("eth-secp256k1-cosmos")
+                    cosmosInfoForSign.features?.includes("eth-secp256k1-cosmos")
                   ) {
                     return "/cosmos.evm.crypto.v1.ethsecp256k1.PubKey";
                   }
                   if (
-                    this.chainGetter
-                      .getChain(this.chainId)
-                      .hasFeature("eth-secp256k1-initia")
+                    cosmosInfoForSign.features?.includes("eth-secp256k1-initia")
                   ) {
                     return "/initia.crypto.v1beta1.ethsecp256k1.PubKey";
                   }
@@ -801,8 +809,12 @@ export class CosmosAccountImpl {
   ): Promise<{
     gasUsed: number;
   }> {
+    const cosmosInfoForSim = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+
     const account = await BaseAccount.fetchFromRest(
-      this.chainGetter.getChain(this.chainId).rest,
+      cosmosInfoForSim.rest,
       this.base.bech32Address,
       true
     );
@@ -842,7 +854,7 @@ export class CosmosAccountImpl {
 
     // TODO: Add response type
     const result = await simpleFetch<any>(
-      this.chainGetter.getChain(this.chainId).rest,
+      cosmosInfoForSim.rest,
       "/cosmos/tx/v1beta1/simulate",
       {
         method: "POST",
@@ -1051,15 +1063,17 @@ export class CosmosAccountImpl {
     const destinationChainId =
       channels[channels.length - 1].counterpartyChainId;
 
-    const destinationChainInfo = this.chainGetter.getChain(destinationChainId);
+    const destinationCosmosInfo = requireCosmosInfo(
+      this.chainGetter.getModularChain(destinationChainId)
+    );
 
     Bech32Address.validate(
       recipient,
-      destinationChainInfo.bech32Config?.bech32PrefixAccAddr
+      destinationCosmosInfo.bech32Config?.bech32PrefixAccAddr
     );
 
-    const counterpartyChainBech32Config = this.chainGetter.getChain(
-      channels[0].counterpartyChainId
+    const counterpartyChainBech32Config = requireCosmosInfo(
+      this.chainGetter.getModularChain(channels[0].counterpartyChainId)
     ).bech32Config;
     if (counterpartyChainBech32Config == null) {
       throw new Error("Counterparty chain bech32 config is not set");
@@ -1071,22 +1085,22 @@ export class CosmosAccountImpl {
       currency,
       async () => {
         if (channels.length === 1) {
-          const chainInfo = this.chainGetter.getChain(
-            channels[0].counterpartyChainId
+          const counterpartyCosmosInfo = requireCosmosInfo(
+            this.chainGetter.getModularChain(channels[0].counterpartyChainId)
           );
-          if (!chainInfo.bech32Config) {
+          if (!counterpartyCosmosInfo.bech32Config) {
             throw new Error("Bech32 config is not set");
           }
           return Bech32Address.fromBech32(recipient).toBech32(
-            chainInfo.bech32Config.bech32PrefixAccAddr
+            counterpartyCosmosInfo.bech32Config.bech32PrefixAccAddr
           );
         }
         const channel = channels[0];
-        const destChainInfo = this.chainGetter.getChain(
+        const destMcInfo2 = this.chainGetter.getModularChain(
           channel.counterpartyChainId
         );
 
-        const account = accountStore.getAccount(destChainInfo.chainId);
+        const account = accountStore.getAccount(destMcInfo2.chainId);
         if (account.walletStatus !== WalletStatus.Loaded) {
           account.init();
         }
@@ -1107,7 +1121,7 @@ export class CosmosAccountImpl {
         }
         if (account.walletStatus !== WalletStatus.Loaded) {
           throw new Error(
-            `The account of ${destChainInfo.chainId} is not loaded: ${account.walletStatus}`
+            `The account of ${destMcInfo2.chainId} is not loaded: ${account.walletStatus}`
           );
         }
         return account.bech32Address;
@@ -1120,15 +1134,15 @@ export class CosmosAccountImpl {
           for (let i = 0; i < loopChannels.length; i++) {
             const channel = loopChannels[i];
             if (i === loopChannels.length - 1) {
-              const chainInfo = this.chainGetter.getChain(
-                channel.counterpartyChainId
+              const loopCosmosInfo = requireCosmosInfo(
+                this.chainGetter.getModularChain(channel.counterpartyChainId)
               );
-              if (!chainInfo.bech32Config) {
+              if (!loopCosmosInfo.bech32Config) {
                 throw new Error("Bech32 config is not set");
               }
               Bech32Address.validate(
                 recipient,
-                chainInfo.bech32Config.bech32PrefixAccAddr
+                loopCosmosInfo.bech32Config.bech32PrefixAccAddr
               );
               const forward = {
                 receiver: recipient,
@@ -1147,11 +1161,11 @@ export class CosmosAccountImpl {
 
               lastForward = forward;
             } else {
-              const destChainInfo = this.chainGetter.getChain(
+              const loopDestMcInfo2 = this.chainGetter.getModularChain(
                 channel.counterpartyChainId
               );
 
-              const account = accountStore.getAccount(destChainInfo.chainId);
+              const account = accountStore.getAccount(loopDestMcInfo2.chainId);
               if (account.walletStatus !== WalletStatus.Loaded) {
                 account.init();
               }
@@ -1172,7 +1186,7 @@ export class CosmosAccountImpl {
               }
               if (account.walletStatus !== WalletStatus.Loaded) {
                 throw new Error(
-                  `The account of ${destChainInfo.chainId} is not loaded: ${account.walletStatus}`
+                  `The account of ${loopDestMcInfo2.chainId} is not loaded: ${account.walletStatus}`
                 );
               }
 
@@ -1295,10 +1309,11 @@ export class CosmosAccountImpl {
           );
         }
 
+        const ibcCosmosInfo = requireCosmosInfo(
+          this.chainGetter.getModularChain(this.chainId)
+        );
         const useEthereumSign =
-          this.chainGetter
-            .getChain(this.chainId)
-            .features?.includes("eth-key-sign") === true;
+          ibcCosmosInfo.features?.includes("eth-key-sign") === true;
 
         const eip712Signing = useEthereumSign && this.base.isNanoLedger;
         const chainIsInjective = this.chainId.startsWith("injective");
@@ -1361,9 +1376,7 @@ export class CosmosAccountImpl {
             if (
               this.chainId.startsWith("injective") ||
               this.chainId.startsWith("stride") ||
-              this.chainGetter
-                .getChain(this.chainId)
-                .hasFeature("ibc-go-v7-hot-fix")
+              ibcCosmosInfo.features?.includes("ibc-go-v7-hot-fix")
             ) {
               return true;
             }
@@ -1586,15 +1599,17 @@ export class CosmosAccountImpl {
   }
 
   makeRevokeMsg(grantee: string, messageType: string) {
+    const mcInfo2ForRevoke = this.chainGetter.getModularChain(this.chainId);
+    const cosmosInfoForRevoke = requireCosmosInfo(mcInfo2ForRevoke);
+
     Bech32Address.validate(
       grantee,
-      this.chainGetter.getChain(this.chainId).bech32Config?.bech32PrefixAccAddr
+      cosmosInfoForRevoke.bech32Config?.bech32PrefixAccAddr
     );
 
-    const chainInfo = this.chainGetter.getChain(this.chainId);
     const msg =
-      chainInfo.chainIdentifier === "osmosis" ||
-      chainInfo.hasFeature("authz-msg-revoke-fixed")
+      mcInfo2ForRevoke.chainIdentifier === "osmosis" ||
+      cosmosInfoForRevoke.features?.includes("authz-msg-revoke-fixed")
         ? {
             type: "cosmos-sdk/MsgRevoke",
             value: {
@@ -1635,12 +1650,16 @@ export class CosmosAccountImpl {
   }
 
   makeDelegateTx(amount: string, validatorAddress: string) {
-    Bech32Address.validate(
-      validatorAddress,
-      this.chainGetter.getChain(this.chainId).bech32Config?.bech32PrefixValAddr
+    const cosmosInfoForDelegate = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
     );
 
-    const currency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    Bech32Address.validate(
+      validatorAddress,
+      cosmosInfoForDelegate.bech32Config?.bech32PrefixValAddr
+    );
+
+    const currency = cosmosInfoForDelegate.stakeCurrency;
 
     if (!currency) {
       throw new Error("Stake currency is null");
@@ -1747,7 +1766,9 @@ export class CosmosAccountImpl {
           onFulfill?: (tx: any) => void;
         }
   ) {
-    const currency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    const currency = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    ).stakeCurrency;
 
     if (!currency) {
       throw new Error("Stake currency is null");
@@ -1807,12 +1828,16 @@ export class CosmosAccountImpl {
   }
 
   makeUndelegateTx(amount: string, validatorAddress: string) {
-    Bech32Address.validate(
-      validatorAddress,
-      this.chainGetter.getChain(this.chainId).bech32Config?.bech32PrefixValAddr
+    const cosmosInfoForUndelegate = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
     );
 
-    const currency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    Bech32Address.validate(
+      validatorAddress,
+      cosmosInfoForUndelegate.bech32Config?.bech32PrefixValAddr
+    );
+
+    const currency = cosmosInfoForUndelegate.stakeCurrency;
 
     if (!currency) {
       throw new Error("Stake currency is null");
@@ -1954,16 +1979,20 @@ export class CosmosAccountImpl {
     srcValidatorAddress: string,
     dstValidatorAddress: string
   ) {
+    const cosmosInfoForRedelegate = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+
     Bech32Address.validate(
       srcValidatorAddress,
-      this.chainGetter.getChain(this.chainId).bech32Config?.bech32PrefixValAddr
+      cosmosInfoForRedelegate.bech32Config?.bech32PrefixValAddr
     );
     Bech32Address.validate(
       dstValidatorAddress,
-      this.chainGetter.getChain(this.chainId).bech32Config?.bech32PrefixValAddr
+      cosmosInfoForRedelegate.bech32Config?.bech32PrefixValAddr
     );
 
-    const currency = this.chainGetter.getChain(this.chainId).stakeCurrency;
+    const currency = cosmosInfoForRedelegate.stakeCurrency;
 
     if (!currency) {
       throw new Error("Stake currency is null");
@@ -2098,11 +2127,14 @@ export class CosmosAccountImpl {
   }
 
   makeWithdrawDelegationRewardTx(validatorAddresses: string[]) {
+    const cosmosInfoForWithdraw = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    );
+
     for (const validatorAddress of validatorAddresses) {
       Bech32Address.validate(
         validatorAddress,
-        this.chainGetter.getChain(this.chainId).bech32Config
-          ?.bech32PrefixValAddr
+        cosmosInfoForWithdraw.bech32Config?.bech32PrefixValAddr
       );
     }
 

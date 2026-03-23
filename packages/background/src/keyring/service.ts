@@ -13,7 +13,7 @@ import {
   PubKeySecp256k1,
   PubKeyStarknet,
 } from "@keplr-wallet/crypto";
-import { ChainsService } from "../chains";
+import { ChainsService, convertModularChainInfoToChainInfo } from "../chains";
 import { action, autorun, makeObservable, observable, runInAction } from "mobx";
 import { KVStore } from "@keplr-wallet/common";
 import { Bech32Address, ChainIdHelper } from "@keplr-wallet/cosmos";
@@ -22,6 +22,7 @@ import {
   ChainInfo,
   ModularChainInfo,
   SignPsbtOptions,
+  isEthSignChain,
 } from "@keplr-wallet/types";
 import { Buffer } from "buffer/";
 import * as Legacy from "./legacy";
@@ -464,18 +465,18 @@ export class KeyRingService {
                 hasEthereum = true;
               }
 
-              for (const chainInfo of this.chainsService.getChainInfos()) {
-                if (checkChainDisabled(chainInfo.chainId)) {
+              for (const mci of this.chainsService.getModularChainInfos()) {
+                if (checkChainDisabled(mci.chainId)) {
                   continue;
                 }
 
-                if (KeyRingService.isEthermintLike(chainInfo) && !hasEthereum) {
+                if (isEthSignChain(mci) && !hasEthereum) {
                   continue;
                 }
 
                 this.migrations.chainsUIService.enableChain(
                   vaultId,
-                  chainInfo.chainId
+                  mci.chainId
                 );
               }
 
@@ -504,19 +505,16 @@ export class KeyRingService {
               password
             );
 
-            for (const chainInfo of this.chainsService.getChainInfos()) {
-              if (checkChainDisabled(chainInfo.chainId)) {
+            for (const mci of this.chainsService.getModularChainInfos()) {
+              if (checkChainDisabled(mci.chainId)) {
                 continue;
               }
 
-              if (KeyRingService.isEthermintLike(chainInfo)) {
+              if (isEthSignChain(mci)) {
                 continue;
               }
 
-              this.migrations.chainsUIService.enableChain(
-                vaultId,
-                chainInfo.chainId
-              );
+              this.migrations.chainsUIService.enableChain(vaultId, mci.chainId);
             }
 
             if (
@@ -632,7 +630,10 @@ export class KeyRingService {
     const modularChainInfo =
       this.chainsService.getModularChainInfoOrThrow(chainId);
 
-    if ("cosmos" in modularChainInfo) {
+    if (
+      modularChainInfo.type === "cosmos" ||
+      modularChainInfo.type === "ethermint"
+    ) {
       const chainInfo = modularChainInfo.cosmos;
       if (
         chainInfo.bip44.coinType !== coinType &&
@@ -643,14 +644,14 @@ export class KeyRingService {
         throw new Error("Coin type is not associated to chain");
       }
     }
-    if ("starknet" in modularChainInfo) {
+    if (modularChainInfo.type === "starknet") {
       // TODO: starknet에서는 일단 코인타입을 9004로 고정해서 쓴다.
       //       일단은 임시조치인데 나중에 다른 방식으로 바뀔수도 있다.
       if (coinType !== 9004) {
         throw new Error("Coin type is not associated to chain");
       }
     }
-    if ("bitcoin" in modularChainInfo) {
+    if (modularChainInfo.type === "bitcoin") {
       const chainInfo = modularChainInfo.bitcoin;
       if (chainInfo.bip44.coinType !== coinType) {
         throw new Error("Coin type is not associated to chain");
@@ -728,16 +729,21 @@ export class KeyRingService {
 
     // Finalize coin type if only one coin type exists.
     const coinTypes: Record<string, number | undefined> = {};
-    const chainInfos = this.chainsService.getChainInfos();
-    for (const chainInfo of chainInfos) {
+    for (const modularChainInfo of this.chainsService.getModularChainInfos()) {
       if (
-        !chainInfo.alternativeBIP44s ||
-        chainInfo.alternativeBIP44s.length === 0
+        modularChainInfo.type === "cosmos" ||
+        modularChainInfo.type === "ethermint"
       ) {
-        const coinTypeTag = `keyRing-${
-          ChainIdHelper.parse(chainInfo.chainId).identifier
-        }-coinType`;
-        coinTypes[coinTypeTag] = chainInfo.bip44.coinType;
+        const cosmosInfo = modularChainInfo.cosmos;
+        if (
+          !cosmosInfo.alternativeBIP44s ||
+          cosmosInfo.alternativeBIP44s.length === 0
+        ) {
+          const coinTypeTag = `keyRing-${
+            ChainIdHelper.parse(modularChainInfo.chainId).identifier
+          }-coinType`;
+          coinTypes[coinTypeTag] = cosmosInfo.bip44.coinType;
+        }
       }
     }
 
@@ -824,16 +830,21 @@ export class KeyRingService {
 
     // Finalize coin type if only one coin type exists.
     const coinTypes: Record<string, number | undefined> = {};
-    const chainInfos = this.chainsService.getChainInfos();
-    for (const chainInfo of chainInfos) {
+    for (const modularChainInfo of this.chainsService.getModularChainInfos()) {
       if (
-        !chainInfo.alternativeBIP44s ||
-        chainInfo.alternativeBIP44s.length === 0
+        modularChainInfo.type === "cosmos" ||
+        modularChainInfo.type === "ethermint"
       ) {
-        const coinTypeTag = `keyRing-${
-          ChainIdHelper.parse(chainInfo.chainId).identifier
-        }-coinType`;
-        coinTypes[coinTypeTag] = chainInfo.bip44.coinType;
+        const cosmosInfo = modularChainInfo.cosmos;
+        if (
+          !cosmosInfo.alternativeBIP44s ||
+          cosmosInfo.alternativeBIP44s.length === 0
+        ) {
+          const coinTypeTag = `keyRing-${
+            ChainIdHelper.parse(modularChainInfo.chainId).identifier
+          }-coinType`;
+          coinTypes[coinTypeTag] = cosmosInfo.bip44.coinType;
+        }
       }
     }
 
@@ -1168,11 +1179,14 @@ export class KeyRingService {
 
     const purpose =
       (() => {
-        if ("cosmos" in modularChainInfo) {
+        if (
+          modularChainInfo.type === "cosmos" ||
+          modularChainInfo.type === "ethermint"
+        ) {
           return modularChainInfo.cosmos.bip44.purpose;
         }
 
-        if ("bitcoin" in modularChainInfo) {
+        if (modularChainInfo.type === "bitcoin") {
           return modularChainInfo.bitcoin.bip44.purpose;
         }
       })() ?? DEFAULT_BIP44_PURPOSE;
@@ -1186,17 +1200,24 @@ export class KeyRingService {
         return vault.insensitive[coinTypeTag] as number;
       }
 
-      if ("cosmos" in modularChainInfo) {
+      if (
+        modularChainInfo.type === "cosmos" ||
+        modularChainInfo.type === "ethermint"
+      ) {
         return modularChainInfo.cosmos.bip44.coinType;
       }
 
       // TODO: starknet에서는 일단 코인타입을 9004로 고정해서 쓴다.
       //       일단은 임시조치인데 나중에 다른 방식으로 바뀔수도 있다.
-      if ("starknet" in modularChainInfo) {
+      if (modularChainInfo.type === "starknet") {
         return 9004;
       }
 
-      if ("bitcoin" in modularChainInfo) {
+      if (modularChainInfo.type === "evm") {
+        return 60;
+      }
+
+      if (modularChainInfo.type === "bitcoin") {
         return modularChainInfo.bitcoin.bip44.coinType;
       }
 
@@ -1241,7 +1262,7 @@ export class KeyRingService {
 
     const purpose =
       (() => {
-        if ("bitcoin" in modularChainInfo) {
+        if (modularChainInfo.type === "bitcoin") {
           return modularChainInfo.bitcoin.bip44.purpose;
         }
       })() ?? DEFAULT_BIP44_PURPOSE;
@@ -1255,7 +1276,7 @@ export class KeyRingService {
         return vault.insensitive[coinTypeTag] as number;
       }
 
-      if ("bitcoin" in modularChainInfo) {
+      if (modularChainInfo.type === "bitcoin") {
         return modularChainInfo.bitcoin.bip44.coinType;
       }
 
@@ -1284,7 +1305,10 @@ export class KeyRingService {
     const modularChainInfo =
       this.chainsService.getModularChainInfoOrThrow(chainId);
 
-    if ("cosmos" in modularChainInfo) {
+    if (
+      modularChainInfo.type === "cosmos" ||
+      modularChainInfo.type === "ethermint"
+    ) {
       if (
         modularChainInfo.cosmos.bip44.coinType !== coinType &&
         !(modularChainInfo.cosmos.alternativeBIP44s ?? []).find(
@@ -1293,13 +1317,13 @@ export class KeyRingService {
       ) {
         throw new Error("Coin type is not associated to chain");
       }
-    } else if ("starknet" in modularChainInfo) {
+    } else if (modularChainInfo.type === "starknet") {
       // TODO: starknet에서는 일단 코인타입을 9004로 고정해서 쓴다.
       //       일단은 임시조치인데 나중에 다른 방식으로 바뀔수도 있다.
       if (coinType !== 9004) {
         throw new Error("Coin type is not associated to chain");
       }
-    } else if ("bitcoin" in modularChainInfo) {
+    } else if (modularChainInfo.type === "bitcoin") {
       if (modularChainInfo.bitcoin.bip44.coinType !== coinType) {
         throw new Error("Coin type is not associated to chain");
       }
@@ -1354,17 +1378,23 @@ export class KeyRingService {
 
     const purpose =
       (() => {
-        if ("cosmos" in modularChainInfo) {
+        if (
+          modularChainInfo.type === "cosmos" ||
+          modularChainInfo.type === "ethermint"
+        ) {
           return modularChainInfo.cosmos.bip44.purpose;
         }
 
-        if ("bitcoin" in modularChainInfo) {
+        if (modularChainInfo.type === "bitcoin") {
           return modularChainInfo.bitcoin.bip44.purpose;
         }
       })() ?? DEFAULT_BIP44_PURPOSE;
 
     const coinType = (() => {
-      if ("cosmos" in modularChainInfo) {
+      if (
+        modularChainInfo.type === "cosmos" ||
+        modularChainInfo.type === "ethermint"
+      ) {
         const coinTypeTag = `keyRing-${
           ChainIdHelper.parse(chainId).identifier
         }-coinType`;
@@ -1374,11 +1404,13 @@ export class KeyRingService {
         }
 
         return modularChainInfo.cosmos.bip44.coinType;
-      } else if ("starknet" in modularChainInfo) {
+      } else if (modularChainInfo.type === "starknet") {
         // TODO: starknet에서는 일단 코인타입을 9004로 고정해서 쓴다.
         //       일단은 임시조치인데 나중에 다른 방식으로 바뀔수도 있다.
         return 9004;
-      } else if ("bitcoin" in modularChainInfo) {
+      } else if (modularChainInfo.type === "evm") {
+        return 60;
+      } else if (modularChainInfo.type === "bitcoin") {
         return modularChainInfo.bitcoin.bip44.coinType;
       } else {
         throw new Error("Can't determine default coin type");
@@ -1448,13 +1480,13 @@ export class KeyRingService {
 
     const purpose =
       (() => {
-        if ("bitcoin" in modularChainInfo) {
+        if (modularChainInfo.type === "bitcoin") {
           return modularChainInfo.bitcoin.bip44.purpose;
         }
       })() ?? DEFAULT_BIP44_PURPOSE;
 
     const coinType = (() => {
-      if ("bitcoin" in modularChainInfo) {
+      if (modularChainInfo.type === "bitcoin") {
         return modularChainInfo.bitcoin.bip44.coinType;
       }
 
@@ -1744,9 +1776,9 @@ export class KeyRingService {
                 [identifier: string]: number;
               } = {};
 
-              for (const chainInfo of this.chainsService.getChainInfos()) {
+              for (const modularChainInfo of this.chainsService.getModularChainInfos()) {
                 const identifier = ChainIdHelper.parse(
-                  chainInfo.chainId
+                  modularChainInfo.chainId
                 ).identifier;
                 const coinTypeTag = `keyRing-${identifier}-coinType`;
                 if (keyInfo.insensitive[coinTypeTag] != null) {
@@ -1867,18 +1899,22 @@ export class KeyRingService {
             this.chainsUIService.enabledModularChainInfosForVault(keyInfo.id);
           // TODO: 다른 체인도 지원하기
           const chainInfos = modularChainInfos
-            .filter((c) => "cosmos" in c)
-            .map((c) => {
-              if (!("cosmos" in c)) {
-                throw new Error("Unsupported chain");
-              }
-              return c.cosmos;
+            .filter(
+              (c) =>
+                c.type === "cosmos" ||
+                c.type === "ethermint" ||
+                c.type === "evm"
+            )
+            .flatMap((c) => {
+              const ci = convertModularChainInfoToChainInfo(c);
+              return ci ? [ci] : [];
             });
 
           let evmEnabled = false;
-          for (const chainInfo of chainInfos) {
-            if (KeyRingService.isEthermintLike(chainInfo)) {
+          for (const c of modularChainInfos) {
+            if (isEthSignChain(c)) {
               evmEnabled = true;
+              break;
             }
           }
           if (!evmEnabled && !ignoreChainEnabled) {
@@ -1927,58 +1963,71 @@ export class KeyRingService {
       })();
 
       if (!isHex) {
-        let targetChainInfos: ChainInfo[] = (() => {
+        const targetModularChainInfos: ModularChainInfo[] = (() => {
           const i = searchText.indexOf("1");
           if (i < 0) {
             return [];
           }
           const prefix = searchText.slice(0, i);
-          const result: ChainInfo[] = [];
-          for (const chainInfo of this.chainsService.getChainInfos()) {
-            if (chainInfo.bech32Config?.bech32PrefixAccAddr === prefix) {
-              result.push(chainInfo);
+          const result: ModularChainInfo[] = [];
+          for (const modularChainInfo of this.chainsService.getModularChainInfos()) {
+            if (
+              (modularChainInfo.type === "cosmos" ||
+                modularChainInfo.type === "ethermint") &&
+              modularChainInfo.cosmos.bech32Config?.bech32PrefixAccAddr ===
+                prefix
+            ) {
+              result.push(modularChainInfo);
             }
           }
           return result;
         })();
 
         bech32AddressSearchKeyInfos = keyInfos.filter((keyInfo) => {
+          let filteredModularChainInfos = targetModularChainInfos;
           if (!ignoreChainEnabled) {
-            targetChainInfos = targetChainInfos.filter((chainInfo) => {
-              return this.chainsUIService.isEnabled(
-                keyInfo.id,
-                chainInfo.chainId
-              );
-            });
+            filteredModularChainInfos = filteredModularChainInfos.filter(
+              (m) => {
+                return this.chainsUIService.isEnabled(keyInfo.id, m.chainId);
+              }
+            );
           }
 
           const chainInfos = (() => {
             if (ignoreChainEnabled) {
-              return this.chainsService.getChainInfos();
+              return this.chainsService
+                .getModularChainInfos()
+                .filter((c) => c.type === "cosmos" || c.type === "ethermint")
+                .flatMap((c) => {
+                  const ci = convertModularChainInfoToChainInfo(c);
+                  return ci ? [ci] : [];
+                });
             }
-            return targetChainInfos.length > 0
-              ? targetChainInfos
-              : (() => {
-                  const modularChainInfos =
-                    this.chainsUIService.enabledModularChainInfosForVault(
-                      keyInfo.id
-                    );
-                  // TODO: 다른 체인도 지원하기
-                  return modularChainInfos
-                    .filter((c) => "cosmos" in c)
-                    .map((c) => {
-                      if (!("cosmos" in c)) {
-                        throw new Error("Unsupported chain");
-                      }
-                      return c.cosmos;
-                    });
-                })();
+            if (filteredModularChainInfos.length > 0) {
+              return filteredModularChainInfos.flatMap((c) => {
+                const ci = convertModularChainInfoToChainInfo(c);
+                return ci ? [ci] : [];
+              });
+            }
+            const modularChainInfos =
+              this.chainsUIService.enabledModularChainInfosForVault(keyInfo.id);
+            // TODO: 다른 체인도 지원하기
+            return modularChainInfos
+              .filter((c) => c.type === "cosmos" || c.type === "ethermint")
+              .flatMap((c) => {
+                const ci = convertModularChainInfoToChainInfo(c);
+                return ci ? [ci] : [];
+              });
           })();
 
           for (const chainInfo of chainInfos) {
             for (const [key, value] of Object.entries(keyInfo.insensitive)) {
               try {
-                const isEVM = KeyRingService.isEthermintLike(chainInfo);
+                const isEVM = isEthSignChain(
+                  this.chainsService.getModularChainInfoOrThrow(
+                    chainInfo.chainId
+                  )
+                );
 
                 const hexAddress =
                   KeyRingService.getAddressHexStringFromKeyInfo(
@@ -2139,13 +2188,5 @@ export class KeyRingService {
     ) {
       throw new Error("Invalid address index in hd path");
     }
-  }
-
-  static isEthermintLike(chainInfo: ChainInfo): boolean {
-    return (
-      chainInfo.bip44.coinType === 60 ||
-      !!chainInfo.features?.includes("eth-address-gen") ||
-      !!chainInfo.features?.includes("eth-key-sign")
-    );
   }
 }

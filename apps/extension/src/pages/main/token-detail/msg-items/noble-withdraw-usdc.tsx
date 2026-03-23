@@ -15,7 +15,7 @@ export const MsgRelationNobleWithdrawUsdc: FunctionComponent<{
   isInAllActivitiesPage: boolean | undefined;
 }> = observer(({ msg, prices, targetDenom, isInAllActivitiesPage }) => {
   const { chainStore } = useStore();
-  const chainInfo = chainStore.getChain(msg.chainId);
+  const modularChainInfo = chainStore.getModularChain(msg.chainId);
 
   const tokenIn = (() => {
     const tokensIn = msg.meta["tokensIn"];
@@ -41,7 +41,9 @@ export const MsgRelationNobleWithdrawUsdc: FunctionComponent<{
     return undefined;
   })();
 
-  const sourceCurrency = chainInfo.forceFindCurrency(tokenIn?.denom ?? "");
+  const sourceCurrency = modularChainInfo.forceFindCurrency(
+    tokenIn?.denom ?? ""
+  );
 
   const tokenAmountPretty = (() => {
     if (tokenIn?.denom !== targetDenom) {
@@ -62,13 +64,13 @@ export const MsgRelationNobleWithdrawUsdc: FunctionComponent<{
       chainId={msg.chainId}
       title="USDN → USDC (Earn)"
       paragraph={(() => {
-        if (chainInfo) {
+        if (modularChainInfo) {
           if (tokenOut) {
             const denom = new CoinPretty(
-              chainInfo.forceFindCurrency(tokenOut?.denom ?? ""),
+              modularChainInfo.forceFindCurrency(tokenOut?.denom ?? ""),
               tokenOut?.amount
             ).denom;
-            return `To ${denom} on ${chainInfo.chainName}`;
+            return `To ${denom} on ${modularChainInfo.chainName}`;
           }
         }
         return "Unknown";

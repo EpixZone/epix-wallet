@@ -128,11 +128,15 @@ export const TokenFoundModal: FunctionComponent<{
 
       if (!tokenScan) continue;
 
-      if ("cosmos" in modularChainInfo) {
+      if (
+        modularChainInfo.type === "cosmos" ||
+        modularChainInfo.type === "ethermint" ||
+        modularChainInfo.type === "evm"
+      ) {
         if (
           keyRingStore.needKeyCoinTypeFinalize(
             keyRingStore.selectedKeyInfo.id,
-            chainStore.getChain(enable)
+            enable
           )
         ) {
           if (tokenScan.infos.length > 1) {
@@ -151,11 +155,11 @@ export const TokenFoundModal: FunctionComponent<{
             );
           }
         }
-      } else if ("starknet" in modularChainInfo) {
+      } else if (modularChainInfo.type === "starknet") {
         if (tokenScan.infos.length > 1) {
           enables.splice(enables.indexOf(enable), 1);
         }
-      } else if ("bitcoin" in modularChainInfo) {
+      } else if (modularChainInfo.type === "bitcoin") {
         // 비트코인은 최대 2개의 info (taproot, native segwit)만 가질 수 있다.
         if (tokenScan.infos.length > 2) {
           enables.splice(enables.indexOf(enable), 1);
@@ -167,13 +171,12 @@ export const TokenFoundModal: FunctionComponent<{
           const groupedModularChainInfo =
             chainStore.groupedModularChainInfos.find(
               (group) =>
-                "linkedChainKey" in group &&
-                group.linkedChainKey === linkedChainKey
+                group.modularChainInfo.linkedChainKey === linkedChainKey
             );
 
           if (groupedModularChainInfo?.linkedModularChainInfos) {
             const chainIdsToAdd = new Set([
-              groupedModularChainInfo.chainId,
+              groupedModularChainInfo.modularChainInfo.chainId,
               ...groupedModularChainInfo.linkedModularChainInfos.map(
                 (info) => info.chainId
               ),
@@ -440,11 +443,7 @@ const FoundChainView: FunctionComponent<{
         <Columns sum={1} gutter="0.5rem" alignY="center">
           <Box width="2.25rem" height="2.25rem" position="relative">
             <ChainImageFallback
-              chainInfo={
-                chainStore.hasChain(tokenScan.chainId)
-                  ? chainStore.getChain(tokenScan.chainId)
-                  : chainStore.getModularChain(tokenScan.chainId)
-              }
+              chainInfo={chainStore.getModularChain(tokenScan.chainId)}
               size="2rem"
               alt="Token Found Modal Chain Image"
             />
@@ -472,12 +471,7 @@ const FoundChainView: FunctionComponent<{
           <Stack gutter="0.25rem">
             <XAxis alignY="center">
               <Subtitle3>
-                {
-                  (chainStore.hasChain(tokenScan.chainId)
-                    ? chainStore.getChain(tokenScan.chainId)
-                    : chainStore.getModularChain(tokenScan.chainId)
-                  ).chainName
-                }
+                {chainStore.getModularChain(tokenScan.chainId).chainName}
               </Subtitle3>
               {emphasizeTokenScan && (
                 <Box
@@ -572,9 +566,7 @@ const FoundTokenView: FunctionComponent<{
 
   const tokenTag = useTokenTag({
     token: new CoinPretty(asset.currency, asset.amount),
-    chainInfo: chainStore.hasChain(chainId)
-      ? chainStore.getChain(chainId)
-      : chainStore.getModularChain(chainId),
+    chainInfo: chainStore.getModularChain(chainId),
     isFetching: false,
     error: undefined,
   });
@@ -583,11 +575,7 @@ const FoundTokenView: FunctionComponent<{
     <Columns sum={1} gutter="0.5rem" alignY="center">
       <Box width="1.5rem" height="1.5rem">
         <CurrencyImageFallback
-          chainInfo={
-            chainStore.hasChain(chainId)
-              ? chainStore.getChain(chainId)
-              : chainStore.getModularChain(chainId)
-          }
+          chainInfo={chainStore.getModularChain(chainId)}
           currency={asset.currency}
           size="1.5rem"
           alt="Token Found Modal Token Image"
@@ -609,40 +597,9 @@ const FoundTokenView: FunctionComponent<{
             }
           >
             {(() => {
-              const coinDenom = (() => {
-                if (chainStore.hasChain(chainId)) {
-                  return chainStore
-                    .getChain(chainId)
-                    .forceFindCurrency(asset.currency.coinMinimalDenom)
-                    .coinDenom;
-                } else {
-                  const modularChainInfo = chainStore.getModularChain(chainId);
-                  const isBitcoin = "bitcoin" in modularChainInfo;
-                  const isStarknet = "starknet" in modularChainInfo;
-                  const isCosmos = "cosmos" in modularChainInfo;
-
-                  if (isBitcoin || isStarknet || isCosmos) {
-                    return (
-                      chainStore
-                        .getModularChainInfoImpl(chainId)
-                        .getCurrencies(
-                          isBitcoin
-                            ? "bitcoin"
-                            : isStarknet
-                            ? "starknet"
-                            : "cosmos"
-                        )
-                        .find(
-                          (cur) =>
-                            cur.coinMinimalDenom ===
-                            asset.currency.coinMinimalDenom
-                        )?.coinDenom ?? asset.currency.coinDenom
-                    );
-                  } else {
-                    return asset.currency.coinDenom;
-                  }
-                }
-              })();
+              const coinDenom = chainStore
+                .getModularChain(chainId)
+                .forceFindCurrency(asset.currency.coinMinimalDenom).coinDenom;
 
               if (
                 asset.currency.coinMinimalDenom.startsWith("ibc/") &&
@@ -684,34 +641,9 @@ const FoundTokenView: FunctionComponent<{
         }
       >
         {(() => {
-          const currency = (() => {
-            if (chainStore.hasChain(chainId)) {
-              return chainStore
-                .getChain(chainId)
-                .forceFindCurrency(asset.currency.coinMinimalDenom);
-            } else {
-              const modularChainInfo = chainStore.getModularChain(chainId);
-              const isBitcoin = "bitcoin" in modularChainInfo;
-              const isStarknet = "starknet" in modularChainInfo;
-              const isCosmos = "cosmos" in modularChainInfo;
-
-              if (isBitcoin || isStarknet || isCosmos) {
-                return (
-                  chainStore
-                    .getModularChainInfoImpl(chainId)
-                    .getCurrencies(
-                      isBitcoin ? "bitcoin" : isStarknet ? "starknet" : "cosmos"
-                    )
-                    .find(
-                      (cur) =>
-                        cur.coinMinimalDenom === asset.currency.coinMinimalDenom
-                    ) ?? asset.currency
-                );
-              } else {
-                return asset.currency;
-              }
-            }
-          })();
+          const currency = chainStore
+            .getModularChain(chainId)
+            .forceFindCurrency(asset.currency.coinMinimalDenom);
           return uiConfigStore.hideStringIfPrivacyMode(
             new CoinPretty(currency, asset.amount)
               .shrink(true)

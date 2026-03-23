@@ -83,7 +83,9 @@ const SendMessagePretty: FunctionComponent<{
 }> = observer(({ chainId, amount, toAddress }) => {
   const { chainStore } = useStore();
   const coins = amount.map((coin) => {
-    const currency = chainStore.getChain(chainId).forceFindCurrency(coin.denom);
+    const currency = chainStore
+      .getModularChain(chainId)
+      .forceFindCurrency(coin.denom);
 
     return new CoinPretty(currency, coin.amount);
   });
