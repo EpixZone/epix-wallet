@@ -25,6 +25,7 @@ export const CurrencySchema = Joi.object<
   coinDecimals: Joi.number().strict().integer().min(0).max(18).required(),
   coinGeckoId: Joi.string(),
   coinImageUrl: Joi.string().uri(),
+  nonTransferable: Joi.boolean(),
 }).keys({
   type: Joi.forbidden(),
 });

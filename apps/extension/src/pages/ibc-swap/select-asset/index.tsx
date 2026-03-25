@@ -227,6 +227,11 @@ class IBCSwapDestinationState {
           return false;
         }
 
+        const c = token.token.currency;
+        if (c.nonTransferable) {
+          return false;
+        }
+
         return this.swapHelper.isSwapDestinationOrAlternatives(
           sourceChainId,
           sourceDenom,

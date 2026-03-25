@@ -94,7 +94,14 @@ export const SendSelectAssetPage: FunctionComponent = observer(() => {
     });
   }, [tokens]);
 
-  const searchedTokens = useSearch(nonZeroTokens, search, searchFields);
+  const transferableTokens = useMemo(() => {
+    return nonZeroTokens.filter((token) => {
+      const c = token.token.currency;
+      return !c.nonTransferable;
+    });
+  }, [nonZeroTokens]);
+
+  const searchedTokens = useSearch(transferableTokens, search, searchFields);
 
   const _filteredTokens = useMemo(() => {
     if (paramIsIBCTransfer) {

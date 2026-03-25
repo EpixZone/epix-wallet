@@ -113,6 +113,7 @@ export const TokenDetailModal: FunctionComponent<{
   })();
 
   const isIBCCurrency = "paths" in currency;
+  const isNonTransferable = !!currency.nonTransferable;
 
   const [isReceiveOpen, setIsReceiveOpen] = React.useState(false);
   const [isOpenBuy, setIsOpenBuy] = React.useState(false);
@@ -257,7 +258,7 @@ export const TokenDetailModal: FunctionComponent<{
       onClick: () => {
         setIsReceiveOpen(true);
       },
-      disabled: isIBCCurrency,
+      disabled: isIBCCurrency || isNonTransferable,
     },
     {
       icon: (
@@ -285,10 +286,12 @@ export const TokenDetailModal: FunctionComponent<{
           }&outCoinMinimalDenom=uusdc&entryPoint=token_detail`
         );
       },
-      disabled: !swapQueriesStore.querySwapHelper.isSwappableCurrency(
-        chainId,
-        currency
-      ),
+      disabled:
+        isNonTransferable ||
+        !swapQueriesStore.querySwapHelper.isSwappableCurrency(
+          chainId,
+          currency
+        ),
     },
     {
       icon: (
@@ -329,6 +332,7 @@ export const TokenDetailModal: FunctionComponent<{
           );
         }
       },
+      disabled: isNonTransferable,
     },
   ];
 

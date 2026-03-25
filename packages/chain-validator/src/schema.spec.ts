@@ -105,6 +105,27 @@ describe("Test chain info schema", () => {
       await CurrencySchema.validateAsync(currency);
     }, "Should throw error if coin image url is not url");
 
+    await assert.doesNotReject(async () => {
+      const currency: Currency = {
+        coinDenom: "TEST",
+        coinMinimalDenom: "utest",
+        coinDecimals: 6,
+        nonTransferable: true,
+      };
+
+      await CurrencySchema.validateAsync(currency);
+    });
+
+    await assert.doesNotReject(async () => {
+      const currency: Currency = {
+        coinDenom: "TEST",
+        coinMinimalDenom: "utest",
+        coinDecimals: 6,
+      };
+
+      await CurrencySchema.validateAsync(currency);
+    });
+
     await assert.rejects(async () => {
       // @ts-ignore
       const currency: Currency = {

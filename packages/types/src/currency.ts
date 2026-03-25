@@ -11,6 +11,10 @@ export interface Currency {
    */
   readonly coinGeckoId?: string;
   readonly coinImageUrl?: string;
+  /**
+   * If true, this currency cannot be transferred on-chain.
+   */
+  readonly nonTransferable?: boolean;
 }
 
 /**
