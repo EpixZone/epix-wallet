@@ -261,8 +261,14 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
       }
 
       if (inChainType === "evm") {
-        // EVM 트랜잭션의 gas estimated는 보낼 토큰 수량에 따라 차이가 꽤 클 수 있다.
-        type = `${type}/${swapConfigs.amountConfig.amount[0].toCoin().amount}`;
+        // max 모드에서 amountConfig.amount를 cache key에 사용하면
+        // fee→amount→key 변경→re-simulation→fee 변경 무한루프 발생.
+        // rawBalance는 fee에 의존하지 않으므로 key가 안정된다.
+        const amountForKey =
+          swapConfigs.amountConfig.fraction > 0
+            ? swapConfigs.amountConfig.rawBalance.toCoin().amount
+            : swapConfigs.amountConfig.amount[0].toCoin().amount;
+        type = `${type}/${amountForKey}`;
       }
 
       return `${swapConfigs.amountConfig.chainId}/${swapConfigs.amountConfig.outChainId}/${swapConfigs.amountConfig.currency.coinMinimalDenom}/${swapConfigs.amountConfig.outCurrency.coinMinimalDenom}/${type}`;
