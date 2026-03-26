@@ -19,7 +19,8 @@
     "lint-fix": "npx eslint --fix \"src/**/*\" && npx prettier --write \"src/**/*.{ts,tsx}\"",
     "typecheck": "npx tsc -p tsconfig.check.json",
     "storybook": "npx storybook dev -p 6007",
-    "build-storybook": "npx storybook build -o storybook-static"
+    "build-storybook": "npx storybook build -o storybook-static",
+    "sync:tokens": "node scripts/sync-tokens/sync-all.mjs"
   },
   "devDependencies": {
     "@storybook/react": "^10.3.3",
