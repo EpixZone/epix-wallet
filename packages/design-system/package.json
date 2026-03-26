@@ -1,6 +1,6 @@
 {
   "name": "@keplr-wallet/design-system",
-  "version": "0.13.14",
+  "version": "0.13.16",
   "main": "build/index.js",
   "author": "chainapsis",
   "license": "Apache-2.0",
@@ -13,24 +13,22 @@
   },
   "scripts": {
     "clean": "rm -rf node_modules; rm -rf build",
-    "build": "npx tsc",
+    "build": "npx tsc -p tsconfig.build.json",
     "dev": "npx tsc -w",
     "test": "npx jest --passWithNoTests",
-    "lint-test": "npx eslint \"src/**/*\" && npx prettier --check \"src/**/*\"",
-    "lint-fix": "npx eslint --fix \"src/**/*\" && npx prettier --write \"src/**/*\"",
+    "lint-test": "npx eslint \"src/**/*\" && npx prettier --check \"src/**/*.{ts,tsx}\"",
+    "lint-fix": "npx eslint --fix \"src/**/*\" && npx prettier --write \"src/**/*.{ts,tsx}\"",
     "typecheck": "npx tsc -p tsconfig.check.json",
     "storybook": "npx storybook dev -p 6007",
     "build-storybook": "npx storybook build -o storybook-static"
   },
   "devDependencies": {
-    "@storybook/addon-essentials": "^8.6.14",
-    "@storybook/addon-interactions": "^8.6.14",
-    "@storybook/addon-links": "^8.6.14",
-    "@storybook/react": "^8.6.14",
-    "@storybook/react-vite": "^8.6.14",
+    "@storybook/react": "^10.3.3",
+    "@storybook/react-vite": "^10.3.3",
     "@types/styled-components": "^5.1.26",
-    "storybook": "^8.6.14",
-    "vite": "^6.3.5"
+    "storybook": "^10.3.3",
+    "styled-components": "^5.3.11",
+    "vite": "^8.0.3"
   },
   "peerDependencies": {
     "react": ">=18",
