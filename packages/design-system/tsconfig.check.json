@@ -24,6 +24,8 @@
       "@keplr-wallet/hooks/build/*": ["../hooks/src/*"],
       "@keplr-wallet/hooks-bitcoin": ["../hooks-bitcoin/src"],
       "@keplr-wallet/hooks-bitcoin/build/*": ["../hooks-bitcoin/src/*"],
+      "@keplr-wallet/hooks-evm": ["../hooks-evm/src"],
+      "@keplr-wallet/hooks-evm/build/*": ["../hooks-evm/src/*"],
       "@keplr-wallet/hooks-starknet": ["../hooks-starknet/src"],
       "@keplr-wallet/hooks-starknet/build/*": ["../hooks-starknet/src/*"],
       "@keplr-wallet/ledger-cosmos": ["../ledger-cosmos/src"],
