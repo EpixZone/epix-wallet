@@ -1,37 +1,8 @@
 import React from "react";
-import styled from "styled-components";
 import { dsTypographyTokens } from "./typography-tokens";
 import type { DSTypographyTokensKey } from "./typography-tokens";
 
 type Weight = "semibold" | "medium" | "regular";
-
-export interface DSTypographyProps extends React.HTMLAttributes<HTMLElement> {
-  /** Typography size — e.g. "textMd", "displayLg" */
-  size?: DSTypographyTokensKey;
-  /** Font weight */
-  weight?: Weight;
-  /** Override font size (px) */
-  fontSize?: number;
-  /** Color — DSColor.typography.primary, DSColor.blue400, or any CSS color */
-  color?: string;
-  /** Render as different HTML element */
-  as?: React.ElementType;
-}
-
-const Styled = styled.span<{
-  $fontSize?: number;
-  $lineHeight?: number;
-  $letterSpacing?: number;
-  $fontWeight?: number;
-  $color?: string;
-}>`
-  ${({ $fontSize }) => $fontSize != null && `font-size: ${$fontSize}px;`}
-  ${({ $lineHeight }) => $lineHeight != null && `line-height: ${$lineHeight};`}
-  ${({ $letterSpacing }) =>
-    $letterSpacing != null && `letter-spacing: ${$letterSpacing}px;`}
-  ${({ $fontWeight }) => $fontWeight != null && `font-weight: ${$fontWeight};`}
-  ${({ $color }) => $color != null && `color: ${$color};`}
-`;
 
 const WEIGHT_VALUE: Record<Weight, number> = {
   semibold: 600,
@@ -39,21 +10,20 @@ const WEIGHT_VALUE: Record<Weight, number> = {
   regular: 400,
 };
 
-/**
- * Design System Typography component.
- *
- * @example
- * <DSTypography size="textMd" weight="semibold" color={DSColor.typography.primary}>
- *   Hello
- * </DSTypography>
- *
- * <DSTypography size="displayLg" weight="medium" as="h1" color={DSColor.blue400}>
- *   Title
- * </DSTypography>
- *
- * // Override fontSize
- * <DSTypography size="textMd" fontSize={20}>Custom size</DSTypography>
- */
+export interface DSTypographyProps extends React.HTMLAttributes<HTMLElement> {
+  /** Size token: `displayXl` · `displayLg` · `displayMd` · `displaySm` · `displayXs` · `displayXxs` · `textXl` · `textLg` · `textMd` · `textSm` · `textXs` · `textXxs` */
+  size?: DSTypographyTokensKey;
+  /** Font weight: `semibold` (600) · `medium` (500) · `regular` (400) */
+  weight?: Weight;
+  /** Override token font size (px) */
+  fontSize?: number;
+  /** Text color — `DSColor.typography.primary`, `DSColor.blue400`, or any CSS color */
+  color?: string;
+  /** HTML element to render as — `"span"`, `"p"`, `"h1"`, `"div"`, `"label"`, etc. */
+  as?: React.ElementType;
+}
+
+/** Design System Typography component. */
 export const DSTypography = React.forwardRef<HTMLElement, DSTypographyProps>(
   (
     {
@@ -62,6 +32,7 @@ export const DSTypography = React.forwardRef<HTMLElement, DSTypographyProps>(
       fontSize: fontSizeOverride,
       color,
       as: Component = "span",
+      style,
       ...rest
     },
     ref
@@ -69,14 +40,16 @@ export const DSTypography = React.forwardRef<HTMLElement, DSTypographyProps>(
     const token = dsTypographyTokens[size];
 
     return (
-      <Styled
+      <Component
         ref={ref}
-        as={Component}
-        $fontSize={fontSizeOverride ?? token?.fontSize}
-        $lineHeight={token?.lineHeight}
-        $letterSpacing={token?.letterSpacing}
-        $fontWeight={WEIGHT_VALUE[weight]}
-        $color={color}
+        style={{
+          fontSize: fontSizeOverride ?? token?.fontSize,
+          lineHeight: token?.lineHeight,
+          letterSpacing: token?.letterSpacing,
+          fontWeight: WEIGHT_VALUE[weight],
+          color,
+          ...style,
+        }}
         {...rest}
       />
     );
