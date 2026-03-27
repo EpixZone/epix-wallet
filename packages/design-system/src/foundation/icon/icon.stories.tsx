@@ -10,7 +10,7 @@ const iconEntries = Object.entries(Icons).filter(
 ) as Array<[string, React.FC<Icons.DSIconProps>]>;
 
 const meta = {
-  title: "Icon",
+  title: "Foundations/Icon",
 } satisfies Meta;
 
 export default meta;
@@ -29,20 +29,24 @@ export const Icon: StoryObj = {
       <div>
         <h1
           style={{
-            fontSize: 32,
+            fontFamily: font,
+            fontSize: 28,
             fontWeight: 600,
             color: DSColor.typography.primary,
-            margin: "0 0 6px",
+            margin: "0 0 8px",
+            lineHeight: 1.4,
           }}
         >
           Icon
         </h1>
         <p
           style={{
-            fontSize: 17,
+            fontFamily: font,
+            fontSize: 16,
             color: DSColor.typography.primary,
             opacity: 0.7,
             margin: 0,
+            lineHeight: 1.6,
           }}
         >
           {iconEntries.length} icons synced from Figma. All icons accept{" "}

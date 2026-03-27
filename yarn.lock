@@ -6623,6 +6623,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@keplr-wallet/design-system@workspace:packages/design-system"
   dependencies:
+    "@storybook/addon-docs": ^10.3.3
+    "@storybook/addon-themes": ^10.3.3
     "@storybook/react": ^10.3.3
     "@storybook/react-vite": ^10.3.3
     "@types/styled-components": ^5.1.26
@@ -7829,6 +7831,18 @@ __metadata:
   peerDependencies:
     react: ">=16"
   checksum: f45fe779556e6cd9a787f711274480e0638b63c460f192ebdcd77cc07ffa61e23c98cb46dd46e577093e1cb4997a232a848d1fb0ba850ae204422cf603add524
+  languageName: node
+  linkType: hard
+
+"@mdx-js/react@npm:^3.0.0":
+  version: 3.1.1
+  resolution: "@mdx-js/react@npm:3.1.1"
+  dependencies:
+    "@types/mdx": ^2.0.0
+  peerDependencies:
+    "@types/react": ">=16"
+    react: ">=16"
+  checksum: 7e1742c530dd4b5b586f9ccbc8451062b9a1b4c3c8dd00537aa910b34c7404e4120d50dbd0a19f1697ae8e600d9e5848e29fad846d2975b7c5c7d8d2bd798c83
   languageName: node
   linkType: hard
 
@@ -10341,6 +10355,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@storybook/addon-docs@npm:^10.3.3":
+  version: 10.3.3
+  resolution: "@storybook/addon-docs@npm:10.3.3"
+  dependencies:
+    "@mdx-js/react": ^3.0.0
+    "@storybook/csf-plugin": 10.3.3
+    "@storybook/icons": ^2.0.1
+    "@storybook/react-dom-shim": 10.3.3
+    react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    ts-dedent: ^2.0.0
+  peerDependencies:
+    storybook: ^10.3.3
+  checksum: cdd1dd3e68c6312a549287a024b46424178efd8852f459db1bf2ab68683be9897e77c9bb6a22cd8a0adfa45f4507f6647093d985bdd9891d95d8719648cb3e35
+  languageName: node
+  linkType: hard
+
 "@storybook/addon-essentials@npm:^7.6.18":
   version: 7.6.18
   resolution: "@storybook/addon-essentials@npm:7.6.18"
@@ -10421,6 +10452,17 @@ __metadata:
     "@storybook/global": ^5.0.0
     ts-dedent: ^2.0.0
   checksum: baebeec53422b4e03d74f7ae626051c449157471a49021cc4b14514b98e12bc93bba418421d03fcc6fed665f586af84f095d2518329774db667a92a6a3d3155a
+  languageName: node
+  linkType: hard
+
+"@storybook/addon-themes@npm:^10.3.3":
+  version: 10.3.3
+  resolution: "@storybook/addon-themes@npm:10.3.3"
+  dependencies:
+    ts-dedent: ^2.0.0
+  peerDependencies:
+    storybook: ^10.3.3
+  checksum: 1a54cbb4bb38687fe62ac2f224faeb409a6487b56132e656068c8f57f3754f85703e54d7251917d8bcc5a377014c45dbb1940a345de86ec975fd222c3c6804f7
   languageName: node
   linkType: hard
 
@@ -29911,6 +29953,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-dom@npm:^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0":
+  version: 19.2.4
+  resolution: "react-dom@npm:19.2.4"
+  dependencies:
+    scheduler: ^0.27.0
+  peerDependencies:
+    react: ^19.2.4
+  checksum: 2650391005468c228616d54431682e190068bfc2e68b9bf33582df637c4b60bfd9925bb6b4bfada2679a6a974d0e756c1db4a656c502e654d77b8a6b6ad162ea
+  languageName: node
+  linkType: hard
+
 "react-element-to-jsx-string@npm:^15.0.0":
   version: 15.0.0
   resolution: "react-element-to-jsx-string@npm:15.0.0"
@@ -30086,6 +30139,13 @@ __metadata:
   dependencies:
     loose-envify: ^1.1.0
   checksum: a27bcfa8ff7c15a1e50244ad0d0c1cb2ad4375eeffefd266a64889beea6f6b64c4966c9b37d14ee32d6c9fcd5aa6ba183b6988167ab4d127d13e7cb5b386a376
+  languageName: node
+  linkType: hard
+
+"react@npm:^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0":
+  version: 19.2.4
+  resolution: "react@npm:19.2.4"
+  checksum: edf2b96619fab3a8b11714f16a0994a92c6b473aecf3269b63e4fa317d3073d40513c1f19cf4415ebbad94d35b48ff76ad768480db663037e2d929e8d60596b8
   languageName: node
   linkType: hard
 
@@ -32064,6 +32124,13 @@ __metadata:
   dependencies:
     loose-envify: ^1.1.0
   checksum: 3e82d1f419e240ef6219d794ff29c7ee415fbdc19e038f680a10c067108e06284f1847450a210b29bbaf97b9d8a97ced5f624c31c681248ac84c80d56ad5a2c4
+  languageName: node
+  linkType: hard
+
+"scheduler@npm:^0.27.0":
+  version: 0.27.0
+  resolution: "scheduler@npm:0.27.0"
+  checksum: 92644ead0a9443e20f9d24132fe93675b156209b9eeb35ea245f8a86768d0cc0fcca56f341eeef21d9b6dd8e72d6d5e260eb5a41d34b05cd605dd45a29f572ef
   languageName: node
   linkType: hard
 

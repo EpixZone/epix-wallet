@@ -214,7 +214,7 @@ function SemanticSwatch({ name, value }: { name: string; value: string }) {
 }
 
 const meta = {
-  title: "Color",
+  title: "Foundations/Color",
 } satisfies Meta;
 
 export default meta;
@@ -228,17 +228,16 @@ export const Color: StoryObj = {
         display: "flex",
         flexDirection: "column",
         gap: 40,
-        maxWidth: 960,
       }}
     >
       <div>
         <h1
           style={{
             fontFamily: font,
-            fontSize: 32,
+            fontSize: 28,
             fontWeight: 600,
             color: DSColor.typography.primary,
-            margin: "0 0 6px",
+            margin: "0 0 8px",
             lineHeight: 1.4,
           }}
         >
@@ -247,8 +246,9 @@ export const Color: StoryObj = {
         <p
           style={{
             fontFamily: font,
-            fontSize: 17,
+            fontSize: 16,
             color: DSColor.typography.primary,
+            opacity: 0.7,
             margin: 0,
             lineHeight: 1.6,
           }}
@@ -262,10 +262,10 @@ export const Color: StoryObj = {
         <h2
           style={{
             fontFamily: font,
-            fontSize: 22,
+            fontSize: 20,
             fontWeight: 600,
             color: DSColor.typography.primary,
-            margin: 0,
+            margin: "0 0 16px",
           }}
         >
           Primitives
@@ -275,7 +275,7 @@ export const Color: StoryObj = {
             <h3
               style={{
                 fontFamily: font,
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: 600,
                 color: DSColor.typography.primary,
                 textTransform: "uppercase" as const,
@@ -312,10 +312,10 @@ export const Color: StoryObj = {
         <h2
           style={{
             fontFamily: font,
-            fontSize: 22,
+            fontSize: 20,
             fontWeight: 600,
             color: DSColor.typography.primary,
-            margin: 0,
+            margin: "0 0 16px",
           }}
         >
           Semantic
@@ -325,7 +325,7 @@ export const Color: StoryObj = {
             <h3
               style={{
                 fontFamily: font,
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: 600,
                 color: DSColor.typography.primary,
                 textTransform: "uppercase" as const,

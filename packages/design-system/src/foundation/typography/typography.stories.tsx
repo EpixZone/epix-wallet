@@ -1,4 +1,11 @@
+import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
+import {
+  Title,
+  Description,
+  Primary,
+  Controls,
+} from "@storybook/addon-docs/blocks";
 import { DSTypography } from "./typography";
 import { DSColor } from "../color";
 import { dsTypographyTokens } from "./typography-tokens";
@@ -126,13 +133,78 @@ function TokenRow({ sizeKey }: { sizeKey: DSTypographyTokensKey }) {
 }
 
 const meta = {
-  title: "Typography",
-} satisfies Meta;
+  title: "Foundations/Typography",
+  component: DSTypography,
+  tags: ["autodocs"],
+  parameters: {
+    docs: {
+      page: () => (
+        <React.Fragment>
+          <Title />
+          <Description />
+          <Primary />
+          <h2 style={{ fontWeight: 600, marginTop: 32, marginBottom: 16 }}>
+            Props
+          </h2>
+          <Controls />
+        </React.Fragment>
+      ),
+    },
+  },
+  argTypes: {
+    size: {
+      control: "select",
+      options: Object.keys(dsTypographyTokens) as DSTypographyTokensKey[],
+      description: "Typography size token",
+    },
+    weight: {
+      control: "select",
+      options: ["semibold", "medium", "regular"],
+      description: "Font weight",
+    },
+    fontSize: {
+      control: "number",
+      description: "Override font size (px)",
+    },
+    color: {
+      control: "color",
+      description: "Text color — DSColor token or any CSS color",
+    },
+    as: {
+      control: "select",
+      options: ["span", "p", "h1", "h2", "h3", "h4", "div", "label"],
+      description: "HTML element to render as",
+    },
+  },
+} satisfies Meta<typeof DSTypography>;
 
 export default meta;
+type Story = StoryObj<typeof meta>;
 
-export const Typography: StoryObj = {
-  name: "Typography",
+/** @internal Docs preview — hidden from sidebar */
+export const _DocsPreview: Story = {
+  tags: ["!dev"],
+  parameters: {
+    docs: {
+      story: { inline: true },
+      canvas: { withToolbar: false, sourceState: "shown" },
+      source: {
+        code: `<DSTypography size="textMd" weight="medium" color={DSColor.typography.primary}>
+  The quick brown fox jumps over the lazy dog
+</DSTypography>`,
+      },
+    },
+  },
+  args: {
+    size: "textMd",
+    weight: "medium",
+    color: DSColor.typography.primary,
+    children: "The quick brown fox jumps over the lazy dog",
+  },
+};
+
+/** Full showcase of all typography tokens */
+export const Showcase: Story = {
   render: () => (
     <div
       style={{
@@ -146,10 +218,10 @@ export const Typography: StoryObj = {
         <h1
           style={{
             fontFamily: font,
-            fontSize: 32,
+            fontSize: 28,
             fontWeight: 600,
             color: DSColor.typography.primary,
-            margin: "0 0 6px",
+            margin: "0 0 8px",
             lineHeight: 1.4,
           }}
         >
@@ -158,7 +230,7 @@ export const Typography: StoryObj = {
         <p
           style={{
             fontFamily: font,
-            fontSize: 17,
+            fontSize: 16,
             color: DSColor.typography.primary,
             opacity: 0.7,
             margin: 0,
@@ -173,7 +245,7 @@ export const Typography: StoryObj = {
         <h2
           style={{
             fontFamily: font,
-            fontSize: 22,
+            fontSize: 20,
             fontWeight: 600,
             color: DSColor.typography.primary,
             margin: "0 0 8px",
@@ -198,7 +270,7 @@ export const Typography: StoryObj = {
         <h2
           style={{
             fontFamily: font,
-            fontSize: 22,
+            fontSize: 20,
             fontWeight: 600,
             color: DSColor.typography.primary,
             margin: "0 0 16px",
@@ -249,4 +321,14 @@ export const Typography: StoryObj = {
       </section>
     </div>
   ),
+};
+
+/** Interactive playground — use Controls to change props */
+export const Playground: Story = {
+  args: {
+    size: "textMd",
+    weight: "medium",
+    color: DSColor.typography.primary,
+    children: "The quick brown fox jumps over the lazy dog",
+  },
 };

@@ -6,6 +6,15 @@ import { DSColor } from "../src/foundation/color";
 const preview: Preview = {
   parameters: {
     layout: "fullscreen",
+    options: {
+      storySort: {
+        order: [
+          "Foundations",
+          ["Color", "Icon", "Typography", ["Docs", "Showcase", "Playground"]],
+          "Components",
+        ],
+      },
+    },
   },
   initialGlobals: {
     theme: "light",
@@ -13,14 +22,15 @@ const preview: Preview = {
   decorators: [
     (Story, context) => {
       const theme = (context.globals["theme"] as "dark" | "light") || "light";
+      const isDocs = context.viewMode === "docs";
       return (
         <DSThemeProvider defaultTheme={theme}>
           <div
             style={{
               backgroundColor: DSColor.background.surface.ground,
               color: DSColor.typography.primary,
-              padding: 40,
-              minHeight: "100vh",
+              padding: isDocs ? 16 : 40,
+              minHeight: isDocs ? undefined : "100vh",
               fontFamily: "Inter, sans-serif",
             }}
           >
