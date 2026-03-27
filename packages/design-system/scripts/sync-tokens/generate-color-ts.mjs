@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Figma Variables JSON → color.ts 생성 (단일 파일: DSColor + theme values)
-// 입력: /tmp/figma-vars.json (figma-extract-vars.mjs 실행 후 생성됨)
+// Figma Variables JSON → generate color.ts (single file: DSColor + theme values)
+// Input: /tmp/figma-vars.json (generated after running figma-extract-vars.mjs)
 
 import fs from "fs";
 import os from "os";
@@ -17,12 +17,12 @@ const figmaData = JSON.parse(fs.readFileSync(inputPath, "utf8"));
 
 if (!figmaData.primitive || Object.keys(figmaData.primitive).length === 0) {
   console.error(
-    "Error: figma-vars.json에 primitive 색상이 없습니다. figma-use eval이 실패했을 수 있습니다."
+    "Error: No primitive colors in figma-vars.json. figma-use eval may have failed."
   );
   process.exit(1);
 }
 
-// ── 색상 변환 헬퍼 ─────────────────────────────────────────────────────────────
+// ── Color conversion helpers ───────────────────────────────────────────────────
 function to255(n) {
   return Math.round(n * 255);
 }
@@ -40,7 +40,7 @@ function toRgba(r, g, b, a) {
   return `rgba(${to255(r)}, ${to255(g)}, ${to255(b)}, ${alpha})`;
 }
 
-// ── Primitive 파싱 ─────────────────────────────────────────────────────────────
+// ── Primitive parsing ──────────────────────────────────────────────────────────
 function parsePrimitiveName(figmaName) {
   const [familyRaw, type, variant] = figmaName.split("/");
   if (!familyRaw || !type || !variant) return null;
@@ -98,7 +98,7 @@ const sortedSolids = Object.keys(solidColors).sort((a, b) => {
     : pa.num - pb.num;
 });
 
-// ── 역방향 맵 ─────────────────────────────────────────────────────────────────
+// ── Reverse lookup maps ────────────────────────────────────────────────────────
 const rgbToSolidName = {};
 for (const [field, rgba] of Object.entries(solidColors))
   rgbToSolidName[rgbKey(rgba.r, rgba.g, rgba.b)] = field;
@@ -341,13 +341,13 @@ if (fs.existsSync(outputPath)) {
   const removed = existingFields.filter((f) => !newFields.has(f));
   if (removed.length > 0) {
     console.error(
-      `Error: DSColor 필드 ${removed.length}개가 삭제됩니다: ${removed.join(
-        ", "
-      )}`
+      `Error: ${
+        removed.length
+      } DSColor field(s) will be deleted: ${removed.join(", ")}`
     );
-    console.error("  call-site 업데이트 후 --force 플래그로 재실행하세요.");
+    console.error("  Update call-sites first, then re-run with --force.");
     if (!process.argv.includes("--force")) process.exit(1);
-    console.warn("  --force: 강제 덮어씁니다.");
+    console.warn("  --force: Overwriting anyway.");
   }
 }
 
@@ -368,5 +368,5 @@ console.log(
 console.log(`  Semantics:  ${semCount} tokens`);
 if (droppedTokens.length > 0)
   console.warn(
-    `  ⚠ dark 모드 없어 생략된 semantic 토큰 ${droppedTokens.length}개`
+    `  ⚠ ${droppedTokens.length} semantic token(s) skipped — no dark mode value`
   );

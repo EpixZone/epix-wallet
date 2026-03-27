@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Figma Icons → React 컴포넌트 직접 생성 (SVG 파일 중간 저장 없음)
-// 필요: FIGMA_ACCESS_TOKEN 환경변수
+// Figma Icons → Generate React components directly (no intermediate SVG files)
+// Requires: FIGMA_ACCESS_TOKEN environment variable
 
 import https from "https";
 import http from "http";
@@ -77,7 +77,7 @@ function collectComponents(node, results = []) {
   return results;
 }
 
-// ── SVG → JSX 변환 ─────────────────────────────────────────────────────────
+// ── SVG → JSX conversion ────────────────────────────────────────────────────
 
 const ATTR_MAP = {
   "stroke-width": "strokeWidth",
@@ -109,7 +109,7 @@ function convertAttributes(svgContent) {
       `${jsxAttr}=`
     );
   }
-  // 하드코딩된 색상을 {color}로 교체 ("none", "currentColor" 유지)
+  // Replace hardcoded colors with {color} prop (keep "none" and "currentColor" as-is)
   result = result.replace(
     /\b(stroke|fill)="(#[0-9a-fA-F]{3,8}|rgb[^"]*|rgba[^"]*|black|white|red|blue|green)"/g,
     `$1={color}`
@@ -195,7 +195,7 @@ async function main() {
 
   console.log(`  Found ${components.length} icons in Figma`);
 
-  // 기존 컴포넌트와 비교 (additive-only)
+  // Compare against existing components (additive-only)
   const existingComponents = new Set(
     fs.existsSync(COMPONENTS_DIR)
       ? fs
@@ -216,7 +216,7 @@ async function main() {
   console.log(`  Generating ${toDownload.length} new icon component(s):`);
   toDownload.forEach(({ name }) => console.log(`    + ${name}`));
 
-  // SVG export URL 요청 (100개씩 배치)
+  // Request SVG export URLs (batched in groups of 100)
   const BATCH_SIZE = 100;
   const svgUrls = {};
   for (let i = 0; i < toDownload.length; i += BATCH_SIZE) {
@@ -228,7 +228,7 @@ async function main() {
     Object.assign(svgUrls, imgData.images || {});
   }
 
-  // SVG 다운로드 → 메모리에서 바로 React 컴포넌트 생성
+  // Download SVGs → generate React components directly in memory
   fs.mkdirSync(COMPONENTS_DIR, { recursive: true });
   let successCount = 0;
   let failCount = 0;
@@ -264,7 +264,7 @@ async function main() {
     }
   }
 
-  // barrel index.ts 재생성 (기존 + 신규 전체)
+  // Regenerate barrel index.ts (all existing + new components)
   const allComponents = fs
     .readdirSync(COMPONENTS_DIR)
     .filter((f) => f.endsWith(".tsx"))

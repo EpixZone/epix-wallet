@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Figma 텍스트 스타일 JSON → typography.ts 생성
-// 입력: /tmp/figma-typography.json (sync-typography.mjs 실행 후 생성됨)
+// Figma text style JSON → generate typography.ts
+// Input: /tmp/figma-typography.json (generated after running sync-typography.mjs)
 
 import fs from "fs";
 import os from "os";
@@ -15,19 +15,17 @@ const outputPath =
 
 if (!fs.existsSync(inputPath)) {
   console.error(
-    `Error: ${inputPath} 파일이 없습니다. sync-typography.mjs를 먼저 실행하세요.`
+    `Error: ${inputPath} not found. Run sync-typography.mjs first.`
   );
   process.exit(1);
 }
 const figmaStyles = JSON.parse(fs.readFileSync(inputPath, "utf8"));
 if (Object.keys(figmaStyles).length === 0) {
-  console.error(
-    "Error: figma-typography.json이 비어있습니다. 덮어쓰기를 중단합니다."
-  );
+  console.error("Error: figma-typography.json is empty. Aborting overwrite.");
   process.exit(1);
 }
 
-// ── 스타일 파싱 ────────────────────────────────────────────────────────────────
+// ── Style parsing ──────────────────────────────────────────────────────────────
 function sizeToDartField(sizeName) {
   // "Display xl" → "displayXl", "Text xxs" → "textXxs"
   const parts = sizeName.trim().split(/\s+/);
@@ -49,7 +47,7 @@ function isTestArtifact(sizeName) {
 }
 
 const sizeMap = {}; // tsField → { fontSize, lineHeight, letterSpacing }
-const fieldOrder = []; // Figma 등장 순서 유지
+const fieldOrder = []; // Preserve Figma appearance order
 
 for (const [styleName, style] of Object.entries(figmaStyles)) {
   const slashIdx = styleName.lastIndexOf("/");
@@ -72,7 +70,7 @@ for (const [styleName, style] of Object.entries(figmaStyles)) {
   fieldOrder.push(tsField);
 }
 
-// ── TypeScript 파일 생성 ───────────────────────────────────────────────────────
+// ── TypeScript file generation ────────────────────────────────────────────────
 const now = new Date().toISOString().slice(0, 19).replace("T", " ");
 const lines = [];
 
@@ -121,7 +119,7 @@ lines.push(
 );
 lines.push(``);
 
-// ── 기존 필드 삭제 guard ───────────────────────────────────────────────────────
+// ── Field deletion guard ───────────────────────────────────────────────────────
 const newContent = lines.join("\n");
 if (fs.existsSync(outputPath)) {
   const existingContent = fs.readFileSync(outputPath, "utf8");
@@ -134,13 +132,13 @@ if (fs.existsSync(outputPath)) {
   const removed = existingFields.filter((f) => !newFields.has(f));
   if (removed.length > 0) {
     console.error(
-      `Error: dsTypographyTokens 필드 ${
+      `Error: ${
         removed.length
-      }개가 삭제됩니다: ${removed.join(", ")}`
+      } dsTypographyTokens field(s) will be deleted: ${removed.join(", ")}`
     );
-    console.error("  call-site 업데이트 후 --force 플래그로 재실행하세요.");
+    console.error("  Update call-sites first, then re-run with --force.");
     if (!process.argv.includes("--force")) process.exit(1);
-    console.warn("  --force: 강제 덮어씁니다.");
+    console.warn("  --force: Overwriting anyway.");
   }
 }
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Figma REST API → 텍스트 스타일 가져오기 → /tmp/figma-typography.json 저장
-// 필요: FIGMA_ACCESS_TOKEN 환경변수
+// Figma REST API → Fetch text styles → save to /tmp/figma-typography.json
+// Requires: FIGMA_ACCESS_TOKEN environment variable
 
 import https from "https";
 import fs from "fs";
@@ -35,7 +35,7 @@ function apiGet(url) {
 async function main() {
   console.log("Fetching text styles from Figma...");
 
-  // 1. 텍스트 스타일 목록 조회
+  // 1. Fetch text style list
   const stylesData = await apiGet(
     `https://api.figma.com/v1/files/${FILE_KEY}/styles`
   );
@@ -49,7 +49,7 @@ async function main() {
     process.exit(1);
   }
 
-  // 2. 각 스타일 노드의 폰트 속성 조회
+  // 2. Fetch font properties for each style node
   const nodeIds = textStyles.map((style) => style.node_id).join(",");
   const nodesData = await apiGet(
     `https://api.figma.com/v1/files/${FILE_KEY}/nodes?ids=${nodeIds}`
@@ -63,7 +63,7 @@ async function main() {
     const lineHeightPct = nodeStyle.lineHeightPercentFontSize;
     if (lineHeightPct == null) {
       console.warn(
-        `  ⚠ ${style.name}: lineHeight가 AUTO/PIXELS 단위 — 기본값 1.4 적용`
+        `  ⚠ ${style.name}: lineHeight is AUTO/PIXELS unit — defaulting to 1.4`
       );
     }
     result[style.name] = {

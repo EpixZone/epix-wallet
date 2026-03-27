@@ -1,4 +1,4 @@
-// figma-use eval script — Figma Variables(Primitive + Semantic) 추출
+// figma-use eval script — Extracts Figma Variables (Primitive + Semantic)
 // Usage: figma-use eval "$(cat scripts/sync-tokens/figma-extract-vars.mjs)"
 
 const result = { primitive: {}, semantic: {} };
@@ -36,8 +36,8 @@ if (semCollection) {
     (mode) => mode.name === "Light"
   )?.modeId;
 
-  // VARIABLE_ALIAS를 재귀적으로 따라가 실제 색상값({r,g,b,a}) 반환
-  // modeId를 전달해 alias 대상 변수도 동일 모드로 resolve
+  // Recursively follow VARIABLE_ALIAS to resolve the actual color value ({r,g,b,a})
+  // Pass modeId so alias targets are also resolved in the same mode
   function resolveColor(rawValue, depth, modeId) {
     if (!rawValue || depth > 5) return null;
     if (typeof rawValue.r === "number") {
@@ -51,7 +51,7 @@ if (semCollection) {
     if (rawValue.type === "VARIABLE_ALIAS") {
       const aliasVar = figma.variables.getVariableById(rawValue.id);
       if (aliasVar) {
-        // 동일 modeId 우선, 없으면 첫 번째 모드로 fallback (primitive는 모드 1개)
+        // Prefer the same modeId; fall back to the first mode if not found (primitives have only one mode)
         const modeValue =
           aliasVar.valuesByMode[modeId] ??
           aliasVar.valuesByMode[Object.keys(aliasVar.valuesByMode)[0]];
