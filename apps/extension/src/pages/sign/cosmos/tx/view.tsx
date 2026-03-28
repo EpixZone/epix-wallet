@@ -57,6 +57,7 @@ import {
 } from "../../../../components/top-up";
 import { useTopUp } from "../../../../hooks/use-topup";
 import { StepIndicator } from "../../../../components/step-indicator";
+import { isEthSignChain } from "@keplr-wallet/types";
 
 const DelayedScrollBarSimpleBar = styled(SimpleBar)`
   .simplebar-scrollbar.simplebar-visible::before {
@@ -468,8 +469,9 @@ export const CosmosTxView: FunctionComponent<{
         } else if (interactionData.data.keyType === "keystone") {
           setIsKeystoneInteracting(true);
           setKeystoneInteractingError(undefined);
-          const isEthSigning =
-            chainStore.getModularChain(chainId).type === "ethermint";
+          const isEthSigning = isEthSignChain(
+            chainStore.getModularChain(chainId).unwrapped
+          );
           presignOptions = {
             isEthSigning,
             displayQRCode: async (ur: KeystoneUR) => {

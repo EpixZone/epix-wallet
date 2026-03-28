@@ -26,6 +26,7 @@ import { ArbitraryMsgRequestOrigin } from "../components/arbitrary-message/arbit
 import { ArbitraryMsgSignHeader } from "../components/arbitrary-message/arbitrary-message-header";
 import { ArbitraryMsgWalletDetails } from "../components/arbitrary-message/arbitrary-message-wallet-details";
 import { ArbitraryMsgDataView } from "../components/arbitrary-message/arbitrary-message-data-view";
+import { isEthSignChain } from "@keplr-wallet/types";
 
 export const SignCosmosADR36Page: FunctionComponent = observer(() => {
   const { chainStore, signInteractionStore, uiConfigStore } = useStore();
@@ -274,10 +275,11 @@ export const SignCosmosADR36Page: FunctionComponent = observer(() => {
               ) {
                 setIsKeystoneInteracting(true);
                 setKeystoneInteractingError(undefined);
-                const isEthSigning =
+                const isEthSigning = isEthSignChain(
                   chainStore.getModularChain(
                     signInteractionStore.waitingData.data.chainId
-                  ).type === "ethermint";
+                  ).unwrapped
+                );
                 presignOptions = {
                   isEthSigning,
                   displayQRCode: async (ur: KeystoneUR) => {
