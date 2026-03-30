@@ -9,11 +9,11 @@ import {
 import { DSTypography } from "./typography";
 import { DSColor } from "../color";
 import { dsTypographyTokens } from "./typography-tokens";
-import type { DSTypographyTokensKey } from "./typography-tokens";
+import type { DSTypographySize } from "./typography-tokens";
 
 const font = "Inter, -apple-system, sans-serif";
 
-const SIZES: DSTypographyTokensKey[] = [
+const SIZES: DSTypographySize[] = [
   "displayXl",
   "displayLg",
   "displayMd",
@@ -59,7 +59,7 @@ const TYPO_COLORS = [
   },
 ];
 
-function TokenRow({ sizeKey }: { sizeKey: DSTypographyTokensKey }) {
+function TokenRow({ sizeKey }: { sizeKey: DSTypographySize }) {
   const token = dsTypographyTokens[sizeKey];
   return (
     <div
@@ -154,7 +154,7 @@ const meta = {
   argTypes: {
     size: {
       control: "select",
-      options: Object.keys(dsTypographyTokens) as DSTypographyTokensKey[],
+      options: Object.keys(dsTypographyTokens) as DSTypographySize[],
       description: "Typography size token",
     },
     weight: {
