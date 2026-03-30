@@ -76,7 +76,7 @@ const lines = [];
 
 lines.push(`// GENERATED FILE — DO NOT EDIT MANUALLY`);
 lines.push(`// Last synced: ${now} UTC`);
-lines.push(`// Source: Figma "For Roy: Supernova Design System" text styles`);
+lines.push(`// Source: Figma "Supernova Design System" text styles`);
 lines.push(`// Run: yarn workspace @keplr-wallet/design-system sync:tokens`);
 lines.push(``);
 lines.push(`import type { CSSProperties } from 'react';`);
@@ -114,9 +114,7 @@ for (const tsField of fieldOrder) {
 }
 lines.push(`} as const;`);
 lines.push(``);
-lines.push(
-  `export type DSTypographyTokensKey = keyof typeof dsTypographyTokens;`
-);
+lines.push(`export type DSTypographySize = keyof typeof dsTypographyTokens;`);
 lines.push(``);
 
 // ── Field deletion guard ───────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 import React from "react";
 import { dsTypographyTokens } from "./typography-tokens";
-import type { DSTypographyTokensKey } from "./typography-tokens";
+import type { DSTypographySize } from "./typography-tokens";
 
 type Weight = "semibold" | "medium" | "regular";
 
@@ -12,7 +12,7 @@ const WEIGHT_VALUE: Record<Weight, number> = {
 
 export interface DSTypographyProps extends React.HTMLAttributes<HTMLElement> {
   /** Size token: `displayXl` · `displayLg` · `displayMd` · `displaySm` · `displayXs` · `displayXxs` · `textXl` · `textLg` · `textMd` · `textSm` · `textXs` · `textXxs` */
-  size?: DSTypographyTokensKey;
+  size?: DSTypographySize;
   /** Font weight: `semibold` (600) · `medium` (500) · `regular` (400) */
   weight?: Weight;
   /** Override token font size (px) */
