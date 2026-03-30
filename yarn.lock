@@ -6623,6 +6623,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@keplr-wallet/design-system@workspace:packages/design-system"
   dependencies:
+    "@storybook/addon-docs": ^10.3.3
+    "@storybook/addon-themes": ^10.3.3
     "@storybook/react": ^10.3.3
     "@storybook/react-vite": ^10.3.3
     "@types/styled-components": ^5.1.26
@@ -7829,6 +7831,18 @@ __metadata:
   peerDependencies:
     react: ">=16"
   checksum: f45fe779556e6cd9a787f711274480e0638b63c460f192ebdcd77cc07ffa61e23c98cb46dd46e577093e1cb4997a232a848d1fb0ba850ae204422cf603add524
+  languageName: node
+  linkType: hard
+
+"@mdx-js/react@npm:^3.0.0":
+  version: 3.1.1
+  resolution: "@mdx-js/react@npm:3.1.1"
+  dependencies:
+    "@types/mdx": ^2.0.0
+  peerDependencies:
+    "@types/react": ">=16"
+    react: ">=16"
+  checksum: 7e1742c530dd4b5b586f9ccbc8451062b9a1b4c3c8dd00537aa910b34c7404e4120d50dbd0a19f1697ae8e600d9e5848e29fad846d2975b7c5c7d8d2bd798c83
   languageName: node
   linkType: hard
 
@@ -10341,6 +10355,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@storybook/addon-docs@npm:^10.3.3":
+  version: 10.3.3
+  resolution: "@storybook/addon-docs@npm:10.3.3"
+  dependencies:
+    "@mdx-js/react": ^3.0.0
+    "@storybook/csf-plugin": 10.3.3
+    "@storybook/icons": ^2.0.1
+    "@storybook/react-dom-shim": 10.3.3
+    react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    ts-dedent: ^2.0.0
+  peerDependencies:
+    storybook: ^10.3.3
+  checksum: cdd1dd3e68c6312a549287a024b46424178efd8852f459db1bf2ab68683be9897e77c9bb6a22cd8a0adfa45f4507f6647093d985bdd9891d95d8719648cb3e35
+  languageName: node
+  linkType: hard
+
 "@storybook/addon-essentials@npm:^7.6.18":
   version: 7.6.18
   resolution: "@storybook/addon-essentials@npm:7.6.18"
@@ -10421,6 +10452,17 @@ __metadata:
     "@storybook/global": ^5.0.0
     ts-dedent: ^2.0.0
   checksum: baebeec53422b4e03d74f7ae626051c449157471a49021cc4b14514b98e12bc93bba418421d03fcc6fed665f586af84f095d2518329774db667a92a6a3d3155a
+  languageName: node
+  linkType: hard
+
+"@storybook/addon-themes@npm:^10.3.3":
+  version: 10.3.3
+  resolution: "@storybook/addon-themes@npm:10.3.3"
+  dependencies:
+    ts-dedent: ^2.0.0
+  peerDependencies:
+    storybook: ^10.3.3
+  checksum: 1a54cbb4bb38687fe62ac2f224faeb409a6487b56132e656068c8f57f3754f85703e54d7251917d8bcc5a377014c45dbb1940a345de86ec975fd222c3c6804f7
   languageName: node
   linkType: hard
 
@@ -29887,19 +29929,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-dom@npm:18.2.0":
-  version: 18.2.0
-  resolution: "react-dom@npm:18.2.0"
-  dependencies:
-    loose-envify: ^1.1.0
-    scheduler: ^0.23.0
-  peerDependencies:
-    react: ^18.2.0
-  checksum: 7d323310bea3a91be2965f9468d552f201b1c27891e45ddc2d6b8f717680c95a75ae0bc1e3f5cf41472446a2589a75aed4483aee8169287909fcd59ad149e8cc
-  languageName: node
-  linkType: hard
-
-"react-dom@npm:18.3.1":
+"react-dom@npm:^18.2.0":
   version: 18.3.1
   resolution: "react-dom@npm:18.3.1"
   dependencies:
@@ -30071,16 +30101,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react@npm:18.2.0":
-  version: 18.2.0
-  resolution: "react@npm:18.2.0"
-  dependencies:
-    loose-envify: ^1.1.0
-  checksum: 88e38092da8839b830cda6feef2e8505dec8ace60579e46aa5490fc3dc9bba0bd50336507dc166f43e3afc1c42939c09fe33b25fae889d6f402721dcd78fca1b
-  languageName: node
-  linkType: hard
-
-"react@npm:18.3.1":
+"react@npm:^18.2.0":
   version: 18.3.1
   resolution: "react@npm:18.3.1"
   dependencies:
@@ -32046,15 +32067,6 @@ __metadata:
   dependencies:
     xmlchars: ^2.1.1
   checksum: 3b69918c013fffae51c561f629a0f620c02dba70f762dab38f3cd92676dfe5edf1f0a523ca567882838f1a80e26e4671a8c2c689afa05c68f45a78261445aba0
-  languageName: node
-  linkType: hard
-
-"scheduler@npm:^0.23.0":
-  version: 0.23.0
-  resolution: "scheduler@npm:0.23.0"
-  dependencies:
-    loose-envify: ^1.1.0
-  checksum: d79192eeaa12abef860c195ea45d37cbf2bbf5f66e3c4dcd16f54a7da53b17788a70d109ee3d3dde1a0fd50e6a8fc171f4300356c5aee4fc0171de526bf35f8a
   languageName: node
   linkType: hard
 
