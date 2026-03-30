@@ -1,12 +1,10 @@
 {
   "name": "@keplr-wallet/design-system",
   "version": "0.13.17",
+  "private": true,
   "main": "src/index.ts",
   "author": "chainapsis",
   "license": "Apache-2.0",
-  "publishConfig": {
-    "access": "public"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/chainapsis/keplr-wallet.git"
