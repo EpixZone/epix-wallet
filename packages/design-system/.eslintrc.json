@@ -1,0 +1,16 @@
+{
+  "ignorePatterns": ["**/*.mdx"],
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          "src/*",
+          "@keplr-wallet/design-system",
+          "@keplr-wallet/design-system/*"
+        ]
+      }
+    ]
+  }
+}

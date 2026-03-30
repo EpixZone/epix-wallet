@@ -18,6 +18,8 @@
       "@keplr-wallet/cosmos/build/*": ["../cosmos/src/*"],
       "@keplr-wallet/crypto": ["../crypto/src"],
       "@keplr-wallet/crypto/build/*": ["../crypto/src/*"],
+      "@keplr-wallet/design-system": ["../design-system/src"],
+      "@keplr-wallet/design-system/build/*": ["../design-system/src/*"],
       "@keplr-wallet/hooks": ["../hooks/src"],
       "@keplr-wallet/hooks/build/*": ["../hooks/src/*"],
       "@keplr-wallet/hooks-bitcoin": ["src"],

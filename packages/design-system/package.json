@@ -1,0 +1,38 @@
+{
+  "name": "@keplr-wallet/design-system",
+  "version": "0.13.17",
+  "main": "src/index.ts",
+  "author": "chainapsis",
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chainapsis/keplr-wallet.git"
+  },
+  "scripts": {
+    "clean": "rm -rf node_modules",
+    "build": "echo 'no build needed'",
+    "test": "npx jest --passWithNoTests",
+    "lint-test": "npx eslint \"src/**/*\" && npx prettier --check \"src/**/*.{ts,tsx}\"",
+    "lint-fix": "npx eslint --fix \"src/**/*\" && npx prettier --write \"src/**/*.{ts,tsx}\"",
+    "typecheck": "npx tsc -p tsconfig.check.json",
+    "storybook": "npx storybook dev -p 6007",
+    "build-storybook": "npx storybook build -o storybook-static",
+    "sync:tokens": "node scripts/sync-tokens/sync-all.mjs"
+  },
+  "devDependencies": {
+    "@storybook/react": "^10.3.3",
+    "@storybook/react-vite": "^10.3.3",
+    "@types/styled-components": "^5.1.26",
+    "storybook": "^10.3.3",
+    "styled-components": "^5.3.11",
+    "vite": "^8.0.3"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18",
+    "styled-components": ">=5"
+  }
+}

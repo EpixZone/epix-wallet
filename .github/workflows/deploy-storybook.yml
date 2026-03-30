@@ -1,0 +1,75 @@
+name: Deploy Design System Storybook
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "packages/design-system/**"
+  workflow_dispatch:
+
+concurrency:
+  group: "storybook-pages-${{ github.ref }}"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy Storybook
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
+      pull-requests: write
+    environment:
+      name: ${{ github.event_name == 'pull_request' && 'github-pages-preview' || 'github-pages' }}
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - run: yarn install --immutable
+
+      - name: Build Storybook
+        run: yarn workspace @keplr-wallet/design-system build-storybook
+
+      - name: Create deployment directory
+        run: |
+          mkdir -p deploy/storybook
+          cp -r packages/design-system/storybook-static/* deploy/storybook/
+
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: deploy
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Find existing comment
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/find-comment@v3
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: "github-actions[bot]"
+          body-includes: "Storybook 배포 완료"
+
+      - name: Create or update deployment comment
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## Storybook 배포 완료
+
+            :link: **미리보기:** ${{ steps.deployment.outputs.page_url }}storybook/
+
+            _Last updated: ${{ github.event.pull_request.updated_at }}_
+          edit-mode: replace
