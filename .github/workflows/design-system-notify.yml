@@ -61,8 +61,15 @@ jobs:
             category=$(echo "$dir_path" | cut -d/ -f1)
             dir_name=$(echo "$dir_path" | cut -d/ -f2)
             ds_name=$(echo "$dir_name" | sed -E 's/-(.)/\U\1/g; s/^(.)/DS\U\1/')
-            # Storybook path: foundations-color, components-button 등
-            echo "${ds_name}|${STORYBOOK_BASE}${category}-${dir_name}"
+            # Storybook URL: /story/foundations-color--color
+            # category 매핑: foundation → foundations, components → components, theme → foundations
+            case "$category" in
+              foundation) sb_category="foundations" ;;
+              theme) sb_category="foundations" ;;
+              *) sb_category="$category" ;;
+            esac
+            sb_name="${dir_name:-theme}"
+            echo "${ds_name}|${STORYBOOK_BASE}/docs/${sb_category}-${sb_name}--docs"
           done > /tmp/component_urls.txt
           fi
 
