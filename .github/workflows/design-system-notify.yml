@@ -1,0 +1,238 @@
+# Design System 변경 시 Slack 알림을 보내는 워크플로우
+#
+# 흐름:
+#   1. develop push 시 packages/design-system/ 하위 파일 변경 감지
+#   2. 변경된 컴포넌트/foundation 이름 추출 (kebab-case → DSPascalCase)
+#   3. Claude API로 diff 요약 생성
+#   4. Slack Block Kit 형식으로 알림 전송
+#
+# Slack 메시지 예시:
+#   [Extension DS] DSColor, DSTypography 업데이트
+#   🔧 *DSColor*: dark/light 테마 토큰 값 변경
+#   📖 Storybook  |  #1901
+name: Design System Change Notification
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "packages/design-system/src/**"
+  workflow_dispatch:
+
+jobs:
+  notify:
+    name: Notify Slack on Design System changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Step 1: 변경된 컴포넌트 이름 추출
+      - name: Extract component info
+        id: components
+        run: |
+          BASE_SHA=${{ github.event.before }}
+          HEAD_SHA=${{ github.sha }}
+          STORYBOOK_BASE="https://chainapsis.github.io/keplr-wallet/storybook/?path="
+
+          # 변경된 디렉토리 목록 (foundation/color, foundation/typography 등)
+          # sed 구분자와 alternation | 충돌 방지를 위해 카테고리별 별도 패턴 사용
+          CHANGED_DIRS=$(git diff --name-only $BASE_SHA...$HEAD_SHA -- 'packages/design-system/src/' \
+            | grep -E '(components|foundation|theme)/' \
+            | sed -E 's|.*/components/([^/]+)/.*|components/\1|; s|.*/foundation/([^/]+)/.*|foundation/\1|; s|.*/theme/([^/]+)/.*|theme/\1|; s|.*/theme/[^/]+$|theme|' \
+            | sort -u)
+
+          # DSPascalCase 이름 목록 (kebab-case → DSPascalCase)
+          COMPONENTS=$(echo "$CHANGED_DIRS" \
+            | while read dir_path; do
+                echo "$dir_path" | sed -E 's|.*/||' | sed -E 's/-(.)/\U\1/g; s/^(.)/DS\U\1/'
+              done \
+            | paste -sd ',' - | sed 's/,/, /g')
+          echo "names=${COMPONENTS:-Unknown}" >> $GITHUB_OUTPUT
+
+          # DSName|storybook_url 매핑 파일 생성
+          if [ -z "$CHANGED_DIRS" ]; then
+            > /tmp/component_urls.txt
+          else
+          echo "$CHANGED_DIRS" | while read dir_path; do
+            category=$(echo "$dir_path" | cut -d/ -f1)
+            dir_name=$(echo "$dir_path" | cut -d/ -f2)
+            ds_name=$(echo "$dir_name" | sed -E 's/-(.)/\U\1/g; s/^(.)/DS\U\1/')
+            # Storybook URL: /story/foundations-color--color
+            # category 매핑: foundation → foundations, components → components, theme → foundations
+            case "$category" in
+              foundation) sb_category="foundations" ;;
+              theme) sb_category="foundations" ;;
+              *) sb_category="$category" ;;
+            esac
+            sb_name="${dir_name:-theme}"
+            echo "${ds_name}|${STORYBOOK_BASE}/story/${sb_category}-${sb_name}--${sb_name}"
+          done > /tmp/component_urls.txt
+          fi
+
+          # 신규 컴포넌트: 디렉토리 자체가 BASE_SHA에 없었던 경우만
+          NEW_COMPONENTS=$(git diff --name-status $BASE_SHA...$HEAD_SHA -- 'packages/design-system/src/' \
+            | grep '^A' \
+            | grep -E '(components|foundation|theme)/[^/]+/' \
+            | sed -E 's|.*/components/([^/]+)/.*|components/\1|; s|.*/foundation/([^/]+)/.*|foundation/\1|; s|.*/theme/([^/]+)/.*|theme/\1|' \
+            | sort -u \
+            | while read dir_path; do
+                if ! git ls-tree -r "$BASE_SHA" -- "packages/design-system/src/${dir_path}/" 2>/dev/null | grep -q .; then
+                  echo "$dir_path" | sed -E 's|.*/||' | sed -E 's/-(.)/\U\1/g; s/^(.)/DS\U\1/'
+                fi
+              done \
+            | paste -sd ',' - | sed 's/,/, /g')
+          echo "new_components=${NEW_COMPONENTS}" >> $GITHUB_OUTPUT
+
+          echo "storybook_link=https://chainapsis.github.io/keplr-wallet/storybook/" >> $GITHUB_OUTPUT
+
+      # Step 2: Claude API로 diff 요약 생성
+      - name: Summarize changes with Claude
+        id: summary
+        run: |
+          BASE_SHA=${{ github.event.before }}
+          HEAD_SHA=${{ github.sha }}
+
+          git diff $BASE_SHA...$HEAD_SHA -- 'packages/design-system/src/' | head -500 > /tmp/diff.txt
+
+          DIFF_CONTENT=$(cat /tmp/diff.txt)
+
+          PROMPT="아래 diff를 분석해서 컴포넌트별 변경사항을 요약해줘.
+
+          변경된 컴포넌트: ${{ steps.components.outputs.names }}
+          이 중 새로 추가된 컴포넌트: ${{ steps.components.outputs.new_components }}
+
+          규칙:
+          - 새 컴포넌트는 🆕, 수정된 컴포넌트는 🔧로 시작
+          - 컴포넌트명은 *bold*, 콜론 뒤에 한줄 설명
+          - 주요 props는 들여쓰기 후 • 로 나열 (prop명: 설명)
+          - 반드시 diff의 실제 변경 내용만 사용할 것
+          - 서론/결론 없이 컴포넌트별 요약만 출력
+
+          형식 참고용 예시 (이 내용을 그대로 쓰지 말 것):
+          🆕 *DSBadge*: 뱃지 컴포넌트 추가
+                  • variant: solid, outline 등 스타일 선택
+          🔧 *DSColor*: dark 테마 토큰 값 변경
+                  • fill.neutral.high: gray10 → gray200으로 변경"
+
+          jq -n --arg prompt "$PROMPT" --arg diff "$DIFF_CONTENT" '{
+            "model": "claude-haiku-4-5",
+            "max_tokens": 600,
+            "messages": [{
+              "role": "user",
+              "content": ($prompt + "\n\ndiff:\n" + $diff)
+            }]
+          }' > /tmp/payload.json
+
+          RESPONSE=$(curl -s "https://api.anthropic.com/v1/messages" \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -d @/tmp/payload.json)
+
+          echo "Claude API Response: $RESPONSE"
+
+          ERROR_TYPE=$(echo "$RESPONSE" | jq -r '.error.type // empty')
+          if [ -n "$ERROR_TYPE" ]; then
+            ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error.message // empty')
+            echo "API Error: $ERROR_TYPE - $ERROR_MSG"
+            SUMMARY="디자인 시스템이 업데이트되었습니다."
+          else
+            SUMMARY=$(echo "$RESPONSE" | jq -r '.content[0].text // "디자인 시스템이 업데이트되었습니다."' \
+            | tr -d '`' \
+            | sed 's/\*\*/*/g' \
+            | grep -E '^(🆕|🔧| +•)' \
+          )
+          fi
+          echo "text<<EOF" >> $GITHUB_OUTPUT
+          echo "$SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_FOR_DS }}
+
+      # Step 3: Slack Block Kit 형식으로 알림 전송
+      - name: Send Slack notification
+        run: |
+          NEW_COMPONENTS="${{ steps.components.outputs.new_components }}"
+          ALL_COMPONENTS="${{ steps.components.outputs.names }}"
+          SUMMARY="${{ steps.summary.outputs.text }}"
+          STORYBOOK_LINK="${{ steps.components.outputs.storybook_link }}"
+
+          # 헤더: 추가/업데이트 구분
+          if [ -n "$NEW_COMPONENTS" ]; then
+            UPDATED_COMPONENTS=$(comm -23 \
+              <(echo "$ALL_COMPONENTS" | tr ',' '\n' | sed 's/^ //' | sort) \
+              <(echo "$NEW_COMPONENTS" | tr ',' '\n' | sed 's/^ //' | sort) \
+              | paste -sd ',' - | sed 's/,/, /g')
+
+            if [ -n "$UPDATED_COMPONENTS" ]; then
+              HEADER="[Extension DS] ${NEW_COMPONENTS} 추가 · ${UPDATED_COMPONENTS} 업데이트"
+            else
+              HEADER="[Extension DS] ${NEW_COMPONENTS} 추가"
+            fi
+          else
+            HEADER="[Extension DS] ${ALL_COMPONENTS} 업데이트"
+          fi
+
+          # 컴포넌트명에 Storybook 링크 삽입: *DSXxx* → *<url|DSXxx>*
+          while IFS='|' read -r ds_name url; do
+            SUMMARY=$(echo "$SUMMARY" | sed "s@\\*${ds_name}\\*@*<${url}|${ds_name}>*@g")
+          done < /tmp/component_urls.txt
+
+          MSG="$SUMMARY"
+
+          PR_NUMBER=$(echo "$COMMIT_MSG" | grep -oP '#\K\d+' | head -1)
+
+          if [ -n "$PR_NUMBER" ]; then
+            PR_LINK="<https://github.com/${GITHUB_REPOSITORY}/pull/${PR_NUMBER}|#${PR_NUMBER}>"
+          else
+            COMMIT_SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
+            PR_LINK="<${COMMIT_URL}|${COMMIT_SHORT_SHA}>"
+          fi
+
+          jq -n \
+            --arg header "$HEADER" \
+            --arg content "$MSG" \
+            --arg storybook_link "<${STORYBOOK_LINK}|📖 Storybook>" \
+            --arg pr_link "$PR_LINK" \
+            '{
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": $header
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": $content
+                  }
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": ($storybook_link + "  |  " + $pr_link)
+                    }
+                  ]
+                }
+              ]
+            }' > /tmp/slack_payload.json
+
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -d @/tmp/slack_payload.json \
+            "$SLACK_WEBHOOK_URL"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.DS_NOTIFICATION_SLACK_WEBHOOK_URL }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          COMMIT_URL: ${{ github.event.head_commit.url }}
