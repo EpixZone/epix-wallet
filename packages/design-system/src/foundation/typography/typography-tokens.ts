@@ -1,5 +1,5 @@
 // GENERATED FILE — DO NOT EDIT MANUALLY
-// Last synced: 2026-03-30 05:06:17 UTC
+// Last synced: 2026-03-30 05:42:12 UTC
 // Source: Figma "Supernova Design System" text styles
 // Run: yarn workspace @keplr-wallet/design-system sync:tokens
 
