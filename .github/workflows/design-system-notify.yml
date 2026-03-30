@@ -69,7 +69,7 @@ jobs:
               *) sb_category="$category" ;;
             esac
             sb_name="${dir_name:-theme}"
-            echo "${ds_name}|${STORYBOOK_BASE}/docs/${sb_category}-${sb_name}--docs"
+            echo "${ds_name}|${STORYBOOK_BASE}/story/${sb_category}-${sb_name}--${sb_name}"
           done > /tmp/component_urls.txt
           fi
 
