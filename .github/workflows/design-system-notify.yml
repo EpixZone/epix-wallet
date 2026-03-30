@@ -186,14 +186,13 @@ jobs:
 
           MSG="$SUMMARY"
 
-          COMMIT_MESSAGE="${{ github.event.head_commit.message }}"
-          PR_NUMBER=$(echo "$COMMIT_MESSAGE" | grep -oP '#\K\d+' | head -1)
+          PR_NUMBER=$(echo "$COMMIT_MSG" | grep -oP '#\K\d+' | head -1)
 
           if [ -n "$PR_NUMBER" ]; then
-            PR_LINK="<https://github.com/${{ github.repository }}/pull/${PR_NUMBER}|#${PR_NUMBER}>"
+            PR_LINK="<https://github.com/${GITHUB_REPOSITORY}/pull/${PR_NUMBER}|#${PR_NUMBER}>"
           else
-            COMMIT_SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-            PR_LINK="<${{ github.event.head_commit.url }}|${COMMIT_SHORT_SHA}>"
+            COMMIT_SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
+            PR_LINK="<${COMMIT_URL}|${COMMIT_SHORT_SHA}>"
           fi
 
           jq -n \
@@ -235,3 +234,7 @@ jobs:
             "$SLACK_WEBHOOK_URL"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.DS_NOTIFICATION_SLACK_WEBHOOK_URL }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          COMMIT_URL: ${{ github.event.head_commit.url }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
