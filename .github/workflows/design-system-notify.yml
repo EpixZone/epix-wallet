@@ -39,9 +39,10 @@ jobs:
           STORYBOOK_BASE="https://chainapsis.github.io/keplr-wallet/storybook/?path="
 
           # 변경된 디렉토리 목록 (foundation/color, foundation/typography 등)
+          # sed 구분자와 alternation | 충돌 방지를 위해 카테고리별 별도 패턴 사용
           CHANGED_DIRS=$(git diff --name-only $BASE_SHA...$HEAD_SHA -- 'packages/design-system/src/' \
             | grep -E '(components|foundation|theme)/' \
-            | sed -E 's|packages/design-system/src/(components|foundation|theme)/([^/]+)/.*|\1/\2|' \
+            | sed -E 's|.*/components/([^/]+)/.*|components/\1|; s|.*/foundation/([^/]+)/.*|foundation/\1|; s|.*/theme/([^/]+)/.*|theme/\1|; s|.*/theme/[^/]+$|theme|' \
             | sort -u)
 
           # DSPascalCase 이름 목록 (kebab-case → DSPascalCase)
@@ -69,7 +70,7 @@ jobs:
           NEW_COMPONENTS=$(git diff --name-status $BASE_SHA...$HEAD_SHA -- 'packages/design-system/src/' \
             | grep '^A' \
             | grep -E '(components|foundation|theme)/[^/]+/' \
-            | sed -E 's|.*packages/design-system/src/(components|foundation|theme)/([^/]+)/.*|\1/\2|' \
+            | sed -E 's|.*/components/([^/]+)/.*|components/\1|; s|.*/foundation/([^/]+)/.*|foundation/\1|; s|.*/theme/([^/]+)/.*|theme/\1|' \
             | sort -u \
             | while read dir_path; do
                 if ! git ls-tree -r "$BASE_SHA" -- "packages/design-system/src/${dir_path}/" 2>/dev/null | grep -q .; then
