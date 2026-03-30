@@ -1,3 +1,7 @@
-// Design system package entry point
-// Foundation과 component export는 추후 추가
-export {};
+// Foundation
+export * from "./foundation/color";
+export * from "./foundation/typography";
+export * from "./foundation/icon";
+
+// Theme
+export * from "./theme";
