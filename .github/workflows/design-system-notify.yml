@@ -236,5 +236,3 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.DS_NOTIFICATION_SLACK_WEBHOOK_URL }}
           COMMIT_MSG: ${{ github.event.head_commit.message }}
           COMMIT_URL: ${{ github.event.head_commit.url }}
-          GITHUB_SHA: ${{ github.sha }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
