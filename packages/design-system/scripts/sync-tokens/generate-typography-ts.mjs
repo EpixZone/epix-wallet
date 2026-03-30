@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Figma text style JSON → generate typography.ts
+// Figma text style JSON → generate typography-tokens.ts
 // Input: /tmp/figma-typography.json (generated after running sync-typography.mjs)
 
 import fs from "fs";
@@ -26,7 +26,7 @@ if (Object.keys(figmaStyles).length === 0) {
 }
 
 // ── Style parsing ──────────────────────────────────────────────────────────────
-function sizeToDartField(sizeName) {
+function sizeToTsField(sizeName) {
   // "Display xl" → "displayXl", "Text xxs" → "textXxs"
   const parts = sizeName.trim().split(/\s+/);
   return (
@@ -59,7 +59,7 @@ for (const [styleName, style] of Object.entries(figmaStyles)) {
   if (isDeprecatedVariant(variantName)) continue;
   if (isTestArtifact(sizeName)) continue;
 
-  const tsField = sizeToDartField(sizeName);
+  const tsField = sizeToTsField(sizeName);
   if (!tsField || sizeMap[tsField]) continue;
 
   sizeMap[tsField] = {
@@ -70,57 +70,56 @@ for (const [styleName, style] of Object.entries(figmaStyles)) {
   fieldOrder.push(tsField);
 }
 
-// ── TypeScript file generation ────────────────────────────────────────────────
-const now = new Date().toISOString().slice(0, 19).replace("T", " ");
-const lines = [];
+// ── Code generation ─────────────────────────────────────────────────────────────
 
-lines.push(`// GENERATED FILE — DO NOT EDIT MANUALLY`);
-lines.push(`// Last synced: ${now} UTC`);
-lines.push(`// Source: Figma "For Roy: Supernova Design System" text styles`);
-lines.push(`// Run: yarn workspace @keplr-wallet/design-system sync:tokens`);
-lines.push(``);
-lines.push(`import type { CSSProperties } from 'react';`);
-lines.push(``);
-lines.push(`export interface TypographyStyle {`);
-lines.push(`  readonly fontSize: number;`);
-lines.push(`  readonly lineHeight: number;`);
-lines.push(`  readonly letterSpacing: number;`);
-lines.push(`  readonly semibold: CSSProperties;`);
-lines.push(`  readonly medium: CSSProperties;`);
-lines.push(`  readonly regular: CSSProperties;`);
-lines.push(`}`);
-lines.push(``);
-lines.push(
-  `function createStyle(fontSize: number, lineHeight: number, letterSpacing: number): TypographyStyle {`
-);
-lines.push(`  const base = { fontSize, lineHeight, letterSpacing };`);
-lines.push(`  return {`);
-lines.push(`    ...base,`);
-lines.push(`    semibold: { ...base, fontWeight: 600 },`);
-lines.push(`    medium: { ...base, fontWeight: 500 },`);
-lines.push(`    regular: { ...base, fontWeight: 400 },`);
-lines.push(`  };`);
-lines.push(`}`);
-lines.push(``);
-lines.push(`/// Supernova Design System Typography`);
-lines.push(`///`);
-lines.push(`/// Usage: dsTypographyTokens.textMd.semibold`);
-lines.push(`export const dsTypographyTokens = {`);
-for (const tsField of fieldOrder) {
-  const { fontSize, lineHeight, letterSpacing } = sizeMap[tsField];
-  lines.push(
-    `  ${tsField}: createStyle(${fontSize}, ${lineHeight}, ${letterSpacing}),`
-  );
+function buildTokenEntries() {
+  return fieldOrder
+    .map((tsField) => {
+      const { fontSize, lineHeight, letterSpacing } = sizeMap[tsField];
+      return `  ${tsField}: createStyle(${fontSize}, ${lineHeight}, ${letterSpacing}),`;
+    })
+    .join("\n");
 }
-lines.push(`} as const;`);
-lines.push(``);
-lines.push(
-  `export type DSTypographyTokensKey = keyof typeof dsTypographyTokens;`
-);
-lines.push(``);
+
+const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+const newContent = `\
+// GENERATED FILE — DO NOT EDIT MANUALLY
+// Last synced: ${now} UTC
+// Source: Figma "Supernova Design System" text styles
+// Run: yarn workspace @keplr-wallet/design-system sync:tokens
+
+import type { CSSProperties } from 'react';
+
+export interface TypographyStyle {
+  readonly fontSize: number;
+  readonly lineHeight: number;
+  readonly letterSpacing: number;
+  readonly semibold: CSSProperties;
+  readonly medium: CSSProperties;
+  readonly regular: CSSProperties;
+}
+
+function createStyle(fontSize: number, lineHeight: number, letterSpacing: number): TypographyStyle {
+  const base = { fontSize, lineHeight, letterSpacing };
+  return {
+    ...base,
+    semibold: { ...base, fontWeight: 600 },
+    medium: { ...base, fontWeight: 500 },
+    regular: { ...base, fontWeight: 400 },
+  };
+}
+
+/// Supernova Design System Typography
+///
+/// Usage: dsTypographyTokens.textMd.semibold
+export const dsTypographyTokens = {
+${buildTokenEntries()}
+} as const;
+
+export type DSTypographySize = keyof typeof dsTypographyTokens;
+`;
 
 // ── Field deletion guard ───────────────────────────────────────────────────────
-const newContent = lines.join("\n");
 if (fs.existsSync(outputPath)) {
   const existingContent = fs.readFileSync(outputPath, "utf8");
   const existingFields = [

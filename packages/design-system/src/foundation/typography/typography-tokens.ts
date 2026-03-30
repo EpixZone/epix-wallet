@@ -1,6 +1,6 @@
 // GENERATED FILE — DO NOT EDIT MANUALLY
-// Last synced: 2026-03-26 09:20:57 UTC
-// Source: Figma "For Roy: Supernova Design System" text styles
+// Last synced: 2026-03-30 05:42:12 UTC
+// Source: Figma "Supernova Design System" text styles
 // Run: yarn workspace @keplr-wallet/design-system sync:tokens
 
 import type { CSSProperties } from "react";
@@ -46,4 +46,4 @@ export const dsTypographyTokens = {
   displayMd: createStyle(32, 1.4, -0.32),
 } as const;
 
-export type DSTypographyTokensKey = keyof typeof dsTypographyTokens;
+export type DSTypographySize = keyof typeof dsTypographyTokens;
