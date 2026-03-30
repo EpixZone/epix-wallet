@@ -204,7 +204,7 @@ export const _DocsPreview: Story = {
 };
 
 /** Full showcase of all typography tokens */
-export const Showcase: Story = {
+export const Typography: Story = {
   render: () => (
     <div
       style={{
