@@ -84,6 +84,10 @@ for (const variants of Object.values(alphasByBase)) {
   variants.sort((a, b) => a.alphaPct - b.alphaPct);
 }
 
+// Synthetic primitives — only added if not already present from Figma
+if (!solidColors.black) solidColors.black = { r: 0, g: 0, b: 0 };
+if (!solidColors.white) solidColors.white = { r: 1, g: 1, b: 1 };
+
 function parseField(field) {
   const match = field.match(/^([a-z]+)(\d+)$/);
   return match
@@ -98,12 +102,9 @@ const sortedSolids = Object.keys(solidColors).sort((a, b) => {
     : pa.num - pb.num;
 });
 
-// ── Reverse lookup maps ────────────────────────────────────────────────────────
 const rgbToSolidName = {};
 for (const [field, rgba] of Object.entries(solidColors))
   rgbToSolidName[rgbKey(rgba.r, rgba.g, rgba.b)] = field;
-rgbToSolidName["0,0,0"] = "black";
-rgbToSolidName["255,255,255"] = "white";
 
 const rgbAlphaToName = {};
 for (const { base, alphaPct, rgba } of alphaVariants) {
@@ -119,14 +120,9 @@ for (const { base, alphaPct, rgba } of alphaVariants) {
     ] = variantName;
 }
 
-const droppedTokens = [];
-
 function semPrimRef(tokenKey, mode) {
   const token = figmaData.semantic[tokenKey];
-  if (!token?.[mode]) {
-    if (mode === "dark") droppedTokens.push(tokenKey);
-    return null;
-  }
+  if (!token?.[mode]) return null;
   const { r, g, b, a } = token[mode];
   if (a >= 0.999) return rgbToSolidName[rgbKey(r, g, b)] || null;
   const alphaPct = Math.round(a * 100);
@@ -199,7 +195,11 @@ for (const namespace of Object.keys(semTree)) {
 }
 
 function hasAnyToken(namespace) {
-  if (semTree[namespace].tokens.some((t) => semPrimRef(t.figmaPath, "dark")))
+  if (
+    semTree[namespace].tokens.some(
+      (t) => semPrimRef(t.figmaPath, "dark") || semPrimRef(t.figmaPath, "light")
+    )
+  )
     return true;
   return [...semTree[namespace].children].some((child) => hasAnyToken(child));
 }
@@ -217,59 +217,40 @@ const topNamespaces = Object.keys(semTree)
     );
   });
 
-// ── Generate single color.ts ────────────────────────────────────────────────
-const now = new Date().toISOString().slice(0, 19).replace("T", " ");
-const L = [];
+// ── Code generation ─────────────────────────────────────────────────────────
 
-L.push(`// GENERATED FILE — DO NOT EDIT MANUALLY`);
-L.push(`// Last synced: ${now} UTC`);
-L.push(`// Source: Figma "For Roy: Supernova Design System"`);
-L.push(`// Run: yarn workspace @keplr-wallet/design-system sync:tokens`);
-L.push(``);
-
-// ── DSColor: primitives + semantic var refs ──────────────────────────────────
-L.push(`/**`);
-L.push(` * Unified Design System colors.`);
-L.push(` * Primitive: DSColor.blue400, DSColor.gray10`);
-L.push(` * Semantic:  DSColor.typography.primary, DSColor.fill.neutral.high`);
-L.push(` */`);
-L.push(`export const DSColor = {`);
-
-// Primitives
-L.push(`  // ── Primitives ──`);
 function colorFamily(field) {
   return field.replace(/\d+$/, "");
 }
-let prevFamily = "";
-for (const field of sortedSolids) {
-  const rgba = solidColors[field];
-  const family = colorFamily(field);
-  if (prevFamily && family !== prevFamily) L.push(``);
-  L.push(`  ${field}: '${toHex(rgba.r, rgba.g, rgba.b)}',`);
-  for (const { alphaPct, rgba: aRgba } of alphasByBase[field] || []) {
-    L.push(
-      `  ${field}_${alphaPct}: '${toRgba(
-        aRgba.r,
-        aRgba.g,
-        aRgba.b,
-        alphaPct / 100
-      )}',`
-    );
-  }
-  prevFamily = family;
-}
-L.push(``);
-L.push(`  black: '#000000',`);
-L.push(`  white: '#FFFFFF',`);
-L.push(`  transparent: 'rgba(255, 255, 255, 0)',`);
 
-// Semantic var refs
-L.push(``);
-L.push(`  // ── Semantic (CSS variable refs) ──`);
+function buildPrimitiveLines() {
+  const lines = [];
+  let prevFamily = "";
+  for (const field of sortedSolids) {
+    const rgba = solidColors[field];
+    const family = colorFamily(field);
+    if (prevFamily && family !== prevFamily) lines.push("");
+    lines.push(`  ${field}: '${toHex(rgba.r, rgba.g, rgba.b)}',`);
+    for (const { alphaPct, rgba: aRgba } of alphasByBase[field] || []) {
+      lines.push(
+        `  ${field}_${alphaPct}: '${toRgba(
+          aRgba.r,
+          aRgba.g,
+          aRgba.b,
+          alphaPct / 100
+        )}',`
+      );
+    }
+    prevFamily = family;
+  }
+  return lines.join("\n");
+}
 
 function buildVarTree(namespace, indent) {
   const { tokens, children } = semTree[namespace];
-  const validTokens = tokens.filter((t) => semPrimRef(t.figmaPath, "dark"));
+  const validTokens = tokens.filter(
+    (t) => semPrimRef(t.figmaPath, "dark") || semPrimRef(t.figmaPath, "light")
+  );
   const validChildren = [...children].filter((child) => hasAnyToken(child));
   if (!validTokens.length && !validChildren.length) return null;
 
@@ -278,8 +259,7 @@ function buildVarTree(namespace, indent) {
     lines.push(`${indent}  ${token.jsKey}: 'var(${token.cssVar})' as const,`);
   }
   for (const child of validChildren) {
-    const childParts = child.split("/");
-    const childKey = toJsKey(childParts[childParts.length - 1]);
+    const childKey = toJsKey(child.split("/").pop());
     const childLines = buildVarTree(child, indent + "  ");
     if (childLines) {
       lines.push(`${indent}  ${childKey}: {`);
@@ -290,46 +270,64 @@ function buildVarTree(namespace, indent) {
   return lines.join("\n");
 }
 
-for (const ns of topNamespaces) {
-  if (!hasAnyToken(ns)) continue;
-  const nsKey = toJsKey(ns);
-  const inner = buildVarTree(ns, "  ");
-  if (inner) {
-    L.push(`  ${nsKey}: {`);
-    L.push(inner);
-    L.push(`  },`);
+function buildSemanticLines() {
+  const lines = [];
+  for (const ns of topNamespaces) {
+    if (!hasAnyToken(ns)) continue;
+    const inner = buildVarTree(ns, "  ");
+    if (inner) {
+      lines.push(`  ${toJsKey(ns)}: {`);
+      lines.push(inner);
+      lines.push(`  },`);
+    }
   }
+  return lines.join("\n");
 }
 
-L.push(`} as const;`);
-L.push(``);
-
-// ── Theme values ──────────────────────────────────────────────────────────────
 function buildThemeValues(mode) {
-  const entries = [];
+  const lines = [];
   for (const key of Object.keys(figmaData.semantic)) {
     const primRef = semPrimRef(key, mode);
     if (!primRef) continue;
-    const cssVar = toCssVarName(key);
-    entries.push(`  '${cssVar}': DSColor.${primRef},`);
+    lines.push(`  '${toCssVarName(key)}': DSColor.${primRef},`);
   }
-  return entries;
+  return lines.join("\n");
 }
 
-L.push(`/** Dark theme CSS variable values */`);
-L.push(`export const darkThemeValues: Record<string, string> = {`);
-for (const line of buildThemeValues("dark")) L.push(line);
-L.push(`};`);
-L.push(``);
+const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+const newContent = `\
+// @generated — DO NOT EDIT MANUALLY
+// Last synced: ${now} UTC
+// Source: Figma "Supernova Design System"
+// Run: yarn workspace @keplr-wallet/design-system sync:tokens
 
-L.push(`/** Light theme CSS variable values */`);
-L.push(`export const lightThemeValues: Record<string, string> = {`);
-for (const line of buildThemeValues("light")) L.push(line);
-L.push(`};`);
-L.push(``);
+/**
+ * Unified Design System colors.
+ * Primitive: DSColor.blue400, DSColor.gray10
+ * Semantic:  DSColor.typography.primary, DSColor.fill.neutral.high
+ */
+export const DSColor = {
+  // ── Primitives ──
+${buildPrimitiveLines()}
+
+  transparent: 'rgba(255, 255, 255, 0)',
+
+  // ── Semantic (CSS variable refs) ──
+${buildSemanticLines()}
+} as const;
+
+/** Dark theme CSS variable values */
+export const darkThemeValues: Record<string, string> = {
+${buildThemeValues("dark")}
+};
+
+/** Light theme CSS variable values */
+export const lightThemeValues: Record<string, string> = {
+${buildThemeValues("light")}
+};
+`;
 
 // ── Field deletion guard ───────────────────────────────────────────────────────
-const newContent = L.join("\n");
 if (fs.existsSync(outputPath)) {
   const existing = fs.readFileSync(outputPath, "utf8");
   const existingFields = [...existing.matchAll(/^\s+(\w+):/gm)].map(
@@ -366,7 +364,10 @@ console.log(
   `  Primitives: ${sortedSolids.length} solids + ${alphaCount} alpha`
 );
 console.log(`  Semantics:  ${semCount} tokens`);
+const droppedTokens = Object.keys(figmaData.semantic).filter(
+  (k) => !semPrimRef(k, "dark") && !semPrimRef(k, "light")
+);
 if (droppedTokens.length > 0)
   console.warn(
-    `  ⚠ ${droppedTokens.length} semantic token(s) skipped — no dark mode value`
+    `  ⚠ ${droppedTokens.length} semantic token(s) skipped — no resolved value in either mode`
   );
