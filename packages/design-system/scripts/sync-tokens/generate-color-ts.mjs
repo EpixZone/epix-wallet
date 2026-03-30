@@ -296,7 +296,7 @@ function buildThemeValues(mode) {
 
 const now = new Date().toISOString().slice(0, 19).replace("T", " ");
 const newContent = `\
-// @generated — DO NOT EDIT MANUALLY
+// GENERATED FILE — DO NOT EDIT MANUALLY
 // Last synced: ${now} UTC
 // Source: Figma "Supernova Design System"
 // Run: yarn workspace @keplr-wallet/design-system sync:tokens
