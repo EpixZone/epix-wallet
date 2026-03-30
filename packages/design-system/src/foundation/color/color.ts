@@ -1,6 +1,6 @@
-// GENERATED FILE — DO NOT EDIT MANUALLY
-// Last synced: 2026-03-26 09:09:00 UTC
-// Source: Figma "For Roy: Supernova Design System"
+// @generated — DO NOT EDIT MANUALLY
+// Last synced: 2026-03-30 05:06:17 UTC
+// Source: Figma "Supernova Design System"
 // Run: yarn workspace @keplr-wallet/design-system sync:tokens
 
 /**
@@ -10,6 +10,8 @@
  */
 export const DSColor = {
   // ── Primitives ──
+  black: "#000000",
+
   blue200: "#78D9FF",
   blue300: "#35C6FF",
   blue400: "#14AFEB",
@@ -68,6 +70,8 @@ export const DSColor = {
   purple300: "#A095FF",
   purple400: "#7B6BFF",
 
+  white: "#FFFFFF",
+
   yellow200: "#EDD18A",
   yellow400: "#F0B622",
   yellow400_10: "rgba(240, 182, 34, 0.1)",
@@ -75,12 +79,13 @@ export const DSColor = {
   yellow600: "#A67B0C",
   yellow800: "#2F2611",
 
-  black: "#000000",
-  white: "#FFFFFF",
   transparent: "rgba(255, 255, 255, 0)",
 
   // ── Semantic (CSS variable refs) ──
   fill: {
+    accent: {
+      purple: "var(--ds-fill-accent-purple)" as const,
+    },
     neutral: {
       high: "var(--ds-fill-neutral-high)" as const,
       strong: "var(--ds-fill-neutral-strong)" as const,
@@ -89,9 +94,6 @@ export const DSColor = {
       high_7: "var(--ds-fill-neutral-alpha-high-7)" as const,
       high_10: "var(--ds-fill-neutral-alpha-high-10)" as const,
       high_50: "var(--ds-fill-neutral-alpha-high-50)" as const,
-    },
-    accent: {
-      purple: "var(--ds-fill-accent-purple)" as const,
     },
     alert: {
       medium: "var(--ds-fill-alert-medium)" as const,
@@ -116,6 +118,14 @@ export const DSColor = {
       medium_10: "var(--ds-fill-warning-alpha-medium-10)" as const,
     },
   },
+  background: {
+    surface: {
+      elevated: "var(--ds-background-surface-elevated)" as const,
+      surface: "var(--ds-background-surface-surface)" as const,
+      scrim: "var(--ds-background-surface-scrim)" as const,
+      ground: "var(--ds-background-surface-ground)" as const,
+    },
+  },
   stroke: {
     separator: {
       primary: "var(--ds-stroke-separator-primary)" as const,
@@ -127,14 +137,6 @@ export const DSColor = {
       strong: "var(--ds-stroke-input-strong)" as const,
     },
   },
-  background: {
-    surface: {
-      elevated: "var(--ds-background-surface-elevated)" as const,
-      surface: "var(--ds-background-surface-surface)" as const,
-      scrim: "var(--ds-background-surface-scrim)" as const,
-      ground: "var(--ds-background-surface-ground)" as const,
-    },
-  },
   typography: {
     brand: "var(--ds-typography-brand)" as const,
     primary: "var(--ds-typography-primary)" as const,
@@ -142,13 +144,13 @@ export const DSColor = {
     secondary: "var(--ds-typography-secondary)" as const,
     tertiary: "var(--ds-typography-tertiary)" as const,
     disabled: "var(--ds-typography-disabled)" as const,
-    accent: {
-      purple: "var(--ds-typography-accent-purple)" as const,
-    },
     warning: {
       light: "var(--ds-typography-warning-light)" as const,
       medium: "var(--ds-typography-warning-medium)" as const,
       strong: "var(--ds-typography-warning-strong)" as const,
+    },
+    accent: {
+      purple: "var(--ds-typography-accent-purple)" as const,
     },
     alert: {
       light: "var(--ds-typography-alert-light)" as const,
@@ -181,8 +183,8 @@ export const DSColor = {
 
 /** Dark theme CSS variable values */
 export const darkThemeValues: Record<string, string> = {
-  "--ds-fill-neutral-high": DSColor.gray10,
   "--ds-fill-accent-purple": DSColor.purple400,
+  "--ds-fill-neutral-high": DSColor.gray10,
   "--ds-fill-neutral-strong": DSColor.gray200,
   "--ds-fill-neutral-medium": DSColor.gray400,
   "--ds-fill-neutral-low": DSColor.gray600,
@@ -201,8 +203,8 @@ export const darkThemeValues: Record<string, string> = {
   "--ds-fill-brand-medium": DSColor.blue600,
   "--ds-fill-brand-low": DSColor.blue800,
   "--ds-fill-positive-low": DSColor.green800,
-  "--ds-stroke-separator-primary": DSColor.gray10_15,
   "--ds-background-surface-elevated": DSColor.gray600,
+  "--ds-stroke-separator-primary": DSColor.gray10_15,
   "--ds-background-surface-surface": DSColor.gray650,
   "--ds-background-surface-scrim": DSColor.gray700_60,
   "--ds-background-surface-ground": DSColor.gray700,
@@ -213,8 +215,8 @@ export const darkThemeValues: Record<string, string> = {
   "--ds-typography-secondary": DSColor.gray200,
   "--ds-typography-tertiary": DSColor.gray300,
   "--ds-typography-disabled": DSColor.gray300,
-  "--ds-typography-accent-purple": DSColor.purple300,
   "--ds-typography-warning-light": DSColor.yellow200,
+  "--ds-typography-accent-purple": DSColor.purple300,
   "--ds-typography-warning-medium": DSColor.yellow400,
   "--ds-typography-warning-strong": DSColor.yellow800,
   "--ds-typography-alert-light": DSColor.orange100,
@@ -241,8 +243,8 @@ export const darkThemeValues: Record<string, string> = {
 
 /** Light theme CSS variable values */
 export const lightThemeValues: Record<string, string> = {
-  "--ds-fill-neutral-high": DSColor.gray600,
   "--ds-fill-accent-purple": DSColor.purple400,
+  "--ds-fill-neutral-high": DSColor.gray600,
   "--ds-fill-neutral-strong": DSColor.gray300,
   "--ds-fill-neutral-medium": DSColor.gray200,
   "--ds-fill-neutral-low": DSColor.gray10,
@@ -261,8 +263,8 @@ export const lightThemeValues: Record<string, string> = {
   "--ds-fill-brand-medium": DSColor.blue600,
   "--ds-fill-brand-low": DSColor.blue200,
   "--ds-fill-positive-low": DSColor.green200,
-  "--ds-stroke-separator-primary": DSColor.gray10_15,
   "--ds-background-surface-elevated": DSColor.gray600,
+  "--ds-stroke-separator-primary": DSColor.gray10_15,
   "--ds-background-surface-surface": DSColor.gray650,
   "--ds-background-surface-scrim": DSColor.gray700_80,
   "--ds-background-surface-ground": DSColor.gray10,
@@ -273,8 +275,8 @@ export const lightThemeValues: Record<string, string> = {
   "--ds-typography-secondary": DSColor.gray200,
   "--ds-typography-tertiary": DSColor.gray300,
   "--ds-typography-disabled": DSColor.gray300,
-  "--ds-typography-accent-purple": DSColor.purple300,
   "--ds-typography-warning-light": DSColor.yellow200,
+  "--ds-typography-accent-purple": DSColor.purple300,
   "--ds-typography-warning-medium": DSColor.yellow400,
   "--ds-typography-warning-strong": DSColor.yellow600,
   "--ds-typography-alert-light": DSColor.orange100,
