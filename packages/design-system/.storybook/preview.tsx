@@ -11,7 +11,7 @@ const preview: Preview = {
       storySort: {
         order: [
           "Foundations",
-          ["Color", "Icon", "Typography", ["Docs", "Showcase", "Playground"]],
+          ["Color", "Icon", "Typography", ["Docs", "Typography", "Playground"]],
           "Components",
         ],
       },
