@@ -6687,6 +6687,7 @@ __metadata:
     "@ledgerhq/devices": ^6.20.0
     "@react-spring/web": ^9.6.1
     "@storybook/addon-actions": ^7.6.18
+    "@storybook/addon-docs": ^10.3.3
     "@storybook/addon-essentials": ^7.6.18
     "@storybook/addon-interactions": ^7.6.18
     "@storybook/addon-links": ^7.6.18
