@@ -115,13 +115,20 @@ export class SwapAmountConfig extends AmountConfig {
     });
   }
 
+  // fee 차감 전 순수 잔고. fee에 의존하지 않으므로 fee가 변해도 값이 불변.
+  // max 모드에서 route query의 amount로 사용하여
+  // fee→amount→route→simulation→fee 순환을 차단한다.
   @computed
-  get maxAmount(): CoinPretty {
-    let result = this.queriesStore
+  get rawBalance(): CoinPretty {
+    return this.queriesStore
       .get(this.chainId)
-      // CHECK: queryBalances대신 querySpendableBalance를 사용해야 하는지 확인
       .queryBalances.getQueryBech32Address(this.senderConfig.sender)
       .getBalanceFromCurrency(this.currency);
+  }
+
+  @computed
+  get maxAmount(): CoinPretty {
+    let result = this.rawBalance;
     if (this.feeConfig && !this.disableSubFeeFromFaction) {
       for (const fee of this.feeConfig.fees) {
         result = result.sub(fee);
@@ -137,10 +144,14 @@ export class SwapAmountConfig extends AmountConfig {
   @override
   override get value(): string {
     if (this.fraction > 0) {
-      let result = this.maxAmount;
-
-      const queryRoute = this.getQueryRoute(result);
+      // route query에 rawBalance(fee 차감 전)를 사용한다.
+      // maxAmount(balance - fee)를 사용하면 fee가 바뀔 때마다 route query 키가 변경되어
+      // route fetch → simulation → fee 변경 → route fetch ... 무한루프에 빠진다.
+      // fee 차이에 의한 amount 변동은 전체 잔고 대비 극히 미미하므로 route 결과에 영향 없다.
+      const queryRoute = this.getQueryRoute(this.rawBalance);
       if (queryRoute?.response != null) {
+        // 실제 value 계산에는 maxAmount(balance - fee)를 사용하여 정확도 유지
+        let result = this.maxAmount;
         const bridgeFee = queryRoute.bridgeFees.reduce(
           (acc: CoinPretty, fee: CoinPretty) => {
             if (
@@ -155,23 +166,23 @@ export class SwapAmountConfig extends AmountConfig {
         if (bridgeFee.toDec().gt(SwapAmountConfig.ZERO_DEC)) {
           result = result.sub(bridgeFee);
         }
+
+        if (result.toDec().lte(SwapAmountConfig.ZERO_DEC)) {
+          return "0";
+        }
+
+        const newValue = result
+          .mul(new Dec(this.fraction))
+          .trim(true)
+          .locale(false)
+          .hideDenom(true)
+          .toString();
+        this._oldValue = newValue;
+
+        return newValue;
       } else {
         return this._oldValue;
       }
-
-      if (result.toDec().lte(SwapAmountConfig.ZERO_DEC)) {
-        return "0";
-      }
-
-      const newValue = result
-        .mul(new Dec(this.fraction))
-        .trim(true)
-        .locale(false)
-        .hideDenom(true)
-        .toString();
-      this._oldValue = newValue;
-
-      return newValue;
     }
 
     this._oldValue = this._value;
@@ -292,9 +303,10 @@ export class SwapAmountConfig extends AmountConfig {
   }
 
   get isFetchingInAmount(): boolean {
+    // value getter와 동일하게 rawBalance를 사용하여 같은 route query를 참조.
     if (this.fraction === 1) {
       return (
-        this.getQueryRoute(this.maxAmount)?.isFetching ??
+        this.getQueryRoute(this.rawBalance)?.isFetching ??
         this.getQueryRoute()?.isFetching ??
         false
       );
@@ -818,8 +830,10 @@ export class SwapAmountConfig extends AmountConfig {
     }
 
     // max amount인 경우엔 route를 두 번 쿼리하기 때문에 첫 번째 쿼리도 체크한다.
+    // value getter와 동일하게 rawBalance를 사용하여 같은 route query를 참조한다.
+    // maxAmount를 사용하면 fee 변동 시 다른 쿼리 키가 생성되어 무한 fetch 사이클 유발.
     if (this.fraction === 1) {
-      const querySwapHelper = this.getQuerySwapHelper(this.maxAmount);
+      const querySwapHelper = this.getQuerySwapHelper(this.rawBalance);
       if (!querySwapHelper) {
         return {
           ...prev,
