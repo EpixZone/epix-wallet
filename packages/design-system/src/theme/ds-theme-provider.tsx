@@ -1,22 +1,14 @@
-import React, {
-  createContext,
-  useEffect,
-  useLayoutEffect,
-  useState,
-} from "react";
+import React, { createContext, useLayoutEffect } from "react";
 import { generateThemeStylesheet } from "./inject-vars";
 
 export type DSTheme = "dark" | "light";
 
 export interface DSThemeContextValue {
   theme: DSTheme;
-  setTheme: (theme: DSTheme) => void;
 }
 
 export const DSThemeContext = createContext<DSThemeContextValue>({
   theme: "dark",
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  setTheme: () => {},
 });
 
 export interface DSThemeProviderProps {
@@ -31,28 +23,21 @@ export const DSThemeProvider: React.FC<DSThemeProviderProps> = ({
   defaultTheme = "dark",
   externalMode = false,
 }) => {
-  const [theme, setTheme] = useState<DSTheme>(defaultTheme);
-
-  useEffect(() => {
-    setTheme(defaultTheme);
-  }, [defaultTheme]);
-
   useLayoutEffect(() => {
     if (!externalMode) {
       const styleId = "ds-theme-vars";
-      let styleEl = document.getElementById(styleId) as HTMLStyleElement | null;
-      if (!styleEl) {
-        styleEl = document.createElement("style");
+      if (!document.getElementById(styleId)) {
+        const styleEl = document.createElement("style");
         styleEl.id = styleId;
+        styleEl.textContent = generateThemeStylesheet();
         document.head.appendChild(styleEl);
       }
-      styleEl.textContent = generateThemeStylesheet();
     }
-    document.documentElement.setAttribute("data-ds-theme", theme);
-  }, [theme, externalMode]);
+    document.documentElement.setAttribute("data-ds-theme", defaultTheme);
+  }, [defaultTheme, externalMode]);
 
   return (
-    <DSThemeContext.Provider value={{ theme, setTheme }}>
+    <DSThemeContext.Provider value={{ theme: defaultTheme }}>
       {children}
     </DSThemeContext.Provider>
   );

@@ -6619,7 +6619,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@keplr-wallet/design-system@workspace:packages/design-system":
+"@keplr-wallet/design-system@0.13.17, @keplr-wallet/design-system@workspace:packages/design-system":
   version: 0.0.0-use.local
   resolution: "@keplr-wallet/design-system@workspace:packages/design-system"
   dependencies:
@@ -6657,6 +6657,7 @@ __metadata:
     "@keplr-wallet/common": 0.13.17
     "@keplr-wallet/cosmos": 0.13.17
     "@keplr-wallet/crypto": 0.13.17
+    "@keplr-wallet/design-system": 0.13.17
     "@keplr-wallet/hooks": 0.13.17
     "@keplr-wallet/hooks-bitcoin": 0.13.17
     "@keplr-wallet/hooks-evm": 0.13.17

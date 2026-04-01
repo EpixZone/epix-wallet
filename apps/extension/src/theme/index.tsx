@@ -9,6 +9,7 @@ import React, {
   useState,
 } from "react";
 import { ThemeProvider } from "styled-components";
+import { DSThemeProvider } from "@keplr-wallet/design-system";
 import { SetThemeOptionMsg } from "@keplr-wallet/background";
 import { BACKGROUND_PORT } from "@keplr-wallet/router";
 
@@ -102,7 +103,10 @@ export const AppThemeProvider: FunctionComponent<PropsWithChildren> = ({
         setTheme,
       }}
     >
-      <ThemeProvider theme={{ mode: displayTheme }}>{children}</ThemeProvider>
+      <DSThemeProvider defaultTheme={displayTheme}>
+        {/* TODO: Remove after DS migration is complete */}
+        <ThemeProvider theme={{ mode: displayTheme }}>{children}</ThemeProvider>
+      </DSThemeProvider>
     </AppThemeContext.Provider>
   );
 };
