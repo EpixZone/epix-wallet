@@ -48,6 +48,7 @@ import {
   prepareSignDocForDirectSigning,
 } from "./utils/cosmos";
 import { fillUnsignedEVMTx } from "./utils/evm";
+import { fetchWithRetry } from "./utils/fetch";
 import { EventBusSubscriber } from "@keplr-wallet/common";
 import { TxExecutionEvent } from "./types";
 
@@ -861,10 +862,19 @@ export class BackgroundTxExecutorService {
       throw new KeplrError("direct-tx-executor", 133, "Tx hash not found");
     }
 
-    const txResult = await this.backgroundTxService.traceTx(
-      tx.chainId,
-      tx.txHash
-    );
+    let txResult: any;
+    try {
+      txResult = await this.backgroundTxService.traceTx(tx.chainId, tx.txHash);
+    } catch {
+      // WS retry 모두 실패 — REST fallback 시도
+    }
+
+    // WS에서 결과를 못 받은 경우, REST로 tx 존재 여부 확인
+    // (tx가 온체인 성공했는데 WS 불안정으로 확인 못한 false positive 대응)
+    if (!txResult) {
+      txResult = await this.queryTxByRestFallback(tx.chainId, tx.txHash);
+    }
+
     if (!txResult) {
       return false;
     }
@@ -876,6 +886,21 @@ export class BackgroundTxExecutorService {
     }
 
     return true;
+  }
+
+  private async queryTxByRestFallback(
+    chainId: string,
+    txHash: string
+  ): Promise<{ code?: number } | undefined> {
+    try {
+      const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
+      const { data } = await fetchWithRetry<{
+        tx_response?: { code?: number; txhash?: string };
+      }>(chainInfo.rest, `/cosmos/tx/v1beta1/txs/${txHash}`);
+      return data.tx_response;
+    } catch {
+      return undefined;
+    }
   }
 
   /**
