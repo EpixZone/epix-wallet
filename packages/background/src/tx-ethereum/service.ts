@@ -99,7 +99,7 @@ export class BackgroundTxEthereumService {
               resolve();
             }
 
-            reject();
+            reject(new Error("Failed to get transaction receipt"));
           });
         },
         {

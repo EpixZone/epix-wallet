@@ -121,11 +121,11 @@ export class BackgroundTxService {
                 // trace 이후 로직은 동기적인 로직밖에 없기 때문에 문제될 게 없다.
                 // 문제될게 없다.
                 setTimeout(() => {
-                  reject();
+                  reject(new Error("WebSocket closed"));
                 }, 500);
               });
               txTracer.addEventListener("error", () => {
-                reject();
+                reject(new Error("WebSocket error"));
               });
               txTracer.traceTx(txHash).then((tx) => {
                 txTracer.close();

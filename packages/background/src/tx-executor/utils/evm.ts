@@ -1,9 +1,9 @@
 import { EVMInfo } from "@keplr-wallet/types";
-import { simpleFetch } from "@keplr-wallet/simple-fetch";
 import { UnsignedTransaction } from "@ethersproject/transactions";
 import { Dec } from "@keplr-wallet/unit";
 import { BackgroundTxFeeType, EVMBackgroundTxFeeType } from "../types";
 import { JsonRpcResponse } from "@keplr-wallet/types";
+import { fetchWithRetry } from "./fetch";
 
 const ETH_FEE_HISTORY_REWARD_PERCENTILES = [20, 40, 60];
 const ETH_FEE_SETTINGS_BY_FEE_TYPE: Record<
@@ -135,7 +135,7 @@ export async function fillUnsignedEVMTx(
     getGasPriceRequest,
   ];
 
-  const { data: rpcResponses } = await simpleFetch<
+  const { data: rpcResponses } = await fetchWithRetry<
     Array<JsonRpcResponse<unknown>>
   >(evmInfo.rpc, {
     method: "POST",

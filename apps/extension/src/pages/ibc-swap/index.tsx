@@ -1243,7 +1243,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
             executeTxMsg
           );
           if (result.status === TxExecutionStatus.FAILED) {
-            throw new Error(result.error ?? "Transaction execution failed");
+            throw new Error(result.error || "Transaction execution failed");
           }
 
           if (!chainStore.isEnabledChain(swapConfigs.amountConfig.outChainId)) {
