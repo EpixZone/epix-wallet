@@ -550,13 +550,16 @@ export class EthereumAccountBase {
       EthSignType.TRANSACTION
     );
 
+    // requiredErc20Approvals는 서명/nonce 계산에만 사용되고 serialize에는 불필요.
+    // ethers.js serialize()에 전달되면 "invalid object key" 에러 발생.
+    const { requiredErc20Approvals: _, ...txToSerialize } = unsignedTx;
     const isEIP1559 =
-      !!unsignedTx.maxFeePerGas || !!unsignedTx.maxPriorityFeePerGas;
+      !!txToSerialize.maxFeePerGas || !!txToSerialize.maxPriorityFeePerGas;
     if (isEIP1559) {
-      unsignedTx.type = TransactionTypes.eip1559;
+      txToSerialize.type = TransactionTypes.eip1559;
     }
 
-    return serialize(unsignedTx, signature);
+    return serialize(txToSerialize, signature);
   }
 
   async sendEthereumTx(
