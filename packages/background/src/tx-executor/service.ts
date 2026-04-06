@@ -505,7 +505,7 @@ export class BackgroundTxExecutorService {
         return {
           status: BackgroundTxStatus.FAILED,
           txHash,
-          error: e.message ?? "Transaction signing failed",
+          error: e?.message || "Transaction signing failed",
         };
       }
     }
@@ -522,7 +522,7 @@ export class BackgroundTxExecutorService {
         return {
           status: BackgroundTxStatus.FAILED,
           txHash,
-          error: e.message ?? "Transaction broadcasting failed",
+          error: e?.message || "Transaction broadcasting failed",
         };
       }
     }
@@ -546,7 +546,7 @@ export class BackgroundTxExecutorService {
       return {
         status: BackgroundTxStatus.FAILED,
         txHash,
-        error: e.message ?? "Transaction confirmation failed",
+        error: e?.message || "Transaction confirmation failed",
       };
     }
   }
