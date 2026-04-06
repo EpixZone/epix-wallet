@@ -353,34 +353,6 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
     }
   );
 
-  const currentFeeCurrencyCoinMinimalDenom =
-    swapConfigs.feeConfig.fees[0]?.currency.coinMinimalDenom;
-
-  // feemarket 체인은 simulate 결과가 실제보다 낮게 나오므로 gasAdjustment를 높여서 보정.
-  // 비네이티브 fee currency일 때 2.0인 이유는 fee denom 변환 과정에서 추가 gas 필요.
-  // (send 페이지와 동일 로직)
-  useEffect(() => {
-    const u2 = chainStore.getModularChain(inChainId).unwrapped;
-    const hasFeemarketFeature =
-      (u2.type === "cosmos" || u2.type === "ethermint") &&
-      u2.cosmos.features?.includes("feemarket");
-    if (hasFeemarketFeature) {
-      if (
-        currentFeeCurrencyCoinMinimalDenom !==
-        (u2.type === "cosmos" || u2.type === "ethermint"
-          ? u2.cosmos.currencies[0].coinMinimalDenom
-          : "")
-      ) {
-        gasSimulator.setGasAdjustmentValue("2");
-      } else {
-        gasSimulator.setGasAdjustmentValue("1.6");
-      }
-    } else {
-      // 소스 체인이 변경될 수 있으므로 feemarket이 아닌 체인으로 전환 시 기본값 복원
-      gasSimulator.setGasAdjustmentValue("1.3");
-    }
-  }, [inChainId, chainStore, gasSimulator, currentFeeCurrencyCoinMinimalDenom]);
-
   const txConfigsValidate = useTxConfigsValidate({
     ...swapConfigs,
     gasSimulator,
