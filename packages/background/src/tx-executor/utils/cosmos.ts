@@ -23,9 +23,9 @@ import {
 import { ExtensionOptionsWeb3Tx } from "@keplr-wallet/proto-types/ethermint/types/v1/web3";
 import { PubKey } from "@keplr-wallet/proto-types/cosmos/crypto/secp256k1/keys";
 import { SignMode } from "@keplr-wallet/proto-types/cosmos/tx/signing/v1beta1/signing";
-import { simpleFetch } from "@keplr-wallet/simple-fetch";
 import { Dec } from "@keplr-wallet/unit";
 import { BackgroundTxFeeType } from "../types";
+import { fetchWithRetry } from "./fetch";
 
 // TODO: move helper functions to proper packages
 
@@ -342,7 +342,7 @@ export async function simulateCosmosTx(
     signatures: [new Uint8Array(64)],
   }).finish();
 
-  const result = await simpleFetch<{
+  const result = await fetchWithRetry<{
     gas_info: {
       gas_used: string;
     };
@@ -371,7 +371,7 @@ export async function fetchCosmosSpendableBalances(
   bech32Address: string,
   limit = 1000
 ): Promise<{ balances: Coin[] }> {
-  const { data } = await simpleFetch<{ balances: Coin[] }>(
+  const { data } = await fetchWithRetry<{ balances: Coin[] }>(
     baseURL,
     `/cosmos/bank/v1beta1/spendable_balances/${bech32Address}?pagination.limit=${limit}`
   );
@@ -509,7 +509,7 @@ async function getOsmosisBaseFeeCurrency(
   }
 
   // Fetch multiplication factors from remote config
-  const remoteConfig = await simpleFetch<{
+  const remoteConfig = await fetchWithRetry<{
     low?: number;
     average?: number;
     high?: number;
@@ -517,7 +517,7 @@ async function getOsmosisBaseFeeCurrency(
     "https://gjsttg7mkgtqhjpt3mv5aeuszi0zblbb.lambda-url.us-west-2.on.aws/osmosis/osmosis-base-fee-beta.json"
   ).catch(() => ({ data: {} as Record<BackgroundTxFeeType, number> }));
 
-  const { data: baseFeeResponse } = await simpleFetch<{ base_fee: string }>(
+  const { data: baseFeeResponse } = await fetchWithRetry<{ base_fee: string }>(
     chainInfo.rest,
     "/osmosis/txfees/v1beta1/cur_eip_base_fee"
   );
@@ -540,7 +540,7 @@ async function getOsmosisTxFeesGasPrice(
   feeType: BackgroundTxFeeType
 ): Promise<Dec | null> {
   // Check if it's a fee token
-  const { data: feeTokensResponse } = await simpleFetch<{
+  const { data: feeTokensResponse } = await fetchWithRetry<{
     fee_tokens: Array<{ denom: string; poolID: string }>;
   }>(chainInfo.rest, "/osmosis/txfees/v1beta1/fee_tokens");
 
@@ -553,7 +553,9 @@ async function getOsmosisTxFeesGasPrice(
   }
 
   // Get spot price
-  const { data: spotPriceResponse } = await simpleFetch<{ spot_price: string }>(
+  const { data: spotPriceResponse } = await fetchWithRetry<{
+    spot_price: string;
+  }>(
     chainInfo.rest,
     `/osmosis/txfees/v1beta1/spot_price_by_denom?denom=${feeCurrency.coinMinimalDenom}`
   );
@@ -574,7 +576,7 @@ async function getFeeMarketGasPrice(
   feeType: BackgroundTxFeeType
 ): Promise<Dec | null> {
   try {
-    const gasPricesResponse = await simpleFetch<{
+    const gasPricesResponse = await fetchWithRetry<{
       prices: Array<{ denom: string; amount: string }>;
     }>(chainInfo.rest, "/feemarket/v1/gas_prices");
 
@@ -587,7 +589,7 @@ async function getFeeMarketGasPrice(
     }
 
     // Fetch multiplication config
-    const multiplicationConfig = await simpleFetch<{
+    const multiplicationConfig = await fetchWithRetry<{
       [chainId: string]: {
         low: number;
         average: number;
@@ -637,7 +639,7 @@ async function getInitiaDynamicFeeGasPrice(
   feeType: BackgroundTxFeeType
 ): Promise<Dec | null> {
   try {
-    const dynamicFeeResponse = await simpleFetch<{
+    const dynamicFeeResponse = await fetchWithRetry<{
       params: {
         base_gas_price: string;
       };
@@ -650,7 +652,7 @@ async function getInitiaDynamicFeeGasPrice(
     const baseGasPrice = new Dec(dynamicFeeResponse.data.params.base_gas_price);
 
     // Fetch multiplication config
-    const multiplicationConfig = await simpleFetch<{
+    const multiplicationConfig = await fetchWithRetry<{
       [str: string]: {
         low: number;
         average: number;
@@ -700,7 +702,7 @@ async function getEIP1559GasPrice(
 ): Promise<Dec | null> {
   try {
     // Get latest block for base fee
-    const blockResponse = await simpleFetch<{
+    const blockResponse = await fetchWithRetry<{
       result: {
         baseFeePerGas: string;
       };
