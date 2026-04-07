@@ -136,13 +136,19 @@ export class KeyRingLedgerService {
     const accountPath = `${purpose}'/${coinType}'/${account}'`;
     const additionalPath = `${change}/${addressIndex}`;
 
+    const bitcoinKey = coinType === 0 ? "Bitcoin" : "Bitcoin Test";
+    const bitcoinEntry = vault.insensitive[bitcoinKey];
+    if (!bitcoinEntry) {
+      throw new KeplrError(
+        "keyring",
+        901,
+        "No Bitcoin extended public key. Initialize Bitcoin app on Ledger by selecting the chain in the extension"
+      );
+    }
+
     const descriptor =
-      (vault.insensitive[coinType === 0 ? "Bitcoin" : "Bitcoin Test"] as any)[
-        accountPath
-      ] ||
-      (vault.insensitive[coinType === 0 ? "Bitcoin" : "Bitcoin Test"] as any)[
-        `m/${accountPath}`
-      ];
+      (bitcoinEntry as any)[accountPath] ||
+      (bitcoinEntry as any)[`m/${accountPath}`];
 
     if (!descriptor) {
       throw new KeplrError(
