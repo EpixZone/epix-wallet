@@ -1315,7 +1315,10 @@ export class KeyRingEthereumService {
           ).data.result;
         }
         default: {
-          throw new EthereumProviderRpcError(4200, `Unsupported Method`);
+          throw new EthereumProviderRpcError(
+            4200,
+            `Unsupported Method ${method}`
+          );
         }
       }
     })()) as T;
