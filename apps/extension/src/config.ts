@@ -512,69 +512,6 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
     features: ["ibc-go"],
   },
   {
-    rpc: "https://rpc-cyber.keplr.app",
-    rest: "https://lcd-cyber.keplr.app",
-    chainId: "bostrom",
-    chainName: "Bostrom",
-    stakeCurrency: {
-      coinDenom: "BOOT",
-      coinMinimalDenom: "boot",
-      coinDecimals: 0,
-    },
-    walletUrl:
-      process.env.NODE_ENV === "production"
-        ? "https://wallet.keplr.app/chains/bostrom"
-        : "http://localhost:8080/chains/bostrom",
-    walletUrlForStaking:
-      process.env.NODE_ENV === "production"
-        ? "https://wallet.keplr.app/chains/bostrom?modal=staking&chain=bostrom&step_id=2"
-        : "http://localhost:8080/chains/bostrom?modal=staking&chain=bostrom&step_id=2",
-    bip44: {
-      coinType: 118,
-    },
-    bech32Config: Bech32Address.defaultBech32Config("bostrom"),
-    currencies: [
-      {
-        coinDenom: "BOOT",
-        coinMinimalDenom: "boot",
-        coinDecimals: 0,
-      },
-      {
-        coinDenom: "H",
-        coinMinimalDenom: "hydrogen",
-        coinDecimals: 0,
-      },
-      {
-        coinDenom: "V",
-        coinMinimalDenom: "millivolt",
-        coinDecimals: 3,
-      },
-      {
-        coinDenom: "A",
-        coinMinimalDenom: "milliampere",
-        coinDecimals: 3,
-      },
-      {
-        coinDenom: "TOCYB",
-        coinMinimalDenom: "tocyb",
-        coinDecimals: 0,
-      },
-    ],
-    feeCurrencies: [
-      {
-        coinDenom: "BOOT",
-        coinMinimalDenom: "boot",
-        coinDecimals: 0,
-        gasPriceStep: {
-          low: 0,
-          average: 0,
-          high: 0.01,
-        },
-      },
-    ],
-    features: ["ibc-transfer", "cosmwasm", "ibc-go"],
-  },
-  {
     rpc: "https://rpc-juno.keplr.app",
     rest: "https://lcd-juno.keplr.app",
     chainId: "juno-1",
