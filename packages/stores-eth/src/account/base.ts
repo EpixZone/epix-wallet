@@ -476,14 +476,12 @@ export class EthereumAccountBase {
     spender: string,
     amount: string
   ): UnsignedTransaction {
-    const parsedAmount = parseUnits(amount, currency.coinDecimals);
-
     return this.makeTx(
       currency.contractAddress,
       "0x0",
       erc20ContractInterface.encodeFunctionData("approve", [
         spender,
-        hexValue(parsedAmount),
+        hexValue(BigInt(amount)),
       ])
     );
   }
