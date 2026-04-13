@@ -4,7 +4,6 @@ const TX_INTERPRETER_URL_PREFIX_BY_BECH32_PREFIX: Record<string, string> = {
   akash: "akash",
   axelar: "axelar",
   babylon: "babylon",
-  bostrom: "bostrom",
   celestia: "celestia",
   chihuahua: "chihuahua",
   cosmos: "cosmoshub",
