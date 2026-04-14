@@ -144,7 +144,6 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
     tokenFactoryRegistrar,
     erc20CurrencyRegistrar,
     ibcCurrencyRegistrar,
-    lsmCurrencyRegistrar,
     ibcChannelStore,
     gravityBridgeCurrencyRegistrar,
     axelarEVMBridgeCurrencyRegistrar,
@@ -215,10 +214,6 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
       return false;
     }
 
-    if (!lsmCurrencyRegistrar.isInitialized) {
-      return false;
-    }
-
     if (!priceStore.isInitialized) {
       return false;
     }
@@ -261,7 +256,6 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
     chainStore.modularChainInfos,
     tokenFactoryRegistrar.isInitialized,
     ibcCurrencyRegistrar.isInitialized,
-    lsmCurrencyRegistrar.isInitialized,
     priceStore.isInitialized,
     price24HChangesStore.isInitialized,
     uiConfigStore.isInitialized,
