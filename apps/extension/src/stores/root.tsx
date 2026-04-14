@@ -32,7 +32,6 @@ import {
   SecretQueries,
   ICNSQueries,
   AgoricQueries,
-  LSMCurrencyRegistrar,
   TokenFactoryCurrencyRegistrar,
   NobleQueries,
   NobleAccount,
@@ -185,7 +184,6 @@ export class RootStore {
 
   public readonly tokenFactoryRegistrar: TokenFactoryCurrencyRegistrar;
   public readonly ibcCurrencyRegistrar: IBCCurrencyRegistrar;
-  public readonly lsmCurrencyRegistrar: LSMCurrencyRegistrar;
   public readonly gravityBridgeCurrencyRegistrar: GravityBridgeCurrencyRegistrar;
   public readonly axelarEVMBridgeCurrencyRegistrar: AxelarEVMBridgeCurrencyRegistrar;
   public readonly erc20CurrencyRegistrar: ERC20CurrencyRegistrar;
@@ -669,12 +667,6 @@ export class RootStore {
       undefined,
       process.env["KEPLR_EXT_TX_HISTORY_BASE_URL"] || "",
       "/chain-registry/yacar/cw20/{chainId}/cw20:{contractAddress}"
-    );
-    this.lsmCurrencyRegistrar = new LSMCurrencyRegistrar(
-      new ExtensionKVStore("store_lsm_currency_registrar"),
-      24 * 3600 * 1000,
-      this.chainStore,
-      this.queriesStore
     );
     this.gravityBridgeCurrencyRegistrar = new GravityBridgeCurrencyRegistrar(
       new ExtensionKVStore("store_gravity_bridge_currency_registrar"),
