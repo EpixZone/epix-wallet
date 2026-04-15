@@ -592,6 +592,29 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
         let squidQuoteId: string | undefined;
         let requiresMultipleTxBundles: boolean = false;
 
+        // Direct context for swap milestone events. The analytics hook also
+        // merges from aggregatedPropsRef keyed by quote_id, but that cache
+        // can be empty on duplicate-route reuse — pass essentials directly.
+        const buildSwapMilestoneBaseProps = (): Record<string, any> => {
+          const formatChainIdentifier = (chainId: string): string => {
+            const id = ChainIdHelper.parse(chainId).identifier;
+            return Number.isNaN(parseInt(id, 10)) ? id : `eip155:${id}`;
+          };
+          const inAmount = swapConfigs.amountConfig.amount[0];
+          const inAmountUsd = inAmount
+            ? priceStore.calculatePrice(inAmount, "usd")?.toDec().toString()
+            : undefined;
+          return {
+            in_chain_identifier: formatChainIdentifier(inChainId),
+            in_coin_denom: inCurrency.coinDenom,
+            out_chain_identifier: formatChainIdentifier(outChainId),
+            out_coin_denom: outCurrency.coinDenom,
+            in_amount_raw: inAmount?.toCoin().amount.toString(),
+            in_amount_usd: inAmountUsd,
+            provider,
+          };
+        };
+
         uiConfigStore.ibcSwapConfig.setIsSwapExecuting(true, swapLoadingKey);
 
         const normalizeChainId = (chainId: string): string => {
@@ -1227,6 +1250,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
             logEvent("swap_tx_submitted", {
               quote_id: quoteIdRef.current,
               is_hold_to_swap: holdToSwapEnabled,
+              ...buildSwapMilestoneBaseProps(),
             });
           }
 
@@ -1288,6 +1312,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
           if (isSwap) {
             logEvent("swap_tx_success", {
               quote_id: quoteIdRef.current,
+              ...buildSwapMilestoneBaseProps(),
             });
           }
 
@@ -1386,6 +1411,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
             if (isSwap) {
               logEvent("swap_sign_canceled", {
                 quote_id: quoteIdRef.current,
+                ...buildSwapMilestoneBaseProps(),
               });
             }
 
@@ -1396,6 +1422,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
             logEvent("swap_tx_failed", {
               quote_id: quoteIdRef.current,
               error_message: e?.message,
+              ...buildSwapMilestoneBaseProps(),
             });
           }
 

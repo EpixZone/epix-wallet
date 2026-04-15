@@ -123,7 +123,9 @@ export const useSwapAnalytics = ({
               eventName === "swap_tx_success" ||
               eventName === "swap_tx_failed"
             ) {
-              delete aggregatedPropsRef.current[id];
+              // Read from payload: closure captures `id` from the first
+              // call that created this debounced fn, not the current quote.
+              delete aggregatedPropsRef.current[p["quote_id"]];
             }
           },
           100
