@@ -595,6 +595,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
         // Direct context for swap milestone events. The analytics hook also
         // merges from aggregatedPropsRef keyed by quote_id, but that cache
         // can be empty on duplicate-route reuse — pass essentials directly.
+        // Omit undefined keys so aggregation fills them in when available.
         const buildSwapMilestoneBaseProps = (): Record<string, any> => {
           const formatChainIdentifier = (chainId: string): string => {
             const id = ChainIdHelper.parse(chainId).identifier;
@@ -604,15 +605,18 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
           const inAmountUsd = inAmount
             ? priceStore.calculatePrice(inAmount, "usd")?.toDec().toString()
             : undefined;
-          return {
+          const props: Record<string, any> = {
             in_chain_identifier: formatChainIdentifier(inChainId),
             in_coin_denom: inCurrency.coinDenom,
             out_chain_identifier: formatChainIdentifier(outChainId),
             out_coin_denom: outCurrency.coinDenom,
-            in_amount_raw: inAmount?.toCoin().amount.toString(),
-            in_amount_usd: inAmountUsd,
-            provider,
           };
+          if (inAmount) {
+            props["in_amount_raw"] = inAmount.toCoin().amount.toString();
+          }
+          if (inAmountUsd !== undefined) props["in_amount_usd"] = inAmountUsd;
+          if (provider !== undefined) props["provider"] = provider;
+          return props;
         };
 
         uiConfigStore.ibcSwapConfig.setIsSwapExecuting(true, swapLoadingKey);
