@@ -592,6 +592,36 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
         let squidQuoteId: string | undefined;
         let requiresMultipleTxBundles: boolean = false;
 
+        // Snapshot context at submit time so every milestone event for this
+        // submit attempt carries the same values (priceStore may refresh
+        // between submitted and success otherwise). `provider` is added in
+        // the try block once the quote response is read.
+        const formatChainIdentifier = (chainId: string): string => {
+          const id = ChainIdHelper.parse(chainId).identifier;
+          return Number.isNaN(parseInt(id, 10)) ? id : `eip155:${id}`;
+        };
+        const inAmountAtSubmit = swapConfigs.amountConfig.amount[0];
+        const inAmountUsdAtSubmit = inAmountAtSubmit
+          ? priceStore
+              .calculatePrice(inAmountAtSubmit, "usd")
+              ?.toDec()
+              .toString()
+          : undefined;
+        const swapMilestoneBase: Record<string, any> = {
+          in_chain_identifier: formatChainIdentifier(inChainId),
+          in_coin_denom: inCurrency.coinDenom,
+          out_chain_identifier: formatChainIdentifier(outChainId),
+          out_coin_denom: outCurrency.coinDenom,
+        };
+        if (inAmountAtSubmit) {
+          swapMilestoneBase["in_amount_raw"] = inAmountAtSubmit
+            .toCoin()
+            .amount.toString();
+        }
+        if (inAmountUsdAtSubmit !== undefined) {
+          swapMilestoneBase["in_amount_usd"] = inAmountUsdAtSubmit;
+        }
+
         uiConfigStore.ibcSwapConfig.setIsSwapExecuting(true, swapLoadingKey);
 
         const normalizeChainId = (chainId: string): string => {
@@ -670,6 +700,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
           }
 
           provider = queryRoute.response.data.provider;
+          swapMilestoneBase["provider"] = provider;
           routeDurationSeconds = queryRoute.response.data.estimated_time;
 
           for (const chainId of requiredChainIds) {
@@ -1227,6 +1258,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
             logEvent("swap_tx_submitted", {
               quote_id: quoteIdRef.current,
               is_hold_to_swap: holdToSwapEnabled,
+              ...swapMilestoneBase,
             });
           }
 
@@ -1288,6 +1320,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
           if (isSwap) {
             logEvent("swap_tx_success", {
               quote_id: quoteIdRef.current,
+              ...swapMilestoneBase,
             });
           }
 
@@ -1386,6 +1419,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
             if (isSwap) {
               logEvent("swap_sign_canceled", {
                 quote_id: quoteIdRef.current,
+                ...swapMilestoneBase,
               });
             }
 
@@ -1396,6 +1430,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
             logEvent("swap_tx_failed", {
               quote_id: quoteIdRef.current,
               error_message: e?.message,
+              ...swapMilestoneBase,
             });
           }
 
