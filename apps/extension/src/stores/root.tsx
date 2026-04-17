@@ -480,23 +480,6 @@ export class RootStore {
             };
           }
 
-          // For terra related chains
-          if (
-            chainId.startsWith("bombay-") ||
-            chainId.startsWith("columbus-")
-          ) {
-            return {
-              send: {
-                native: {
-                  type: "bank/MsgSend",
-                },
-              },
-              withdrawRewards: {
-                type: "distribution/MsgWithdrawDelegationReward",
-              },
-            };
-          }
-
           if (chainId.startsWith("evmos_") || chainId.startsWith("planq_")) {
             return {
               send: {
