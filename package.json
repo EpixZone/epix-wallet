@@ -103,6 +103,7 @@
   "resolutions": {
     "@types/react": "^18.2.19",
     "@types/react-dom": "^18.2.7",
+    "@ledgerhq/hw-transport": "^6.35.0",
     "@iov/crypto": "2.1.0",
     "@walletconnect/jsonrpc-types": "^1.0.4",
     "@walletconnect/sign-client": "=2.10.5",
