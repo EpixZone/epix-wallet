@@ -1,5 +1,14 @@
 import { DenomHelper } from "@keplr-wallet/common";
-import { computed, makeObservable } from "mobx";
+import {
+  computed,
+  IReactionDisposer,
+  makeObservable,
+  observable,
+  onBecomeObserved,
+  onBecomeUnobserved,
+  reaction,
+  runInAction,
+} from "mobx";
 import { CoinPretty, Int } from "@keplr-wallet/unit";
 import { AppCurrency } from "@keplr-wallet/types";
 import {
@@ -11,7 +20,10 @@ import {
   QueryResponse,
   QuerySharedContext,
 } from "@keplr-wallet/stores";
+import bigInteger from "big-integer";
 import { EthereumAccountBase } from "../account";
+import { ObservableQueryEthereumERC20BalancesBatchParent } from "./erc20-balance-batch";
+import { ERC20BalanceBatchParentStore } from "./erc20-batch-parent-store";
 
 const thirdparySupportedChainIdMap: Record<string, string> = {
   "eip155:1": "eth",
@@ -42,11 +54,15 @@ export class ObservableQueryThirdpartyERC20BalancesImplParent extends Observable
   //      so fetch should not be overridden in this parent class.
   public duplicatedFetchResolver?: Promise<void>;
 
+  @observable.shallow
+  protected alchemyContractSet: Set<string> = new Set();
+
   constructor(
     sharedContext: QuerySharedContext,
     protected readonly chainId: string,
     protected readonly chainGetter: ChainGetter,
-    protected readonly ethereumHexAddress: string
+    protected readonly ethereumHexAddress: string,
+    public readonly batchParent: ObservableQueryEthereumERC20BalancesBatchParent
   ) {
     const tokenAPIURL = `https://evm-${chainId.replace(
       "eip155:",
@@ -79,22 +95,37 @@ export class ObservableQueryThirdpartyERC20BalancesImplParent extends Observable
     super.onReceiveResponse(response);
 
     const mcInfo = this.chainGetter.getModularChain(this.chainId);
-    const erc20Denoms = response.data.tokenBalances
-      .filter(
-        (tokenBalance) =>
-          tokenBalance.tokenBalance != null &&
-          BigInt(tokenBalance.tokenBalance) > 0
-      )
-      .map((tokenBalance) => `erc20:${tokenBalance.contractAddress}`);
-    if (erc20Denoms) {
+    const next = new Set<string>();
+    const erc20Denoms: string[] = [];
+    for (const tokenBalance of response.data.tokenBalances) {
+      if (tokenBalance.tokenBalance != null) {
+        next.add(tokenBalance.contractAddress.toLowerCase());
+        if (BigInt(tokenBalance.tokenBalance) > 0) {
+          erc20Denoms.push(`erc20:${tokenBalance.contractAddress}`);
+        }
+      }
+    }
+    runInAction(() => {
+      this.alchemyContractSet = next;
+    });
+    if (erc20Denoms.length > 0) {
       mcInfo.addUnknownDenoms(...erc20Denoms);
     }
+  }
+
+  hasAlchemyBalance(contract: string): boolean {
+    return this.alchemyContractSet.has(contract.toLowerCase());
   }
 }
 
 export class ObservableQueryThirdpartyERC20BalancesImpl
   implements IObservableQueryBalanceImpl
 {
+  protected batchReactionDisposer?: IReactionDisposer;
+  @observable
+  protected isInBatch = false;
+  protected observedProps = 0;
+
   constructor(
     protected readonly parent: ObservableQueryThirdpartyERC20BalancesImplParent,
     protected readonly chainId: string,
@@ -102,26 +133,90 @@ export class ObservableQueryThirdpartyERC20BalancesImpl
     protected readonly denomHelper: DenomHelper
   ) {
     makeObservable(this);
+
+    const contract = denomHelper.contractAddress;
+    // Readiness gates in hooks-evm can early-return on `response` before
+    // reading `balance`, so track observation across both to register the
+    // contract with the batch parent when needed.
+    const installReaction = () => {
+      // Register to batch only when Alchemy can't cover the contract, to avoid
+      // duplicate eth_call against tokens Alchemy already returns.
+      this.batchReactionDisposer = reaction(
+        () => {
+          // Alchemy error forces fallback even when a stale `response` still
+          // advertises the contract as covered.
+          if (parent.error) return "missing";
+          if (!parent.response) return "pending";
+          if (parent.hasAlchemyBalance(contract)) return "covered";
+          return "missing";
+        },
+        (status) => {
+          if (status === "missing" && !this.isInBatch) {
+            runInAction(() => {
+              this.isInBatch = true;
+            });
+            parent.batchParent.addContract(contract);
+          } else if (status !== "missing" && this.isInBatch) {
+            runInAction(() => {
+              this.isInBatch = false;
+            });
+            parent.batchParent.removeContract(contract);
+          }
+        },
+        { fireImmediately: true }
+      );
+    };
+    const teardownReaction = () => {
+      this.batchReactionDisposer?.();
+      this.batchReactionDisposer = undefined;
+      if (this.isInBatch) {
+        runInAction(() => {
+          this.isInBatch = false;
+        });
+        parent.batchParent.removeContract(contract);
+      }
+    };
+    const attach = (prop: "balance" | "response" | "error") => {
+      onBecomeObserved(this, prop, () => {
+        if (this.observedProps++ === 0) installReaction();
+      });
+      onBecomeUnobserved(this, prop, () => {
+        if (--this.observedProps === 0) teardownReaction();
+      });
+    };
+    attach("balance");
+    attach("response");
+    attach("error");
   }
 
   @computed
   get balance(): CoinPretty {
     const currency = this.currency;
+    const contract = this.denomHelper.contractAddress;
 
-    if (!this.response) {
-      return new CoinPretty(currency, new Int(0)).ready(false);
+    if (this.alchemyCovers) {
+      const tokenBalance = this.parent.response?.data.tokenBalances.find(
+        (bal) =>
+          DenomHelper.normalizeDenom(`erc20:${bal.contractAddress}`) ===
+          DenomHelper.normalizeDenom(this.denomHelper.denom)
+      );
+      if (tokenBalance?.tokenBalance != null) {
+        return new CoinPretty(
+          currency,
+          new Int(BigInt(tokenBalance.tokenBalance))
+        );
+      }
     }
 
-    const tokenBalance = this.response.data.tokenBalances.find(
-      (bal) =>
-        DenomHelper.normalizeDenom(`erc20:${bal.contractAddress}`) ===
-        DenomHelper.normalizeDenom(this.denomHelper.denom)
-    );
-    if (tokenBalance?.tokenBalance == null) {
-      return new CoinPretty(currency, new Int(0)).ready(false);
+    const raw = this.parent.batchParent.getBalance(contract);
+    if (raw !== undefined) {
+      return new CoinPretty(
+        currency,
+        new Int(bigInteger(raw.replace("0x", ""), 16).toString())
+      );
     }
 
-    return new CoinPretty(currency, new Int(BigInt(tokenBalance.tokenBalance)));
+    return new CoinPretty(currency, new Int(0)).ready(false);
   }
 
   @computed
@@ -133,10 +228,35 @@ export class ObservableQueryThirdpartyERC20BalancesImpl
       .forceFindCurrency(denom);
   }
 
+  // Whether the contract is currently sourced from a healthy Alchemy response.
+  // Derived from actual data/error state so imperative callers (which never
+  // flip `isInBatch`) observe the same semantics as the reaction path.
+  @computed
+  protected get alchemyCovers(): boolean {
+    return (
+      !this.parent.error &&
+      !!this.parent.response &&
+      this.parent.hasAlchemyBalance(this.denomHelper.contractAddress)
+    );
+  }
+
+  @computed
   get error(): Readonly<QueryError<unknown>> | undefined {
-    return this.parent.error;
+    if (this.alchemyCovers) return undefined;
+    const contract = this.denomHelper.contractAddress;
+    const batchErr = this.parent.batchParent.getError(contract);
+    if (batchErr) return batchErr;
+    // Batch has valid data — suppress any lingering Alchemy error.
+    if (this.parent.batchParent.getBalance(contract) !== undefined) {
+      return undefined;
+    }
+    // Still loading — stay quiet until the fallback settles.
+    return undefined;
   }
   get isFetching(): boolean {
+    if (!this.alchemyCovers) {
+      return this.parent.batchParent.isFetching || this.parent.isFetching;
+    }
     return this.parent.isFetching;
   }
   get isObserved(): boolean {
@@ -145,10 +265,28 @@ export class ObservableQueryThirdpartyERC20BalancesImpl
   get isStarted(): boolean {
     return this.parent.isStarted;
   }
+  @computed
   get response():
     | Readonly<QueryResponse<ThirdpartyERC20TokenBalance>>
     | undefined {
-    return this.parent.response;
+    // Readiness must gate on actual data availability, not the
+    // observation-driven `isInBatch` flag, so imperative callers also see
+    // batch-backed readiness for tokens missing from Alchemy.
+    if (this.alchemyCovers) return this.parent.response;
+    const raw = this.parent.batchParent.getBalance(
+      this.denomHelper.contractAddress
+    );
+    if (raw === undefined) return undefined;
+    return {
+      data: {
+        address: "",
+        tokenBalances: [],
+        pageKey: "",
+      },
+      staled: false,
+      local: false,
+      timestamp: 0,
+    };
   }
 
   fetch(): Promise<void> {
@@ -175,20 +313,43 @@ export class ObservableQueryThirdpartyERC20BalancesImpl
           })();
         }
       );
-      return this.parent.duplicatedFetchResolver;
     }
+    const alchemyFetch = this.parent.duplicatedFetchResolver;
+    return alchemyFetch.then(() => this.awaitFallbackIfMissing());
+  }
 
-    return this.parent.duplicatedFetchResolver;
+  // After Alchemy resolves, check Alchemy coverage directly (not via the
+  // observation-driven reaction) so imperative callers also exercise the
+  // batch fallback for tokens missing from Alchemy.
+  protected async awaitFallbackIfMissing(): Promise<void> {
+    const contract = this.denomHelper.contractAddress;
+    // Mirror the reaction: an Alchemy error forces fallback even when a
+    // stale response still advertises the contract as covered.
+    const coveredByAlchemy =
+      !this.parent.error &&
+      !!this.parent.response &&
+      this.parent.hasAlchemyBalance(contract);
+    if (coveredByAlchemy) return;
+    this.parent.batchParent.addContract(contract);
+    try {
+      await this.parent.batchParent.waitFreshResponse();
+    } finally {
+      this.parent.batchParent.removeContract(contract);
+    }
   }
 
   async waitFreshResponse(): Promise<
     Readonly<QueryResponse<unknown>> | undefined
   > {
-    return await this.parent.waitFreshResponse();
+    await this.parent.waitFreshResponse();
+    await this.awaitFallbackIfMissing();
+    return this.response;
   }
 
   async waitResponse(): Promise<Readonly<QueryResponse<unknown>> | undefined> {
-    return await this.parent.waitResponse();
+    await this.parent.waitResponse();
+    await this.awaitFallbackIfMissing();
+    return this.response;
   }
 }
 
@@ -202,12 +363,7 @@ export class ObservableQueryThirdpartyERC20BalanceRegistry
 
   constructor(
     protected readonly sharedContext: QuerySharedContext,
-    protected readonly forceNativeERC20Query: (
-      chainId: string,
-      chainGetter: ChainGetter,
-      address: string,
-      minimalDenom: string
-    ) => boolean
+    protected readonly batchParentStore: ERC20BalanceBatchParentStore
   ) {}
 
   getBalanceImpl(
@@ -224,21 +380,26 @@ export class ObservableQueryThirdpartyERC20BalanceRegistry
       !Object.keys(thirdparySupportedChainIdMap).includes(chainId) ||
       denomHelper.type !== "erc20" ||
       !isHexAddress ||
-      (mcInfo.type !== "evm" && mcInfo.type !== "ethermint") ||
-      this.forceNativeERC20Query(chainId, chainGetter, address, minimalDenom)
+      (mcInfo.type !== "evm" && mcInfo.type !== "ethermint")
     ) {
       return;
     }
     const key = `${chainId}/${address}`;
 
     if (!this.parentMap.has(key)) {
+      const batchParent = this.batchParentStore.getOrCreate(
+        chainId,
+        chainGetter,
+        address
+      );
       this.parentMap.set(
         key,
         new ObservableQueryThirdpartyERC20BalancesImplParent(
           this.sharedContext,
           chainId,
           chainGetter,
-          address
+          address,
+          batchParent
         )
       );
     }
