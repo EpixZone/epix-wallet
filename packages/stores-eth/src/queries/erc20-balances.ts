@@ -322,6 +322,8 @@ export class ObservableQueryThirdpartyERC20BalancesImpl
   // observation-driven reaction) so imperative callers also exercise the
   // batch fallback for tokens missing from Alchemy.
   protected async awaitFallbackIfMissing(): Promise<void> {
+    // balanceImplMap doesn't evict on currency removal.
+    if (!this.isCurrencyRegistered()) return;
     const contract = this.denomHelper.contractAddress;
     // Mirror the reaction: an Alchemy error forces fallback even when a
     // stale response still advertises the contract as covered.
@@ -336,6 +338,15 @@ export class ObservableQueryThirdpartyERC20BalancesImpl
     } finally {
       this.parent.batchParent.removeContract(contract);
     }
+  }
+
+  protected isCurrencyRegistered(): boolean {
+    const target = DenomHelper.normalizeDenom(this.denomHelper.denom);
+    return this.chainGetter
+      .getModularChain(this.chainId)
+      .currencies.some(
+        (c) => DenomHelper.normalizeDenom(c.coinMinimalDenom) === target
+      );
   }
 
   async waitFreshResponse(): Promise<

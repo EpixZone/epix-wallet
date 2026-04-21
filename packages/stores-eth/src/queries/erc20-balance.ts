@@ -111,6 +111,8 @@ export class ObservableQueryEthereumERC20BalanceImpl
   }
 
   protected async ensureFetched(): Promise<void> {
+    // balanceImplMap doesn't evict on currency removal.
+    if (!this.isCurrencyRegistered()) return;
     // Force temporary registration so imperative callers (outside a reactive
     // observer) still trigger an actual eth_call.
     this.parent.addContract(this.contractAddress);
@@ -119,6 +121,15 @@ export class ObservableQueryEthereumERC20BalanceImpl
     } finally {
       this.parent.removeContract(this.contractAddress);
     }
+  }
+
+  protected isCurrencyRegistered(): boolean {
+    const target = DenomHelper.normalizeDenom(this.denomHelper.denom);
+    return this.chainGetter
+      .getModularChain(this.chainId)
+      .currencies.some(
+        (c) => DenomHelper.normalizeDenom(c.coinMinimalDenom) === target
+      );
   }
 
   fetch(): Promise<void> {
