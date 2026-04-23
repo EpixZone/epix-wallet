@@ -145,7 +145,6 @@ export interface FiatOnRampServiceInfo {
   serviceName: string;
   buyOrigin: string;
   buySupportCoinDenomsByChainId: Record<string, string[] | undefined>;
-  apiKey?: string;
 }
 
 export const SwapVenues: {
