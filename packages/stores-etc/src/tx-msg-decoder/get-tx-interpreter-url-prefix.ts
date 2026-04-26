@@ -35,7 +35,6 @@ const TX_INTERPRETER_URL_PREFIX_BY_BECH32_PREFIX: Record<string, string> = {
   stride: "stride",
   terra: "terra2",
   thor: "thorchain",
-  umee: "umee",
   union: "union",
   xion: "xion",
 };
