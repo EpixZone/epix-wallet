@@ -805,49 +805,6 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
     features: ["ibc-transfer", "ibc-go"],
   },
   {
-    rpc: "https://rpc-umee.keplr.app",
-    rest: "https://lcd-umee.keplr.app",
-    chainId: "umee-1",
-    chainName: "Umee",
-    stakeCurrency: {
-      coinDenom: "UMEE",
-      coinMinimalDenom: "uumee",
-      coinDecimals: 6,
-    },
-    walletUrl:
-      process.env.NODE_ENV === "production"
-        ? "https://wallet.keplr.app/chains/umee"
-        : "http://localhost:8080/chains/umee",
-    walletUrlForStaking:
-      process.env.NODE_ENV === "production"
-        ? "https://wallet.keplr.app/chains/umee?modal=staking&chain=umee-1&step_id=2"
-        : "http://localhost:8080/chains/umee?modal=staking&chain=umee-1&step_id=2",
-    bip44: {
-      coinType: 118,
-    },
-    bech32Config: Bech32Address.defaultBech32Config("umee"),
-    currencies: [
-      {
-        coinDenom: "UMEE",
-        coinMinimalDenom: "uumee",
-        coinDecimals: 6,
-      },
-    ],
-    feeCurrencies: [
-      {
-        coinDenom: "UMEE",
-        coinMinimalDenom: "uumee",
-        coinDecimals: 6,
-        gasPriceStep: {
-          low: 0.05,
-          average: 0.06,
-          high: 0.1,
-        },
-      },
-    ],
-    features: ["ibc-transfer", "ibc-go"],
-  },
-  {
     rpc: "https://rpc-stride.keplr.app",
     rest: "https://lcd-stride.keplr.app",
     chainId: "stride-1",
