@@ -111,7 +111,7 @@ jobs:
       - run: sudo apt-get update
       - run: sudo apt-get install gh
       - run: sudo snap install aws-cli --classic
-      - run: mkdir release && cd release && gh release download $GITHUB_REF_NAME --pattern '*.firefox.zip' --repo https://github.com/chainapsis/keplr-wallet
+      - run: mkdir release && cd release && gh release download "$GITHUB_REF_NAME" --pattern '*.firefox.zip' --repo "$GITHUB_REPOSITORY"
         working-directory: ../temp
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

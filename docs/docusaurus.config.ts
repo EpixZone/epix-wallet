@@ -84,7 +84,7 @@ const config: Config = {
           label: "Docs",
         },
         {
-          href: "https://github.com/chainapsis/keplr-wallet",
+          href: "https://github.com/chainapsis",
           label: "GitHub",
           position: "right",
         },

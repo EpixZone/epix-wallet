@@ -5,7 +5,7 @@ import ManageWcExampleImage from "@site/static/img/guide/manage-wc-example.png";
 
 # Use with WalletConnect
 
-Keplr Mobile supports WalletConnect, allowing seamless integration of dApps with Keplr Wallet via QR codes. You can find an example at this [link](https://github.com/chainapsis/keplr-wallet/tree/master/packages/wc-client-example).
+Keplr Mobile supports WalletConnect, allowing seamless integration of dApps with Keplr Wallet via QR codes. This guide walks through the packages and client setup needed to connect through WalletConnect.
 
 ---
 
