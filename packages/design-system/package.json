@@ -1,6 +1,6 @@
 {
   "name": "@keplr-wallet/design-system",
-  "version": "0.13.24",
+  "version": "0.13.25",
   "private": true,
   "main": "src/index.ts",
   "author": "chainapsis",
