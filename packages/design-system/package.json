@@ -5,6 +5,10 @@
   "main": "src/index.ts",
   "author": "chainapsis",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chainapsis/keplr-wallet.git"
+  },
   "scripts": {
     "clean": "rm -rf node_modules",
     "build": "echo 'no build needed'",
