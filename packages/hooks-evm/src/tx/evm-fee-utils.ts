@@ -17,7 +17,7 @@ export const ETH_FEE_SETTINGS_BY_FEE_TYPE: Record<
 > = {
   low: {
     percentile: ETH_FEE_HISTORY_REWARD_PERCENTILES[0],
-    baseFeePercentageMultiplier: new Dec(1),
+    baseFeePercentageMultiplier: new Dec(1.1),
   },
   average: {
     percentile: ETH_FEE_HISTORY_REWARD_PERCENTILES[1],
