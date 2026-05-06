@@ -13,6 +13,7 @@ import { CurrencyImageFallback } from "../../../components/image";
 import { ColorPalette } from "../../../styles";
 import { useTokenTag } from "../../../hooks/use-token-tag";
 import { TokenTag } from "../../main/components/token/token-tag";
+import { isUsdAggregationShadowedByVisiblePrimaryAsset } from "../../../utils/is-usd-aggregation-shadowed-by-visible-primary-asset";
 
 const Container = styled.div`
   background-color: transparent;
@@ -26,7 +27,7 @@ interface NestedTokenItemProps {
 
 export const NestedTokenItem: FunctionComponent<NestedTokenItemProps> =
   observer(({ viewToken }) => {
-    const { uiConfigStore, priceStore } = useStore();
+    const { chainStore, keyRingStore, priceStore, uiConfigStore } = useStore();
     const theme = useTheme();
 
     const tag = useTokenTag(viewToken);
@@ -43,7 +44,19 @@ export const NestedTokenItem: FunctionComponent<NestedTokenItemProps> =
       );
     }, [uiConfigStore, viewToken.token]);
 
-    const pricePretty = priceStore.calculatePrice(viewToken.token);
+    const disabledViewAssetTokenMap =
+      uiConfigStore.manageViewAssetTokenConfig.getViewAssetTokenMapByVaultId(
+        keyRingStore.selectedKeyInfo?.id ?? ""
+      );
+    const shouldHidePrice = isUsdAggregationShadowedByVisiblePrimaryAsset(
+      chainStore,
+      disabledViewAssetTokenMap,
+      viewToken.chainInfo.chainId,
+      viewToken.token.currency.coinMinimalDenom
+    );
+    const pricePretty = shouldHidePrice
+      ? undefined
+      : viewToken.price ?? priceStore.calculatePrice(viewToken.token);
 
     const priceText = useMemo(() => {
       return uiConfigStore.hideStringIfPrivacyMode(
