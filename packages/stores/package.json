@@ -1,6 +1,6 @@
 {
   "name": "@keplr-wallet/stores",
-  "version": "0.13.26",
+  "version": "0.13.27",
   "main": "build/index.js",
   "author": "chainapsis",
   "license": "Apache-2.0",
@@ -21,17 +21,17 @@
     "typecheck": "npx tsc -p tsconfig.check.json"
   },
   "devDependencies": {
-    "@keplr-wallet/provider-mock": "0.13.26"
+    "@keplr-wallet/provider-mock": "0.13.27"
   },
   "dependencies": {
-    "@keplr-wallet/common": "0.13.26",
-    "@keplr-wallet/cosmos": "0.13.26",
-    "@keplr-wallet/crypto": "0.13.26",
-    "@keplr-wallet/mobx-utils": "0.13.26",
-    "@keplr-wallet/proto-types": "0.13.26",
-    "@keplr-wallet/simple-fetch": "0.13.26",
-    "@keplr-wallet/types": "0.13.26",
-    "@keplr-wallet/unit": "0.13.26",
+    "@keplr-wallet/common": "0.13.27",
+    "@keplr-wallet/cosmos": "0.13.27",
+    "@keplr-wallet/crypto": "0.13.27",
+    "@keplr-wallet/mobx-utils": "0.13.27",
+    "@keplr-wallet/proto-types": "0.13.27",
+    "@keplr-wallet/simple-fetch": "0.13.27",
+    "@keplr-wallet/types": "0.13.27",
+    "@keplr-wallet/unit": "0.13.27",
     "buffer": "^6.0.3",
     "deepmerge": "^4.2.2",
     "eventemitter3": "^4.0.7",
