@@ -44,6 +44,7 @@ import {
 import { BACKGROUND_PORT, MessageRequester } from "@keplr-wallet/router";
 import { KVStore, toGenerator } from "@keplr-wallet/common";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
+import { USD_AGGREGATION_SHADOWED_BY } from "../../config";
 
 export type RequiredCurrencyTokenScan = Omit<
   TokenScan,
@@ -372,6 +373,24 @@ export class ChainStore extends BaseChainStore {
   isEnabledChain(chainId: string): boolean {
     const chainIdentifier = ChainIdHelper.parse(chainId).identifier;
     return this.enabledChainIdentifiesMap.get(chainIdentifier) === true;
+  }
+
+  getUsdAggregationShadowPrimaryAsset(
+    chainId: string,
+    coinMinimalDenom: string
+  ): { chainId: string; coinMinimalDenom: string } | undefined {
+    const rule = USD_AGGREGATION_SHADOWED_BY[chainId];
+    if (!rule) return;
+    if (!rule.denoms.has(coinMinimalDenom)) return;
+    if (!this.isEnabledChain(rule.primary.chainId)) return;
+    return rule.primary;
+  }
+
+  isUsdAggregationShadowed(chainId: string, coinMinimalDenom: string): boolean {
+    return !!this.getUsdAggregationShadowPrimaryAsset(
+      chainId,
+      coinMinimalDenom
+    );
   }
 
   @computed

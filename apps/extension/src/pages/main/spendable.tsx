@@ -274,6 +274,7 @@ const TokenItemWithCopyAddress: FunctionComponent<{
         onClick={onClick}
         copyAddress={copyAddress}
         showPrice24HChange={showPrice24HChange}
+        hideUsdAggregationShadowPrice
       />
     );
   }
