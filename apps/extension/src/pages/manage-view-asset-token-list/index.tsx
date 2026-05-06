@@ -29,6 +29,7 @@ import { useSearch } from "../../hooks/use-search";
 import { ViewToken } from "../main";
 import { CoinPretty } from "@keplr-wallet/unit";
 import { sortByPrice } from "../../utils/token-sort";
+import { isUsdAggregationShadowedByVisiblePrimaryAsset } from "../../utils/is-usd-aggregation-shadowed-by-visible-primary-asset";
 
 const searchFields = [
   {
@@ -47,8 +48,13 @@ const searchFields = [
 ];
 
 export const ManageViewAssetTokenListPage: FunctionComponent = observer(() => {
-  const { hugeQueriesStore, keyRingStore, uiConfigStore, chainStore } =
-    useStore();
+  const {
+    hugeQueriesStore,
+    keyRingStore,
+    uiConfigStore,
+    chainStore,
+    priceStore,
+  } = useStore();
   const intl = useIntl();
   const [sortMode, setSortMode] = useState<"asc" | "desc" | undefined>(
     undefined
@@ -82,23 +88,43 @@ export const ManageViewAssetTokenListPage: FunctionComponent = observer(() => {
     allowIBCToken: true,
     enableFilterDisabledAssetToken: false,
   });
-  const [search, setSearch] = useState("");
-  const searchedBalances = useSearch([...allBalances], search, searchFields);
-  const sortedBalances = useMemo(() => {
-    const searchedBalancesSliced = [...searchedBalances];
-    if (sortMode === "asc") {
-      return searchedBalancesSliced.sort((a, b) => -sortByPrice(a, b));
-    } else if (sortMode === "desc") {
-      return searchedBalancesSliced.sort(sortByPrice);
-    } else {
-      return searchedBalancesSliced;
-    }
-  }, [searchedBalances, sortMode]);
-
   const disabledTokenMap =
     uiConfigStore.manageViewAssetTokenConfig.getViewAssetTokenMapByVaultId(
       keyRingStore.selectedKeyInfo?.id ?? ""
     );
+  const [search, setSearch] = useState("");
+  const searchedBalances = useSearch([...allBalances], search, searchFields);
+  const sortedBalances = useMemo(() => {
+    const searchedBalancesSliced = [...searchedBalances];
+    const sortByVisiblePrice = (a: ViewToken, b: ViewToken) => {
+      const getPrice = (viewToken: ViewToken) => {
+        if (
+          isUsdAggregationShadowedByVisiblePrimaryAsset(
+            chainStore,
+            disabledTokenMap,
+            viewToken.chainInfo.chainId,
+            viewToken.token.currency.coinMinimalDenom
+          )
+        ) {
+          return undefined;
+        }
+        return viewToken.price ?? priceStore.calculatePrice(viewToken.token);
+      };
+
+      return sortByPrice(
+        { token: a.token, price: getPrice(a) },
+        { token: b.token, price: getPrice(b) }
+      );
+    };
+
+    if (sortMode === "asc") {
+      return searchedBalancesSliced.sort((a, b) => -sortByVisiblePrice(a, b));
+    } else if (sortMode === "desc") {
+      return searchedBalancesSliced.sort(sortByVisiblePrice);
+    } else {
+      return searchedBalancesSliced;
+    }
+  }, [chainStore, disabledTokenMap, priceStore, searchedBalances, sortMode]);
 
   const handleDisableToken = async (
     chainId: string,
@@ -234,6 +260,7 @@ export const ManageViewAssetTokenListPage: FunctionComponent = observer(() => {
                 }}
                 key={`${viewToken.chainInfo.chainId}-${viewToken.token.currency.coinMinimalDenom}`}
                 viewToken={viewToken}
+                hideUsdAggregationShadowPrice
                 right={
                   <XAxis>
                     <Gutter size="0.5rem" />

@@ -3709,3 +3709,19 @@ export const CommunityChainInfoRepo = {
 };
 
 export const TokenContractListURL = "https://kcr-token-lambda.keplr.app";
+
+// Mirror chain rules: when `primary` is enabled, listed `denoms` on the key
+// chain can be excluded from duplicate USD display/aggregation. Non-listed
+// denoms (EVM-only assets) keep their prices.
+export const USD_AGGREGATION_SHADOWED_BY: Record<
+  string,
+  {
+    primary: { chainId: string; coinMinimalDenom: string };
+    denoms: ReadonlySet<string>;
+  }
+> = {
+  "eip155:1776": {
+    primary: { chainId: "injective-1", coinMinimalDenom: "inj" },
+    denoms: new Set(["injective-native"]),
+  },
+};
