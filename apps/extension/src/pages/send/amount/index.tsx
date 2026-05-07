@@ -548,9 +548,7 @@ export const SendAmountPage: FunctionComponent = observer(() => {
     10,
     isEvmTx,
     {
-      allowHexAddressToBech32Address:
-        destModularChainInfo.type === "ethermint" &&
-        !modularChainInfo.chainId.startsWith("injective"),
+      allowHexAddressToBech32Address: destModularChainInfo.type === "ethermint",
       allowHexAddressOnly: destModularChainInfo.type === "evm",
       icns: ICNSInfo,
       ens: ENSInfo,
@@ -591,10 +589,7 @@ export const SendAmountPage: FunctionComponent = observer(() => {
     isEvmTx,
     {
       allowHexAddressToBech32Address:
-        chainType !== "evm" &&
-        chainType !== "ethermint" &&
-        !isEvmTx &&
-        !modularChainInfo.chainId.startsWith("injective"),
+        chainType !== "evm" && chainType !== "ethermint" && !isEvmTx,
       allowHexAddressOnly: isEvmTx,
       icns: ICNSInfo,
       ens: ENSInfo,

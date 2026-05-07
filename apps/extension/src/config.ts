@@ -873,6 +873,11 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
   {
     rpc: "https://rpc-injective.keplr.app",
     rest: "https://lcd-injective.keplr.app",
+    evm: {
+      chainId: 1776,
+      rpc: "https://sentry.evm-rpc.injective.network",
+      websocket: "wss://sentry.evm-ws.injective.network",
+    },
     chainId: "injective-1",
     chainName: "Injective",
     stakeCurrency: {
