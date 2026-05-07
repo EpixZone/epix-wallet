@@ -1450,6 +1450,15 @@ export const SendAmountPage: FunctionComponent = observer(() => {
                     hasApprovalTxWhenBridge = true;
                   }
 
+                  // requiredErc20Approvals는 caller-side 메타데이터이므로
+                  // ethers serialize에 도달하기 전에 제거해야 한다. 별도 erc20
+                  // approval tx를 먼저 보내는 분기 (아래 onFulfill)에는 이미
+                  // strip이 있지만, approval이 불필요한 경우 (allowance 충분)
+                  // tx가 빈 배열을 메타데이터로 가진 채 그대로 spread 되면
+                  // ethers v5가 invalid object key 에러를 던진다.
+                  delete (tx as UnsignedEVMTransactionWithErc20Approvals)
+                    .requiredErc20Approvals;
+
                   await ethereumAccount.sendEthereumTx(
                     sender,
                     {
