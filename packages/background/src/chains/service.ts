@@ -283,6 +283,31 @@ export class ChainsService {
       });
     }
 
+    // injective-1 entry now embeds the EVM side (chainId 1776) as an
+    // ethermint chain, so the standalone `eip155:1776` suggestion is no
+    // longer needed and would only cause asset double-counting.
+    // Drop it once; onChainRemoved propagates cleanup to enabled chains,
+    // ERC20 tokens, and dApp permissions.
+    {
+      const done = await this.kvStore.get<boolean>(
+        "migration/remove-injective-evm"
+      );
+      if (!done) {
+        const targetIdentifier = ChainIdHelper.parse("eip155:1776").identifier;
+        const target = this.suggestedChainInfos.find(
+          (c) => ChainIdHelper.parse(c.chainId).identifier === targetIdentifier
+        );
+        if (target) {
+          try {
+            this.removeSuggestedChainInfo(target.chainId);
+          } catch (e) {
+            console.warn("Failed to remove eip155:1776 during migration:", e);
+          }
+        }
+        await this.kvStore.set("migration/remove-injective-evm", true);
+      }
+    }
+
     runIfOnlyAppStart("analytics/test-cointypes", async () => {
       const coinTypes = new Map<number, boolean>();
       const chainInfos = this.getChainInfos();
