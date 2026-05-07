@@ -64,8 +64,7 @@ export const SettingContactsAdd: FunctionComponent = observer(() => {
       chainStore.hasModularChain(chainId) &&
       chainStore.getModularChain(chainId).type !== "starknet" &&
       chainStore.getModularChain(chainId).type !== "bitcoin" &&
-      chainStore.getModularChain(chainId).type !== "evm" &&
-      !chainId.startsWith("injective"),
+      chainStore.getModularChain(chainId).type !== "evm",
     icns: uiConfigStore.icnsInfo,
     ens: ENSInfo,
   });

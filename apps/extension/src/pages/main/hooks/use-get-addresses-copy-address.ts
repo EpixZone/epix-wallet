@@ -129,10 +129,6 @@ export const useGetAddressesOnCopyAddress = (search: string) => {
             return undefined;
           }
 
-          if (modularChainInfo.chainId.startsWith("injective")) {
-            return undefined;
-          }
-
           return accountInfo.hasEthereumHexAddress
             ? accountInfo.ethereumHexAddress
             : undefined;
