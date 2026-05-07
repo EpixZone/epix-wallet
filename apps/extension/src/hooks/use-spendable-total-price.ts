@@ -2,16 +2,9 @@ import { useMemo } from "react";
 import { useStore } from "../stores";
 import { PricePretty } from "@keplr-wallet/unit";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
-import { isUsdAggregationShadowedByVisiblePrimaryAsset } from "../utils/is-usd-aggregation-shadowed-by-visible-primary-asset";
 
 export function useSpendablePrice() {
-  const {
-    chainStore,
-    hugeQueriesStore,
-    keyRingStore,
-    priceStore,
-    uiConfigStore,
-  } = useStore();
+  const { hugeQueriesStore, uiConfigStore, keyRingStore } = useStore();
 
   const disabledViewAssetTokenMap =
     uiConfigStore.manageViewAssetTokenConfig.getViewAssetTokenMapByVaultId(
@@ -25,37 +18,19 @@ export function useSpendablePrice() {
         ChainIdHelper.parse(bal.chainInfo.chainId).identifier
       );
 
-      if (disabledCoinSet?.has(bal.token.currency.coinMinimalDenom)) {
-        continue;
-      }
-
       if (
-        isUsdAggregationShadowedByVisiblePrimaryAsset(
-          chainStore,
-          disabledViewAssetTokenMap,
-          bal.chainInfo.chainId,
-          bal.token.currency.coinMinimalDenom
-        )
+        bal.price &&
+        !disabledCoinSet?.has(bal.token.currency.coinMinimalDenom)
       ) {
-        continue;
-      }
-
-      const price = bal.price ?? priceStore.calculatePrice(bal.token);
-      if (price) {
         if (!result) {
-          result = price;
+          result = bal.price;
         } else {
-          result = result.add(price);
+          result = result.add(bal.price);
         }
       }
     }
     return result;
-  }, [
-    chainStore,
-    hugeQueriesStore.allKnownBalances,
-    disabledViewAssetTokenMap,
-    priceStore,
-  ]);
+  }, [hugeQueriesStore.allKnownBalances, disabledViewAssetTokenMap]);
 
   return {
     spendableTotalPrice,

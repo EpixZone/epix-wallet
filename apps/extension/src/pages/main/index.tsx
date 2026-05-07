@@ -18,7 +18,6 @@ import {
 } from "./components";
 import { Stack } from "../../components/stack";
 import { CoinPretty, Dec, PricePretty } from "@keplr-wallet/unit";
-import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { EyeIcon, EyeSlashIcon, RightArrowIcon } from "../../components/icon";
 import { Box } from "../../components/box";
 import { Modal } from "../../components/modal";
@@ -51,12 +50,10 @@ import { EmptyStateButtonRow } from "./components/empty-state-button-row";
 import { useNavigate } from "react-router";
 import { useTotalPrices } from "../../hooks/use-total-prices";
 import SimpleBarCore from "simplebar-core";
-import { isUsdAggregationShadowedByVisiblePrimaryAsset } from "../../utils/is-usd-aggregation-shadowed-by-visible-primary-asset";
 
 export interface ViewToken {
   token: CoinPretty;
   chainInfo: IModularChainInfoImpl;
-  price?: PricePretty;
   isFetching: boolean;
   error: QueryError<any> | undefined;
 }
@@ -116,7 +113,6 @@ export const MainPage: FunctionComponent<{
 }> = observer(({ setIsNotReady }) => {
   const {
     hugeQueriesStore,
-    chainStore,
     uiConfigStore,
     keyRingStore,
     priceStore,
@@ -132,52 +128,25 @@ export const MainPage: FunctionComponent<{
     setIsNotReadyRef.current(isNotReady);
   }, [isNotReady]);
 
-  const disabledViewAssetTokenMap =
-    uiConfigStore.manageViewAssetTokenConfig.getViewAssetTokenMapByVaultId(
-      keyRingStore.selectedKeyInfo?.id ?? ""
-    );
-
   const availableTotalPriceEmbedOnlyUSD = useMemo(() => {
     let result: PricePretty | undefined;
     for (const bal of hugeQueriesStore.allKnownBalances) {
       if (!bal.chainInfo.embedded.isBuiltInChain) {
         continue;
       }
-
-      const disabledCoinSet = disabledViewAssetTokenMap.get(
-        ChainIdHelper.parse(bal.chainInfo.chainId).identifier
-      );
-      if (disabledCoinSet?.has(bal.token.currency.coinMinimalDenom)) {
-        continue;
-      }
-
-      if (
-        isUsdAggregationShadowedByVisiblePrimaryAsset(
-          chainStore,
-          disabledViewAssetTokenMap,
-          bal.chainInfo.chainId,
-          bal.token.currency.coinMinimalDenom
-        )
-      ) {
-        continue;
-      }
-
-      const price = priceStore.calculatePrice(bal.token, "usd");
-      if (price) {
-        if (!result) {
-          result = price;
-        } else {
-          result = result.add(price);
+      if (bal.price) {
+        const price = priceStore.calculatePrice(bal.token, "usd");
+        if (price) {
+          if (!result) {
+            result = price;
+          } else {
+            result = result.add(price);
+          }
         }
       }
     }
     return result;
-  }, [
-    chainStore,
-    disabledViewAssetTokenMap,
-    hugeQueriesStore.allKnownBalances,
-    priceStore,
-  ]);
+  }, [hugeQueriesStore.allKnownBalances, priceStore]);
 
   const {
     spendableTotalPrice,

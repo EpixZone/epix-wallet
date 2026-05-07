@@ -40,7 +40,6 @@ import { PriceChangeTag } from "./price-change-tag";
 import { TokenTag } from "./token-tag";
 import { CopyAddressButton } from "./copy-address-button";
 import { EarnBox } from "./earn-box";
-import { isUsdAggregationShadowedByVisiblePrimaryAsset } from "../../../../utils/is-usd-aggregation-shadowed-by-visible-primary-asset";
 
 export const TokenTitleView: FunctionComponent<{
   title: string;
@@ -110,7 +109,6 @@ interface TokenItemProps {
   showPrice24HChange?: boolean;
   disableHoverStyle?: boolean;
   right?: React.ReactElement;
-  hideUsdAggregationShadowPrice?: boolean;
 
   bottomTagType?: BottomTagType;
   earnedAssetPrice?: string;
@@ -136,36 +134,20 @@ export const TokenItem: FunctionComponent<TokenItemProps> = observer(
     showPrice24HChange,
     disableHoverStyle,
     right,
-    hideUsdAggregationShadowPrice,
     bottomTagType,
     earnedAssetPrice,
     noTokenTag,
     isLoading,
     stakingApr,
   }) => {
-    const { chainStore, keyRingStore, priceStore, uiConfigStore } = useStore();
+    const { priceStore, uiConfigStore } = useStore();
     const navigate = useNavigate();
     const intl = useIntl();
     const theme = useTheme();
 
     const [isHover, setIsHover] = useState(false);
 
-    const disabledViewAssetTokenMap =
-      uiConfigStore.manageViewAssetTokenConfig.getViewAssetTokenMapByVaultId(
-        keyRingStore.selectedKeyInfo?.id ?? ""
-      );
-    const shouldHidePrice =
-      hideUsdAggregationShadowPrice &&
-      isUsdAggregationShadowedByVisiblePrimaryAsset(
-        chainStore,
-        disabledViewAssetTokenMap,
-        viewToken.chainInfo.chainId,
-        viewToken.token.currency.coinMinimalDenom
-      );
-
-    const pricePretty = shouldHidePrice
-      ? undefined
-      : viewToken.price ?? priceStore.calculatePrice(viewToken.token);
+    const pricePretty = priceStore.calculatePrice(viewToken.token);
 
     const isIBC = useMemo(() => {
       return viewToken.token.currency.coinMinimalDenom.startsWith("ibc/");

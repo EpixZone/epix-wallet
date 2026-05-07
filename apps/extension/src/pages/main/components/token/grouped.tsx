@@ -27,7 +27,6 @@ import { useCopyAddress } from "../../../../hooks/use-copy-address";
 import { CoinPretty, PricePretty } from "@keplr-wallet/unit";
 import { Tooltip } from "../../../../components/tooltip";
 import { EarnBox } from "./earn-box";
-import { isUsdAggregationShadowedByVisiblePrimaryAsset } from "../../../../utils/is-usd-aggregation-shadowed-by-visible-primary-asset";
 
 const NestedTokenItemContainer = styled.div<{ tagPosition: string }>`
   background-color: transparent;
@@ -53,25 +52,13 @@ const NestedTokenItem: FunctionComponent<{
   viewToken: ViewToken;
   onClick?: () => void;
 }> = observer(({ viewToken, onClick }) => {
-  const { chainStore, keyRingStore, priceStore, uiConfigStore } = useStore();
+  const { priceStore, uiConfigStore } = useStore();
   const theme = useTheme();
   const [isHover, setIsHover] = useState(false);
 
   const copyAddress = useCopyAddress(viewToken);
 
-  const disabledViewAssetTokenMap =
-    uiConfigStore.manageViewAssetTokenConfig.getViewAssetTokenMapByVaultId(
-      keyRingStore.selectedKeyInfo?.id ?? ""
-    );
-  const shouldHidePrice = isUsdAggregationShadowedByVisiblePrimaryAsset(
-    chainStore,
-    disabledViewAssetTokenMap,
-    viewToken.chainInfo.chainId,
-    viewToken.token.currency.coinMinimalDenom
-  );
-  const pricePretty = shouldHidePrice
-    ? undefined
-    : viewToken.price ?? priceStore.calculatePrice(viewToken.token);
+  const pricePretty = priceStore.calculatePrice(viewToken.token);
 
   const tag = useTokenTag(viewToken);
 
@@ -351,25 +338,22 @@ export const GroupedTokenItem: FunctionComponent<{
     onTokenClick,
   }) => {
     const [isOpen, setIsOpen] = useState(!!alwaysOpen);
-    const { priceStore, chainStore } = useStore();
+    const { priceStore } = useStore();
     const [, setSearchParams] = useSearchParams();
 
-    const aggregatable = tokens.filter(
-      (t) =>
-        !chainStore.isUsdAggregationShadowed(
-          t.chainInfo.chainId,
-          t.token.currency.coinMinimalDenom
-        )
-    );
-    // aggregatable이 비는 케이스는 도달 불가: shadow rule의 primary chain이
-    // enabled여야 shadow가 트리거되는데, primary chain의 token은 shadow되지 않음.
-    const mainToken = aggregatable[0] ?? tokens[0];
-    const base = aggregatable.length > 0 ? aggregatable : tokens;
-    let totalBalance = base[0].token.clone();
-    for (let i = 1; i < base.length; i++) {
-      totalBalance = totalBalance.addDifferentDenoms(base[i].token);
-    }
-    const totalPrice = priceStore.calculatePrice(totalBalance);
+    const mainToken = tokens[0];
+
+    const totalBalance = useMemo(() => {
+      let sum = tokens[0].token.clone();
+      for (let i = 1; i < tokens.length; i++) {
+        sum = sum.addDifferentDenoms(tokens[i].token);
+      }
+      return sum;
+    }, [tokens]);
+
+    const totalPrice = useMemo(() => {
+      return priceStore.calculatePrice(totalBalance);
+    }, [priceStore, totalBalance]);
 
     const uniqueChainIds = useMemo(() => {
       return [...new Set(tokens.map((token) => token.chainInfo.chainId))];
@@ -446,7 +430,6 @@ export const GroupedTokenItem: FunctionComponent<{
           earnedAssetPrice={earnedAssetPrice}
           showPrice24HChange={showPrice24HChange}
           copyAddress={copyAddress}
-          hideUsdAggregationShadowPrice
         />
       );
     }

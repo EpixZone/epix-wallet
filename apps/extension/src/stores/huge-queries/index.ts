@@ -145,22 +145,6 @@ export class HugeQueriesStore {
       );
   }
 
-  protected calculateViewTokenPrice(
-    modularChainInfo: IModularChainInfoImpl,
-    balance: CoinPretty
-  ): PricePretty | undefined {
-    if (
-      this.chainStore.isUsdAggregationShadowed(
-        modularChainInfo.chainId,
-        balance.currency.coinMinimalDenom
-      )
-    ) {
-      return undefined;
-    }
-    if (!balance.currency.coinGeckoId) return undefined;
-    return this.priceStore.calculatePrice(balance);
-  }
-
   @action
   protected updateBalances() {
     const keysUsed = new Map<string, boolean>();
@@ -239,7 +223,9 @@ export class HugeQueriesStore {
               this.balanceBinarySort.pushAndSort(key, {
                 chainInfo: modularChainInfo,
                 token: balance,
-                price: this.calculateViewTokenPrice(modularChainInfo, balance),
+                price: currency.coinGeckoId
+                  ? this.priceStore.calculatePrice(balance)
+                  : undefined,
                 isFetching: queryBalance.stakable.isFetching,
                 error: queryBalance.stakable.error,
               });
@@ -279,10 +265,9 @@ export class HugeQueriesStore {
                 this.balanceBinarySort.pushAndSort(key, {
                   chainInfo: modularChainInfo,
                   token: balance.balance,
-                  price: this.calculateViewTokenPrice(
-                    modularChainInfo,
-                    balance.balance
-                  ),
+                  price: currency.coinGeckoId
+                    ? this.priceStore.calculatePrice(balance.balance)
+                    : undefined,
                   isFetching: balance.isFetching,
                   error: balance.error,
                 });
@@ -335,10 +320,9 @@ export class HugeQueriesStore {
               this.balanceBinarySort.pushAndSort(key, {
                 chainInfo: modularChainInfo,
                 token: balance.balance,
-                price: this.calculateViewTokenPrice(
-                  modularChainInfo,
-                  balance.balance
-                ),
+                price: currency.coinGeckoId
+                  ? this.priceStore.calculatePrice(balance.balance)
+                  : undefined,
                 isFetching: balance.isFetching,
                 error: balance.error,
               });
@@ -392,10 +376,9 @@ export class HugeQueriesStore {
             this.balanceBinarySort.pushAndSort(key, {
               chainInfo: modularChainInfo,
               token: queryBalance.balance,
-              price: this.calculateViewTokenPrice(
-                modularChainInfo,
-                queryBalance.balance
-              ),
+              price: currency.coinGeckoId
+                ? this.priceStore.calculatePrice(queryBalance.balance)
+                : undefined,
               isFetching: queryBalance.isFetching,
               error: queryBalance.error,
             });
@@ -433,10 +416,9 @@ export class HugeQueriesStore {
           this.balanceBinarySort.pushAndSort(key, {
             chainInfo: modularChainInfo,
             token: queryBalance.balance,
-            price: this.calculateViewTokenPrice(
-              modularChainInfo,
-              queryBalance.balance
-            ),
+            price: currency.coinGeckoId
+              ? this.priceStore.calculatePrice(queryBalance.balance)
+              : undefined,
             isFetching: queryBalance.isFetching,
             error: queryBalance.error,
           });
@@ -536,7 +518,9 @@ export class HugeQueriesStore {
             tokensByChainId.get(chainIdentifier)!.push({
               chainInfo: modularChainInfo,
               token: balance,
-              price: this.calculateViewTokenPrice(modularChainInfo, balance),
+              price: currency.coinGeckoId
+                ? this.priceStore.calculatePrice(balance)
+                : undefined,
               isFetching: queryBalance.stakable.isFetching,
               error: queryBalance.stakable.error,
             });
@@ -568,10 +552,9 @@ export class HugeQueriesStore {
               tokensByChainId.get(chainIdentifier)!.push({
                 chainInfo: modularChainInfo,
                 token: balance.balance,
-                price: this.calculateViewTokenPrice(
-                  modularChainInfo,
-                  balance.balance
-                ),
+                price: currency.coinGeckoId
+                  ? this.priceStore.calculatePrice(balance.balance)
+                  : undefined,
                 isFetching: balance.isFetching,
                 error: balance.error,
               });
@@ -627,10 +610,9 @@ export class HugeQueriesStore {
             tokensByChainId.get(chainIdentifier)!.push({
               chainInfo: modularChainInfo,
               token: balance.balance,
-              price: this.calculateViewTokenPrice(
-                modularChainInfo,
-                balance.balance
-              ),
+              price: currency.coinGeckoId
+                ? this.priceStore.calculatePrice(balance.balance)
+                : undefined,
               isFetching: balance.isFetching,
               error: balance.error,
             });
@@ -673,10 +655,9 @@ export class HugeQueriesStore {
           tokensByChainId.get(chainIdentifier)!.push({
             chainInfo: modularChainInfo,
             token: queryBalance.balance,
-            price: this.calculateViewTokenPrice(
-              modularChainInfo,
-              queryBalance.balance
-            ),
+            price: currency.coinGeckoId
+              ? this.priceStore.calculatePrice(queryBalance.balance)
+              : undefined,
             isFetching: queryBalance.isFetching,
             error: queryBalance.error,
           });
@@ -698,10 +679,7 @@ export class HugeQueriesStore {
             tokensByChainId.get(chainIdentifier)!.push({
               chainInfo: modularChainInfo,
               token: balance.balance,
-              price: this.calculateViewTokenPrice(
-                modularChainInfo,
-                balance.balance
-              ),
+              price: this.priceStore.calculatePrice(balance.balance),
               isFetching: balance.isFetching,
               error: balance.error,
             });
@@ -735,10 +713,7 @@ export class HugeQueriesStore {
                 tokensByChainId.get(chainIdentifier)!.push({
                   chainInfo: linkedChain,
                   token: balance.balance,
-                  price: this.calculateViewTokenPrice(
-                    linkedChain,
-                    balance.balance
-                  ),
+                  price: this.priceStore.calculatePrice(balance.balance),
                   isFetching: balance.isFetching,
                   error: balance.error,
                 });

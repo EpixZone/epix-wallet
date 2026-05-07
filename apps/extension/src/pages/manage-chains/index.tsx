@@ -44,7 +44,6 @@ import {
 import { determineLedgerApp } from "../../utils/determine-ledger-app";
 import { COMMON_HOVER_OPACITY } from "../../styles/constant";
 import { isChainSupportedByKeyType } from "../../utils/is-chain-supported-by-key-type";
-import { isUsdAggregationShadowedByVisiblePrimaryAsset } from "../../utils/is-usd-aggregation-shadowed-by-visible-primary-asset";
 
 export const Ecosystem = {
   All: "All",
@@ -63,13 +62,7 @@ const HideEnabledText = styled(Subtitle4)`
 `;
 
 export const ManageChainsPage: FunctionComponent = observer(() => {
-  const {
-    chainStore,
-    hugeQueriesStore,
-    keyRingStore,
-    priceStore,
-    uiConfigStore,
-  } = useStore();
+  const { chainStore, hugeQueriesStore, keyRingStore, priceStore } = useStore();
   const intl = useIntl();
   const [searchParams] = useSearchParams();
   const initialSearchValue = searchParams.get("initialSearchValue") ?? "";
@@ -239,29 +232,13 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
   );
 
   const tokensByIdentifier = hugeQueriesStore.allTokenMapByChainIdentifier;
-  const disabledViewAssetTokenMap =
-    uiConfigStore.manageViewAssetTokenConfig.getViewAssetTokenMapByVaultId(
-      keyRingStore.selectedKeyInfo?.id ?? ""
-    );
 
   const totalPriceByIdentifier = useMemo(() => {
     const map = new Map<string, Dec>();
 
     tokensByIdentifier.forEach((tokens, identifier) => {
       const total = tokens.reduce((sum, viewToken) => {
-        if (
-          isUsdAggregationShadowedByVisiblePrimaryAsset(
-            chainStore,
-            disabledViewAssetTokenMap,
-            viewToken.chainInfo.chainId,
-            viewToken.token.currency.coinMinimalDenom
-          )
-        ) {
-          return sum;
-        }
-
-        const price =
-          viewToken.price ?? priceStore.calculatePrice(viewToken.token);
+        const price = priceStore.calculatePrice(viewToken.token);
         return price ? sum.add(price.toDec()) : sum;
       }, new Dec(0));
 
@@ -269,7 +246,7 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
     });
 
     return map;
-  }, [chainStore, disabledViewAssetTokenMap, priceStore, tokensByIdentifier]);
+  }, [tokensByIdentifier, priceStore]);
 
   const sortPriorityChainIdentifierMap = useMemo(() => {
     const m = new Map<string, boolean>();

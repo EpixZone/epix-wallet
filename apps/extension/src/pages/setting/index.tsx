@@ -37,7 +37,6 @@ import { useIntl } from "react-intl";
 import { HeaderLayout } from "../../layouts/header";
 import { BackButton } from "../../layouts/header/components";
 import { useGetIcnsName } from "../../hooks/use-get-icns-name";
-import { isUsdAggregationShadowedByVisiblePrimaryAsset } from "../../utils/is-usd-aggregation-shadowed-by-visible-primary-asset";
 
 export const SettingPage: FunctionComponent = observer(() => {
   const navigate = useNavigate();
@@ -438,14 +437,8 @@ const TopSection: FunctionComponent<{
     onClick?: () => void;
   }[];
 }> = observer(({ items }) => {
-  const {
-    accountStore,
-    chainStore,
-    keyRingStore,
-    priceStore,
-    uiConfigStore,
-    hugeQueriesStore,
-  } = useStore();
+  const { accountStore, keyRingStore, uiConfigStore, hugeQueriesStore } =
+    useStore();
 
   const navigate = useNavigate();
   const theme = useTheme();
@@ -468,37 +461,19 @@ const TopSection: FunctionComponent<{
         ChainIdHelper.parse(bal.chainInfo.chainId).identifier
       );
 
-      if (disabledCoinSet?.has(bal.token.currency.coinMinimalDenom)) {
-        continue;
-      }
-
       if (
-        isUsdAggregationShadowedByVisiblePrimaryAsset(
-          chainStore,
-          disabledViewAssetTokenMap,
-          bal.chainInfo.chainId,
-          bal.token.currency.coinMinimalDenom
-        )
+        bal.price &&
+        !disabledCoinSet?.has(bal.token.currency.coinMinimalDenom)
       ) {
-        continue;
-      }
-
-      const price = bal.price ?? priceStore.calculatePrice(bal.token);
-      if (price) {
         if (!result) {
-          result = price;
+          result = bal.price;
         } else {
-          result = result.add(price);
+          result = result.add(bal.price);
         }
       }
     }
     return result;
-  }, [
-    chainStore,
-    hugeQueriesStore.allKnownBalances,
-    disabledViewAssetTokenMap,
-    priceStore,
-  ]);
+  }, [hugeQueriesStore.allKnownBalances, disabledViewAssetTokenMap]);
 
   const stakedTotalPrice = useMemo(() => {
     let result: PricePretty | undefined;
