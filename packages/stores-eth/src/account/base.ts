@@ -601,22 +601,14 @@ export class EthereumAccountBase {
         EthSignType.TRANSACTION
       );
 
-      // requiredErc20Approvals는 swap path가 메타데이터로 주입하는 비표준 키.
-      // ethers serialize()는 unknown key에 대해 invalid object key 에러를 던지므로
-      // signEthereumTx와 동일하게 직렬화 직전에 제거한다.
-      const { requiredErc20Approvals: _, ...txToSerialize } =
-        unsignedTx as UnsignedTransaction & {
-          requiredErc20Approvals?: unknown;
-        };
-
       const isEIP1559 =
-        !!txToSerialize.maxFeePerGas || !!txToSerialize.maxPriorityFeePerGas;
+        !!unsignedTx.maxFeePerGas || !!unsignedTx.maxPriorityFeePerGas;
       if (isEIP1559) {
-        txToSerialize.type = TransactionTypes.eip1559;
+        unsignedTx.type = TransactionTypes.eip1559;
       }
 
       const signedTx = Buffer.from(
-        serialize(txToSerialize, signature).replace("0x", ""),
+        serialize(unsignedTx, signature).replace("0x", ""),
         "hex"
       );
 
