@@ -33,6 +33,7 @@ import { Stack } from "../../../components/stack";
 import { EmptyView } from "../../../components/empty-view";
 import { DenomHelper } from "@keplr-wallet/common";
 import { Bech32Address, ChainIdHelper } from "@keplr-wallet/cosmos";
+import { shouldQueryERC20WithCosmosBank } from "@keplr-wallet/stores";
 import { EarnApyBanner } from "./banners/earn-apy-banner";
 import {
   validateIsUsdcFromNoble,
@@ -130,7 +131,11 @@ export const TokenDetailModal: FunctionComponent<{
     if (u.type === "cosmos" || u.type === "ethermint") {
       const queryBalances = queriesStore.get(chainId).queryBalances;
       const isEvm = u.type === "ethermint";
-      return isEvm && (isMainCurrency || isERC20)
+      const useCosmosBankForERC20 =
+        isEvm &&
+        isERC20 &&
+        shouldQueryERC20WithCosmosBank(modularChainInfo.chainIdentifier);
+      return isEvm && (isMainCurrency || (isERC20 && !useCosmosBankForERC20))
         ? queryBalances
             .getQueryEthereumHexAddress(account.ethereumHexAddress)
             .getBalance(currency)

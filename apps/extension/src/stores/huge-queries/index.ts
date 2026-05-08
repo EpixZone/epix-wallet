@@ -6,6 +6,7 @@ import {
   IModularChainInfoImpl,
   IQueriesStore,
   QueryError,
+  shouldQueryERC20WithCosmosBank,
 } from "@keplr-wallet/stores";
 import { CoinPretty, Dec, PricePretty } from "@keplr-wallet/unit";
 import { action, autorun, computed, runInAction } from "mobx";
@@ -176,10 +177,14 @@ export class HugeQueriesStore {
         for (const currency of currencies) {
           const denomHelper = new DenomHelper(currency.coinMinimalDenom);
           const isERC20 = denomHelper.type === "erc20";
+          const useCosmosBankForERC20 =
+            isEvm &&
+            isERC20 &&
+            shouldQueryERC20WithCosmosBank(modularChainInfo.chainIdentifier);
           const isMainCurrency =
             mainCurrency.coinMinimalDenom === currency.coinMinimalDenom;
           const queryBalance =
-            isEvm && (isMainCurrency || isERC20)
+            isEvm && (isMainCurrency || (isERC20 && !useCosmosBankForERC20))
               ? queries.queryBalances.getQueryEthereumHexAddress(
                   account.ethereumHexAddress
                 )
@@ -483,10 +488,14 @@ export class HugeQueriesStore {
         for (const currency of currencies) {
           const denomHelper = new DenomHelper(currency.coinMinimalDenom);
           const isERC20 = denomHelper.type === "erc20";
+          const useCosmosBankForERC20 =
+            isEvm &&
+            isERC20 &&
+            shouldQueryERC20WithCosmosBank(modularChainInfo.chainIdentifier);
           const isMainCurrency =
             mainCurrency.coinMinimalDenom === currency.coinMinimalDenom;
           const queryBalance =
-            isEvm && (isMainCurrency || isERC20)
+            isEvm && (isMainCurrency || (isERC20 && !useCosmosBankForERC20))
               ? queries.queryBalances.getQueryEthereumHexAddress(
                   account.ethereumHexAddress
                 )

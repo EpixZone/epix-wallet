@@ -5,7 +5,7 @@ import {
   QuerySharedContext,
   StoreUtils,
 } from "../../../common";
-import { ChainGetter } from "../../../chain";
+import { ChainGetter, shouldQueryERC20WithCosmosBank } from "../../../chain";
 import { computed, makeObservable } from "mobx";
 import { CoinPretty, Int } from "@keplr-wallet/unit";
 import { BalanceRegistry, IObservableQueryBalanceImpl } from "../../balances";
@@ -72,6 +72,24 @@ export class ObservableQueryCosmosBalancesImpl
 
     if (!this.response) {
       return new CoinPretty(currency, new Int(0)).ready(false);
+    }
+
+    if (this.denomHelper.type === "erc20") {
+      const normalizedCoinMinimalDenom = DenomHelper.normalizeDenom(
+        currency.coinMinimalDenom
+      );
+      const matchedBalance = (this.response.data.balances ?? []).find(
+        (balance) =>
+          DenomHelper.normalizeDenom(balance.denom) ===
+          normalizedCoinMinimalDenom
+      );
+
+      return StoreUtils.getBalanceFromCurrency(
+        currency,
+        matchedBalance
+          ? [{ ...matchedBalance, denom: currency.coinMinimalDenom }]
+          : []
+      );
     }
 
     return StoreUtils.getBalanceFromCurrency(
@@ -159,7 +177,17 @@ export class ObservableQueryCosmosBalanceRegistry implements BalanceRegistry {
   ): ObservableQueryCosmosBalancesImpl | undefined {
     const denomHelper = new DenomHelper(minimalDenom);
     if (denomHelper.type !== "native") {
-      return;
+      if (denomHelper.type !== "erc20") {
+        return;
+      }
+
+      const mcInfo = chainGetter.getModularChain(chainId);
+      if (
+        mcInfo.type !== "ethermint" ||
+        !shouldQueryERC20WithCosmosBank(mcInfo.chainIdentifier)
+      ) {
+        return;
+      }
     }
 
     try {
