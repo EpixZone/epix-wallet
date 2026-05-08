@@ -2,7 +2,11 @@ import { DenomHelper, MemoryKVStore } from "@keplr-wallet/common";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { Dec } from "@keplr-wallet/unit";
 import { QuerySharedContext } from "../../../common";
-import { ChainGetter } from "../../../chain";
+import {
+  ChainGetter,
+  findERC20CosmosBankBalance,
+  getERC20CosmosBankDenom,
+} from "../../../chain";
 import {
   ObservableQueryCosmosBalanceRegistry,
   ObservableQueryCosmosBalancesImpl,
@@ -113,5 +117,27 @@ describe("ObservableQueryCosmosBalanceRegistry", () => {
     ).balance;
 
     expect(balance.toDec().equals(new Dec("123"))).toBe(true);
+  });
+
+  test("preserves the on-chain denom casing for ethermint erc20 bank balances", () => {
+    const matchedBalance = findERC20CosmosBankBalance(
+      [
+        {
+          denom: "erc20:0xa00C59fF5a080D2b954d0c75e46E22a0c371235a",
+          amount: "123000000",
+        },
+      ],
+      usdcCurrency.coinMinimalDenom
+    );
+
+    expect(matchedBalance?.denom).toBe(
+      "erc20:0xa00C59fF5a080D2b954d0c75e46E22a0c371235a"
+    );
+  });
+
+  test("derives the Injective erc20 bank denom without a balance response", () => {
+    expect(getERC20CosmosBankDenom(usdcCurrency.coinMinimalDenom)).toBe(
+      "erc20:0xa00C59fF5a080D2b954d0c75e46E22a0c371235a"
+    );
   });
 });

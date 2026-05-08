@@ -7162,6 +7162,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@keplr-wallet/stores@workspace:packages/stores"
   dependencies:
+    "@ethersproject/address": ^5.7.0
     "@keplr-wallet/common": 0.13.30
     "@keplr-wallet/cosmos": 0.13.30
     "@keplr-wallet/crypto": 0.13.30

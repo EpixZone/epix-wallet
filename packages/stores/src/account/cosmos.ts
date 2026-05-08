@@ -41,7 +41,12 @@ import {
 import { BondStatus } from "../query/cosmos/staking/types";
 import { CosmosQueries, IQueriesStore, QueriesSetBase } from "../query";
 import { DeepPartial, DeepReadonly, Mutable } from "utility-types";
-import { ChainGetter, requireCosmosInfo } from "../chain";
+import {
+  ChainGetter,
+  getERC20CosmosBankDenom,
+  requireCosmosInfo,
+  shouldQueryERC20WithCosmosBank,
+} from "../chain";
 import deepmerge from "deepmerge";
 import { Buffer } from "buffer/";
 import {
@@ -194,8 +199,13 @@ export class CosmosAccountImpl {
     recipient: string
   ) {
     const denomHelper = new DenomHelper(currency.coinMinimalDenom);
+    const modularChainInfo = this.chainGetter.getModularChain(this.chainId);
+    const isERC20CosmosBankSend =
+      denomHelper.type === "erc20" &&
+      modularChainInfo.type === "ethermint" &&
+      shouldQueryERC20WithCosmosBank(modularChainInfo.chainIdentifier);
 
-    if (denomHelper.type === "native") {
+    if (denomHelper.type === "native" || isERC20CosmosBankSend) {
       const actualAmount = (() => {
         let dec = new Dec(amount);
         dec = dec.mul(DecUtils.getPrecisionDec(currency.coinDecimals));
@@ -204,11 +214,17 @@ export class CosmosAccountImpl {
 
       Bech32Address.validate(
         recipient,
-        requireCosmosInfo(this.chainGetter.getModularChain(this.chainId))
-          .bech32Config?.bech32PrefixAccAddr
+        requireCosmosInfo(modularChainInfo).bech32Config?.bech32PrefixAccAddr
       );
 
       const isThorchain = this.chainId.startsWith("thorchain-");
+      const bankDenom = (() => {
+        if (!isERC20CosmosBankSend) {
+          return currency.coinMinimalDenom;
+        }
+
+        return getERC20CosmosBankDenom(currency.coinMinimalDenom);
+      })();
 
       const msg = {
         type: this.msgOpts.send.native.type,
@@ -217,7 +233,7 @@ export class CosmosAccountImpl {
           to_address: recipient,
           amount: [
             {
-              denom: currency.coinMinimalDenom,
+              denom: bankDenom,
               amount: actualAmount,
             },
           ],

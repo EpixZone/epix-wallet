@@ -5,7 +5,11 @@ import {
   QuerySharedContext,
   StoreUtils,
 } from "../../../common";
-import { ChainGetter, shouldQueryERC20WithCosmosBank } from "../../../chain";
+import {
+  ChainGetter,
+  findERC20CosmosBankBalance,
+  shouldQueryERC20WithCosmosBank,
+} from "../../../chain";
 import { computed, makeObservable } from "mobx";
 import { CoinPretty, Int } from "@keplr-wallet/unit";
 import { BalanceRegistry, IObservableQueryBalanceImpl } from "../../balances";
@@ -75,13 +79,9 @@ export class ObservableQueryCosmosBalancesImpl
     }
 
     if (this.denomHelper.type === "erc20") {
-      const normalizedCoinMinimalDenom = DenomHelper.normalizeDenom(
+      const matchedBalance = findERC20CosmosBankBalance(
+        this.response.data.balances,
         currency.coinMinimalDenom
-      );
-      const matchedBalance = (this.response.data.balances ?? []).find(
-        (balance) =>
-          DenomHelper.normalizeDenom(balance.denom) ===
-          normalizedCoinMinimalDenom
       );
 
       return StoreUtils.getBalanceFromCurrency(

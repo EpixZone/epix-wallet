@@ -24,6 +24,7 @@
     "@keplr-wallet/provider-mock": "0.13.30"
   },
   "dependencies": {
+    "@ethersproject/address": "^5.7.0",
     "@keplr-wallet/common": "0.13.30",
     "@keplr-wallet/cosmos": "0.13.30",
     "@keplr-wallet/crypto": "0.13.30",
