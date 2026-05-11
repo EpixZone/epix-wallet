@@ -1149,10 +1149,13 @@ export class IBCCurrencyRegistrar {
     for (const path of denomTrace.paths) {
       if (
         !path.clientChainId ||
-        !path.counterpartyPortId ||
-        !path.counterpartyChannelId ||
         !this.chainStore.hasModularChain(path.clientChainId)
       ) {
+        continue;
+      }
+
+      if (!path.counterpartyPortId || !path.counterpartyChannelId) {
+        hasUnresolvedQuery = true;
         continue;
       }
 
