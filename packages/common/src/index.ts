@@ -12,3 +12,4 @@ export * from "./coin";
 export * from "./service-worker";
 export * from "./async";
 export * from "./bigint";
+export * from "./ibc";

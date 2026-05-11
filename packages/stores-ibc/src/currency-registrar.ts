@@ -8,7 +8,12 @@ import {
   IQueriesStore,
   SecretQueries,
 } from "@keplr-wallet/stores";
-import { DenomHelper, KVStore } from "@keplr-wallet/common";
+import {
+  DenomHelper,
+  isIgnoredIBCAsset,
+  isIgnoredIBCTrace,
+  KVStore,
+} from "@keplr-wallet/common";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { EthereumQueries } from "@keplr-wallet/stores-eth";
 import debounce from "lodash.debounce";
@@ -202,6 +207,13 @@ export class IBCCurrencyRegistrar {
     ) {
       // IBC Currency's denom should start with "ibc/"
       return;
+    }
+
+    if (isIgnoredIBCAsset(chainId, denomHelper.denom)) {
+      return {
+        value: undefined,
+        done: true,
+      };
     }
 
     if (!this.isInitialized) {
@@ -467,6 +479,13 @@ export class IBCCurrencyRegistrar {
             );
           }
         }
+      }
+
+      if (denomTrace && isIgnoredIBCTrace(chainId, denomTrace)) {
+        return {
+          value: undefined,
+          done: true,
+        };
       }
 
       if (originChainInfo && denomTrace) {
