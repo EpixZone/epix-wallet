@@ -1206,9 +1206,7 @@ export class IBCCurrencyRegistrar {
       }
 
       if (!queryCounterpartyChannel.response) {
-        if (queryCounterpartyChannel.isFetching) {
-          hasUnresolvedQuery = true;
-        }
+        hasUnresolvedQuery = true;
         continue;
       }
 
