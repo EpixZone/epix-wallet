@@ -15,7 +15,7 @@ import { simpleFetch } from "@keplr-wallet/simple-fetch";
 import { Dec } from "@keplr-wallet/unit";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { VaultService } from "../vault";
-import { DenomHelper, KVStore } from "@keplr-wallet/common";
+import { DenomHelper, isIgnoredIBCAsset, KVStore } from "@keplr-wallet/common";
 import { KeyRingStarknetService } from "../keyring-starknet";
 import { CairoUint256 } from "starknet";
 import { KeyRingBitcoinService } from "../keyring-bitcoin";
@@ -165,6 +165,7 @@ export class TokenScanService {
 
   getTokenScans(vaultId: string): TokenScan[] {
     return (this.vaultToMap.get(vaultId) ?? [])
+      .map((tokenScan) => this.filterIgnoredAssets(tokenScan))
       .filter((tokenScan) => {
         return (
           (this.chainsService.hasChainInfo(tokenScan.chainId) ||
@@ -195,6 +196,35 @@ export class TokenScanService {
 
         return aChainInfo.chainName.localeCompare(bModualrChainInfo.chainName);
       });
+  }
+
+  protected filterIgnoredAssets(tokenScan: TokenScan): TokenScan {
+    const filterInfos = (infos: TokenScanInfo[]): TokenScanInfo[] => {
+      return infos
+        .map((info) => {
+          return {
+            ...info,
+            assets: info.assets.filter((asset) => {
+              const coinMinimalDenom =
+                asset.currency?.coinMinimalDenom || asset.coinMinimalDenom;
+
+              return (
+                !coinMinimalDenom ||
+                !isIgnoredIBCAsset(tokenScan.chainId, coinMinimalDenom)
+              );
+            }),
+          };
+        })
+        .filter((info) => info.assets.length > 0);
+    };
+
+    return {
+      ...tokenScan,
+      infos: filterInfos(tokenScan.infos),
+      dismissedInfos: tokenScan.dismissedInfos
+        ? filterInfos(tokenScan.dismissedInfos)
+        : undefined,
+    };
   }
 
   protected async scanWithAllVaults(chainId: string): Promise<void> {
@@ -560,6 +590,10 @@ export class TokenScanService {
 
             const balances = res.data?.balances ?? [];
             for (const bal of balances) {
+              if (isIgnoredIBCAsset(chainId, bal.denom)) {
+                continue;
+              }
+
               const currency = cosmosInfo.currencies.find(
                 (cur: { coinMinimalDenom: string }) =>
                   cur.coinMinimalDenom === bal.denom

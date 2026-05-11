@@ -8,7 +8,12 @@ import {
   IQueriesStore,
   SecretQueries,
 } from "@keplr-wallet/stores";
-import { DenomHelper, KVStore } from "@keplr-wallet/common";
+import {
+  DenomHelper,
+  isIgnoredIBCAsset,
+  isIgnoredIBCTrace,
+  KVStore,
+} from "@keplr-wallet/common";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { EthereumQueries } from "@keplr-wallet/stores-eth";
 import debounce from "lodash.debounce";
@@ -202,6 +207,13 @@ export class IBCCurrencyRegistrar {
     ) {
       // IBC Currency's denom should start with "ibc/"
       return;
+    }
+
+    if (isIgnoredIBCAsset(chainId, denomHelper.denom)) {
+      return {
+        value: undefined,
+        done: true,
+      };
     }
 
     if (!this.isInitialized) {
@@ -466,6 +478,36 @@ export class IBCCurrencyRegistrar {
               cached.counterpartyChainId
             );
           }
+        }
+      }
+
+      if (denomTrace && isIgnoredIBCTrace(chainId, denomTrace)) {
+        return {
+          value: undefined,
+          done: true,
+        };
+      }
+
+      if (denomTrace) {
+        const counterpartyChannelState =
+          this.getCounterpartyChannelState(denomTrace);
+
+        if (counterpartyChannelState.mismatch) {
+          return {
+            value: undefined,
+            done: true,
+          };
+        }
+
+        if (counterpartyChannelState.hasUnresolvedQuery) {
+          return {
+            value: undefined,
+            done: false,
+          };
+        }
+
+        if (counterpartyChannelState.isFetching) {
+          isGlobalFetching = true;
         }
       }
 
@@ -1085,6 +1127,76 @@ export class IBCCurrencyRegistrar {
         notFound,
       };
     }
+  }
+
+  protected getCounterpartyChannelState(denomTrace: {
+    paths: {
+      portId: string;
+      channelId: string;
+
+      counterpartyChannelId?: string;
+      counterpartyPortId?: string;
+      clientChainId?: string;
+    }[];
+  }): {
+    isFetching: boolean;
+    hasUnresolvedQuery: boolean;
+    mismatch: boolean;
+  } {
+    let isFetching = false;
+    let hasUnresolvedQuery = false;
+
+    for (const path of denomTrace.paths) {
+      if (
+        !path.clientChainId ||
+        !this.chainStore.hasModularChain(path.clientChainId)
+      ) {
+        continue;
+      }
+
+      if (!path.counterpartyPortId || !path.counterpartyChannelId) {
+        hasUnresolvedQuery = true;
+        continue;
+      }
+
+      const queryCounterpartyChannel = this.queriesStore
+        .get(path.clientChainId)
+        .cosmos.queryIBCChannel.getChannel(
+          path.counterpartyPortId,
+          path.counterpartyChannelId
+        );
+
+      if (queryCounterpartyChannel.isFetching) {
+        isFetching = true;
+      }
+
+      if (!queryCounterpartyChannel.response) {
+        if (queryCounterpartyChannel.isFetching) {
+          hasUnresolvedQuery = true;
+        }
+        continue;
+      }
+
+      const counterparty =
+        queryCounterpartyChannel.response.data.channel.counterparty;
+
+      if (
+        counterparty.port_id !== path.portId ||
+        counterparty.channel_id !== path.channelId
+      ) {
+        return {
+          isFetching,
+          hasUnresolvedQuery,
+          mismatch: true,
+        };
+      }
+    }
+
+    return {
+      isFetching,
+      hasUnresolvedQuery,
+      mismatch: false,
+    };
   }
 
   protected getCacheIBCDenomData(
