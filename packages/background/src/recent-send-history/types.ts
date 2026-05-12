@@ -245,6 +245,8 @@ export interface SwapV2HistoryBase {
     currencies: AppCurrency[];
   };
   isOnlyUseBridge?: boolean;
+  inAmountUsdValue?: number;
+  outAmountEstUsdValue?: number;
   squidQuoteId?: string;
 }
 

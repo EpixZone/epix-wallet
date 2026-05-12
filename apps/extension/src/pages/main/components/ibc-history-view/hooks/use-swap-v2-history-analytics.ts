@@ -35,6 +35,8 @@ export const useSwapV2HistoryAnalytics = (histories: SwapV2History[]) => {
           time_since_start_ms: Date.now() - history.timestamp,
           in_coin_denom: history.amount[0]?.denom,
           out_coin_denom: history.destinationAsset.denom,
+          in_amount_usd_value: history.inAmountUsdValue,
+          out_amount_est_usd_value: history.outAmountEstUsdValue,
           route_duration_estimate_sec: history.routeDurationSeconds,
           is_only_bridge: history.isOnlyUseBridge,
         };

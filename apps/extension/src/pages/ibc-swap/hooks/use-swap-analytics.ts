@@ -238,9 +238,11 @@ export const useSwapAnalytics = ({
 
   const amount = swapConfigs.amountConfig.amount[0];
   const inAmountRaw = amount?.toCoin().amount.toString();
-  const inAmountUsd = amount
-    ? priceStore.calculatePrice(amount, "usd")?.toDec().toString()
+  const inAmountUsdPrice = amount
+    ? priceStore.calculatePrice(amount, "usd")
     : undefined;
+  const inAmountUsd = inAmountUsdPrice?.toDec().toString();
+  const inAmountUsdValue = priceToNumber(inAmountUsdPrice);
 
   useEffect(() => {
     if (!queryRouteForLog || !amount) {
@@ -264,6 +266,7 @@ export const useSwapAnalytics = ({
         out_coin_denom: outCurrency.coinDenom,
         in_amount_raw: inAmountRaw,
         in_amount_usd: inAmountUsd,
+        in_amount_usd_value: inAmountUsdValue,
         swap_fee_bps: swapFeeBps,
       });
     }
@@ -289,6 +292,7 @@ export const useSwapAnalytics = ({
       chainName: sourceChainName,
       coinDenom: sourceCoinDenom,
       amountUsd: sourceAmountUsd,
+      amountUsdValue: sourceAmountUsdValue,
     } = getChainProperties(
       chainStore,
       priceStore,
@@ -302,6 +306,7 @@ export const useSwapAnalytics = ({
       chainName: destChainName,
       coinDenom: destCoinDenom,
       amountUsd: destAmountUsd,
+      amountUsdValue: destAmountUsdValue,
     } = getChainProperties(
       chainStore,
       priceStore,
@@ -346,11 +351,13 @@ export const useSwapAnalytics = ({
       in_coin_denom: sourceCoinDenom,
       in_amount_raw: fromAmount,
       in_amount_usd: sourceAmountUsd,
+      in_amount_usd_value: sourceAmountUsdValue,
       out_chain_identifier: destChainIdentifier,
       out_chain_name: destChainName,
       out_coin_denom: destCoinDenom,
       out_amount_est_raw: amount_out,
       out_amount_est_usd: destAmountUsd,
+      out_amount_est_usd_value: destAmountUsdValue,
       provider,
       does_swap: doesSwap,
       route_duration_estimate_sec: estimated_time,
@@ -389,6 +396,7 @@ export const useSwapAnalytics = ({
       out_coin_denom: outCurrency.coinDenom,
       in_amount_raw: inAmountRaw,
       in_amount_usd: inAmountUsd,
+      in_amount_usd_value: inAmountUsdValue,
       error_message: queryRouteForLog.error.message ?? errorData?.message,
       error_status: queryRouteForLog.error.status,
       error_code: errorData?.code ?? undefined,
@@ -438,7 +446,17 @@ type SwapChainAnalytics = {
   chainName: string;
   coinDenom: string;
   amountUsd?: string;
+  amountUsdValue?: number;
 };
+
+function priceToNumber(
+  price: { toDec: () => Dec } | undefined
+): number | undefined {
+  if (!price) return undefined;
+
+  const value = Number(price.toDec().toString());
+  return Number.isFinite(value) ? value : undefined;
+}
 
 function getChainProperties(
   chainStore: ReturnType<typeof useStore>["chainStore"],
@@ -474,5 +492,6 @@ function getChainProperties(
     chainName: modularChainInfo.chainName,
     coinDenom: currency.coinDenom,
     amountUsd: price ? price.toDec().toString() : undefined,
+    amountUsdValue: priceToNumber(price),
   };
 }

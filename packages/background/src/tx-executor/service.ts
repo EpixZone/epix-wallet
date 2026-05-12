@@ -963,7 +963,9 @@ export class BackgroundTxExecutorService {
           tx.txHash,
           historyData.isOnlyUseBridge,
           historyData.squidQuoteId,
-          backgroundExecutionId
+          backgroundExecutionId,
+          historyData.inAmountUsdValue,
+          historyData.outAmountEstUsdValue
         );
 
         execution.historyId = id;

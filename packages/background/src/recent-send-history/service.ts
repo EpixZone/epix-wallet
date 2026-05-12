@@ -1968,7 +1968,9 @@ export class RecentSendHistoryService {
     txHash: string,
     isOnlyUseBridge?: boolean,
     squidQuoteId?: string,
-    backgroundExecutionId?: string
+    backgroundExecutionId?: string,
+    inAmountUsdValue?: number,
+    outAmountEstUsdValue?: number
   ): string {
     const id = (this.recentSwapV2HistorySeq++).toString();
 
@@ -1992,6 +1994,8 @@ export class RecentSendHistoryService {
       resAmount: [],
       assetLocationInfo: undefined,
       notified: undefined,
+      inAmountUsdValue,
+      outAmountEstUsdValue,
       squidQuoteId,
       backgroundExecutionId,
     };

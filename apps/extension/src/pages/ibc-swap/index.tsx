@@ -136,6 +136,15 @@ const TextButtonStyles = {
   `,
 };
 
+const priceToNumber = (
+  price: { toDec: () => Dec } | undefined
+): number | undefined => {
+  if (!price) return undefined;
+
+  const value = Number(price.toDec().toString());
+  return Number.isFinite(value) ? value : undefined;
+};
+
 export const IBCSwapPage: FunctionComponent = observer(() => {
   const {
     chainStore,
@@ -601,12 +610,22 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
           return Number.isNaN(parseInt(id, 10)) ? id : `eip155:${id}`;
         };
         const inAmountAtSubmit = swapConfigs.amountConfig.amount[0];
-        const inAmountUsdAtSubmit = inAmountAtSubmit
-          ? priceStore
-              .calculatePrice(inAmountAtSubmit, "usd")
-              ?.toDec()
-              .toString()
+        const inAmountUsdPriceAtSubmit = inAmountAtSubmit
+          ? priceStore.calculatePrice(inAmountAtSubmit, "usd")
           : undefined;
+        const inAmountUsdAtSubmit = inAmountUsdPriceAtSubmit
+          ?.toDec()
+          .toString();
+        const inAmountUsdValueAtSubmit = priceToNumber(
+          inAmountUsdPriceAtSubmit
+        );
+        const outAmountEstUsdPriceAtSubmit = priceStore.calculatePrice(
+          swapConfigs.amountConfig.outAmount,
+          "usd"
+        );
+        const outAmountEstUsdValueAtSubmit = priceToNumber(
+          outAmountEstUsdPriceAtSubmit
+        );
         const swapMilestoneBase: Record<string, any> = {
           in_chain_identifier: formatChainIdentifier(inChainId),
           in_coin_denom: inCurrency.coinDenom,
@@ -620,6 +639,13 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
         }
         if (inAmountUsdAtSubmit !== undefined) {
           swapMilestoneBase["in_amount_usd"] = inAmountUsdAtSubmit;
+        }
+        if (inAmountUsdValueAtSubmit !== undefined) {
+          swapMilestoneBase["in_amount_usd_value"] = inAmountUsdValueAtSubmit;
+        }
+        if (outAmountEstUsdValueAtSubmit !== undefined) {
+          swapMilestoneBase["out_amount_est_usd_value"] =
+            outAmountEstUsdValueAtSubmit;
         }
 
         uiConfigStore.ibcSwapConfig.setIsSwapExecuting(true, swapLoadingKey);
@@ -799,6 +825,8 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
             currencies: chainStore.getModularChain(outChainId).currencies,
           },
           routeDurationSeconds: routeDurationSeconds ?? 0,
+          inAmountUsdValue: inAmountUsdValueAtSubmit,
+          outAmountEstUsdValue: outAmountEstUsdValueAtSubmit,
           squidQuoteId,
         };
 
