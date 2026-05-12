@@ -34,6 +34,10 @@ type CacheIBCDenomData = {
   originChainUnknown: boolean;
   counterpartyChainId: string | undefined;
   counterpartyChainUnknown: boolean;
+  counterpartyChannelValidation?: {
+    status: "valid" | "mismatch";
+    timestamp: number;
+  };
   timestamp: number;
 };
 
@@ -246,6 +250,7 @@ export class IBCCurrencyRegistrar {
 
       let isGlobalFetching = false;
       let fromCache = false;
+      let denomTraceFromCache = false;
       let { res: cached, staled } = this.getCacheIBCDenomData(chainId, hash);
       if (cached) {
         if (
@@ -258,6 +263,7 @@ export class IBCCurrencyRegistrar {
         ) {
           fromCache = true;
           denomTrace = cached.denomTrace;
+          denomTraceFromCache = true;
           if (
             cached.originChainId &&
             this.chainStore.hasModularChain(cached.originChainId)
@@ -277,7 +283,11 @@ export class IBCCurrencyRegistrar {
 
           // 만약 이전의 cache에서 originChainId와 counterpartyChainId를 몰랐던 상태였는데
           // 현재는 알게된 경우에는 cache를 사용하지않고 지운다.
+          const hasMissingCounterpartyChannel =
+            this.hasMissingCounterpartyChannel(cached.denomTrace);
+
           if (
+            hasMissingCounterpartyChannel ||
             (originChainInfo && cached.originChainUnknown) ||
             (counterpartyChainInfo && cached.counterpartyChainUnknown)
           ) {
@@ -287,6 +297,7 @@ export class IBCCurrencyRegistrar {
             this.removeCacheIBCDenomData(chainId, hash);
 
             denomTrace = undefined;
+            denomTraceFromCache = false;
             originChainInfo = undefined;
             counterpartyChainInfo = undefined;
           }
@@ -327,6 +338,7 @@ export class IBCCurrencyRegistrar {
         const queryDenomTrace =
           queries.cosmos.queryIBCDenomTrace.getDenomTrace(hash);
         denomTrace = queryDenomTrace.denomTrace;
+        denomTraceFromCache = false;
 
         if (queryDenomTrace.isFetching) {
           isFetching = true;
@@ -459,6 +471,7 @@ export class IBCCurrencyRegistrar {
         if (isGlobalFetching && staled && cached) {
           if (!denomTrace) {
             denomTrace = cached.denomTrace;
+            denomTraceFromCache = true;
           }
           if (
             !originChainInfo &&
@@ -489,25 +502,50 @@ export class IBCCurrencyRegistrar {
       }
 
       if (denomTrace) {
-        const counterpartyChannelState =
-          this.getCounterpartyChannelState(denomTrace);
+        const cachedCounterpartyChannelValidation = denomTraceFromCache
+          ? cached?.counterpartyChannelValidation
+          : undefined;
 
-        if (counterpartyChannelState.mismatch) {
+        if (cachedCounterpartyChannelValidation?.status === "mismatch") {
           return {
             value: undefined,
             done: true,
           };
         }
 
-        if (counterpartyChannelState.hasUnresolvedQuery) {
-          return {
-            value: undefined,
-            done: false,
-          };
-        }
+        if (cachedCounterpartyChannelValidation?.status !== "valid") {
+          const counterpartyChannelState =
+            this.getCounterpartyChannelState(denomTrace);
 
-        if (counterpartyChannelState.isFetching) {
-          isGlobalFetching = true;
+          if (counterpartyChannelState.mismatch) {
+            this.setCacheIBCDenomCounterpartyChannelValidation(
+              chainId,
+              hash,
+              "mismatch"
+            );
+
+            return {
+              value: undefined,
+              done: true,
+            };
+          }
+
+          if (counterpartyChannelState.hasUnresolvedQuery) {
+            return {
+              value: undefined,
+              done: false,
+            };
+          }
+
+          if (counterpartyChannelState.isFetching) {
+            isGlobalFetching = true;
+          } else {
+            this.setCacheIBCDenomCounterpartyChannelValidation(
+              chainId,
+              hash,
+              "valid"
+            );
+          }
         }
       }
 
@@ -1147,10 +1185,7 @@ export class IBCCurrencyRegistrar {
     let hasUnresolvedQuery = false;
 
     for (const path of denomTrace.paths) {
-      if (
-        !path.clientChainId ||
-        !this.chainStore.hasModularChain(path.clientChainId)
-      ) {
+      if (!this.shouldQueryCounterpartyChannel(path)) {
         continue;
       }
 
@@ -1171,9 +1206,7 @@ export class IBCCurrencyRegistrar {
       }
 
       if (!queryCounterpartyChannel.response) {
-        if (queryCounterpartyChannel.isFetching) {
-          hasUnresolvedQuery = true;
-        }
+        hasUnresolvedQuery = true;
         continue;
       }
 
@@ -1199,11 +1232,49 @@ export class IBCCurrencyRegistrar {
     };
   }
 
+  protected hasMissingCounterpartyChannel(denomTrace: {
+    paths: {
+      counterpartyChannelId?: string;
+      counterpartyPortId?: string;
+      clientChainId?: string;
+    }[];
+  }): boolean {
+    return denomTrace.paths.some((path) => {
+      return (
+        this.shouldQueryCounterpartyChannel(path) &&
+        (!path.counterpartyPortId || !path.counterpartyChannelId)
+      );
+    });
+  }
+
+  protected shouldQueryCounterpartyChannel<
+    T extends { clientChainId?: string }
+  >(path: T): path is T & { clientChainId: string } {
+    if (
+      !path.clientChainId ||
+      !this.chainStore.hasModularChain(path.clientChainId)
+    ) {
+      return false;
+    }
+
+    const clientChainInfo = this.chainStore.getModularChain(path.clientChainId);
+    return (
+      clientChainInfo.type === "cosmos" || clientChainInfo.type === "ethermint"
+    );
+  }
+
+  protected getCacheIBCDenomDataKey(
+    chainId: string,
+    denomTraceHash: string
+  ): string {
+    return `${ChainIdHelper.parse(chainId).identifier}/${denomTraceHash}`;
+  }
+
   protected getCacheIBCDenomData(
     chainId: string,
     denomTraceHash: string
   ): { res: CacheIBCDenomData | undefined; staled: boolean } {
-    const key = `${ChainIdHelper.parse(chainId).identifier}/${denomTraceHash}`;
+    const key = this.getCacheIBCDenomDataKey(chainId, denomTraceHash);
 
     const res =
       this.cacheDenomTracePaths.get(key) || this.staledDenomTracePaths.get(key);
@@ -1235,7 +1306,7 @@ export class IBCCurrencyRegistrar {
     denomTraceHash: string,
     data: CacheIBCDenomData
   ) {
-    const key = `${ChainIdHelper.parse(chainId).identifier}/${denomTraceHash}`;
+    const key = this.getCacheIBCDenomDataKey(chainId, denomTraceHash);
     this.cacheDenomTracePaths.set(key, data);
 
     this.debouncedSetCacheDenomTracePathsToDB();
@@ -1245,8 +1316,29 @@ export class IBCCurrencyRegistrar {
     }
   }
 
+  protected setCacheIBCDenomCounterpartyChannelValidation(
+    chainId: string,
+    denomTraceHash: string,
+    status: "valid" | "mismatch"
+  ) {
+    const key = this.getCacheIBCDenomDataKey(chainId, denomTraceHash);
+    const cached =
+      this.cacheDenomTracePaths.get(key) || this.staledDenomTracePaths.get(key);
+    if (!cached) {
+      return;
+    }
+
+    this.setCacheIBCDenomData(chainId, denomTraceHash, {
+      ...cached,
+      counterpartyChannelValidation: {
+        status,
+        timestamp: Date.now(),
+      },
+    });
+  }
+
   protected removeCacheIBCDenomData(chainId: string, denomTraceHash: string) {
-    const key = `${ChainIdHelper.parse(chainId).identifier}/${denomTraceHash}`;
+    const key = this.getCacheIBCDenomDataKey(chainId, denomTraceHash);
     this.cacheDenomTracePaths.delete(key);
 
     this.debouncedSetCacheDenomTracePathsToDB();
