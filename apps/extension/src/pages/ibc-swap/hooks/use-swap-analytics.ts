@@ -491,9 +491,9 @@ function getChainProperties(
 
 function formatChainIdentifierForAnalytics(chainId: string): string {
   const chainIdentifier = ChainIdHelper.parse(chainId).identifier;
-  return Number.isNaN(parseInt(chainIdentifier, 10))
-    ? chainIdentifier
-    : `eip155:${chainIdentifier}`;
+  return /^\d+$/.test(chainIdentifier)
+    ? `eip155:${chainIdentifier}`
+    : chainIdentifier;
 }
 
 function getChainNameForAnalytics(
