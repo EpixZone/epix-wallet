@@ -153,15 +153,11 @@ export const useSwapAnalytics = ({
     });
   });
 
-  const inChainIdentifier = ChainIdHelper.parse(inChainId).identifier;
-  const outChainIdentifier = ChainIdHelper.parse(outChainId).identifier;
+  const inChainIdentifier = formatChainIdentifierForAnalytics(inChainId);
+  const outChainIdentifier = formatChainIdentifierForAnalytics(outChainId);
 
-  const inChainName = chainStore.hasModularChain(inChainId)
-    ? chainStore.getModularChain(inChainId).chainName
-    : undefined;
-  const outChainName = chainStore.hasModularChain(outChainId)
-    ? chainStore.getModularChain(outChainId).chainName
-    : undefined;
+  const inChainName = getChainNameForAnalytics(chainStore, inChainId);
+  const outChainName = getChainNameForAnalytics(chainStore, outChainId);
 
   // source selected
   useEffect(() => {
@@ -465,10 +461,7 @@ function getChainProperties(
   denom: string,
   amount: string
 ): SwapChainAnalytics {
-  const _chainIdentifier = ChainIdHelper.parse(chainId).identifier;
-  const chainIdentifier = Number.isNaN(parseInt(_chainIdentifier, 10))
-    ? _chainIdentifier
-    : `eip155:${_chainIdentifier}`;
+  const chainIdentifier = formatChainIdentifierForAnalytics(chainId);
   const modularChainInfo = chainStore.hasModularChain(chainIdentifier)
     ? chainStore.getModularChain(chainIdentifier)
     : undefined;
@@ -494,4 +487,21 @@ function getChainProperties(
     amountUsd: price ? price.toDec().toString() : undefined,
     amountUsdValue: priceToNumber(price),
   };
+}
+
+function formatChainIdentifierForAnalytics(chainId: string): string {
+  const chainIdentifier = ChainIdHelper.parse(chainId).identifier;
+  return /^\d+$/.test(chainIdentifier)
+    ? `eip155:${chainIdentifier}`
+    : chainIdentifier;
+}
+
+function getChainNameForAnalytics(
+  chainStore: ReturnType<typeof useStore>["chainStore"],
+  chainId: string
+): string {
+  const chainIdentifier = formatChainIdentifierForAnalytics(chainId);
+  return chainStore.hasModularChain(chainIdentifier)
+    ? chainStore.getModularChain(chainIdentifier).chainName
+    : chainId;
 }

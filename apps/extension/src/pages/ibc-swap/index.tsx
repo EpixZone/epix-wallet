@@ -605,10 +605,6 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
         // submit attempt carries the same values (priceStore may refresh
         // between submitted and success otherwise). `provider` is added in
         // the try block once the quote response is read.
-        const formatChainIdentifier = (chainId: string): string => {
-          const id = ChainIdHelper.parse(chainId).identifier;
-          return Number.isNaN(parseInt(id, 10)) ? id : `eip155:${id}`;
-        };
         const inAmountAtSubmit = swapConfigs.amountConfig.amount[0];
         const inAmountUsdPriceAtSubmit = inAmountAtSubmit
           ? priceStore.calculatePrice(inAmountAtSubmit, "usd")
@@ -627,9 +623,11 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
           outAmountEstUsdPriceAtSubmit
         );
         const swapMilestoneBase: Record<string, any> = {
-          in_chain_identifier: formatChainIdentifier(inChainId),
+          in_chain_identifier: formatChainIdentifierForAnalytics(inChainId),
+          in_chain_name: getChainNameForAnalytics(chainStore, inChainId),
           in_coin_denom: inCurrency.coinDenom,
-          out_chain_identifier: formatChainIdentifier(outChainId),
+          out_chain_identifier: formatChainIdentifierForAnalytics(outChainId),
+          out_chain_name: getChainNameForAnalytics(chainStore, outChainId),
           out_coin_denom: outCurrency.coinDenom,
         };
         if (inAmountAtSubmit) {
@@ -2193,6 +2191,23 @@ const SpinnerIcon: FunctionComponent<{
     </SpinnerSvg>
   );
 };
+
+function formatChainIdentifierForAnalytics(chainId: string): string {
+  const chainIdentifier = ChainIdHelper.parse(chainId).identifier;
+  return /^\d+$/.test(chainIdentifier)
+    ? `eip155:${chainIdentifier}`
+    : chainIdentifier;
+}
+
+function getChainNameForAnalytics(
+  chainStore: ReturnType<typeof useStore>["chainStore"],
+  chainId: string
+): string {
+  const chainIdentifier = formatChainIdentifierForAnalytics(chainId);
+  return chainStore.hasModularChain(chainIdentifier)
+    ? chainStore.getModularChain(chainIdentifier).chainName
+    : chainId;
+}
 
 const noop = (..._args: any[]) => {
   // noop
