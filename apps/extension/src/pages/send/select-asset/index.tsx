@@ -30,6 +30,7 @@ import { StackIcon } from "../../../components/icon/stack";
 import { useSearch } from "../../../hooks/use-search";
 import { ViewToken } from "../../main";
 import { EmptyView } from "../../../components/empty-view";
+import { canSelectAssetForIBCTransfer } from "./utils";
 
 const Styles = {
   Container: styled(Stack)<{ isNobleEarn: boolean }>`
@@ -106,12 +107,10 @@ export const SendSelectAssetPage: FunctionComponent = observer(() => {
   const _filteredTokens = useMemo(() => {
     if (paramIsIBCTransfer) {
       return searchedTokens.filter((token) => {
-        const u = token.chainInfo.unwrapped;
-        if (u.type !== "cosmos" && u.type !== "ethermint") {
-          return false;
-        }
-
-        return u.cosmos.features?.includes("ibc-transfer") ?? false;
+        return canSelectAssetForIBCTransfer(
+          token.chainInfo,
+          token.token.currency.coinMinimalDenom
+        );
       });
     }
 
