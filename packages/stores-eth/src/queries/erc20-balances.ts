@@ -27,7 +27,6 @@ import { ERC20BalanceBatchParentStore } from "./erc20-batch-parent-store";
 
 const thirdparySupportedChainIdMap: Record<string, string> = {
   "eip155:1": "eth",
-  "eip155:10": "opt",
   "eip155:137": "polygon",
   "eip155:8453": "base",
   "eip155:42161": "arb",

@@ -1,6 +1,9 @@
 import { DenomHelper } from "@keplr-wallet/common";
 import { AppCurrency } from "@keplr-wallet/types";
-import { ObservableQueryThirdpartyERC20BalancesImpl } from "./erc20-balances";
+import {
+  ObservableQueryThirdpartyERC20BalanceRegistry,
+  ObservableQueryThirdpartyERC20BalancesImpl,
+} from "./erc20-balances";
 
 jest.mock("../account", () => ({
   EthereumAccountBase: {
@@ -81,6 +84,28 @@ describe("ObservableQueryThirdpartyERC20BalancesImpl", () => {
     expect(batchParent.addContract).toHaveBeenCalledWith(CONTRACT);
     expect(batchParent.waitFreshResponse).toHaveBeenCalledTimes(1);
     expect(batchParent.removeContract).toHaveBeenCalledWith(CONTRACT);
+  });
+});
+
+describe("ObservableQueryThirdpartyERC20BalanceRegistry", () => {
+  it("does not use the Keplr Alchemy proxy for Optimism", () => {
+    const batchParentStore = {
+      getOrCreate: jest.fn(),
+    };
+    const registry = new ObservableQueryThirdpartyERC20BalanceRegistry(
+      {} as any,
+      batchParentStore as any
+    );
+
+    const impl = registry.getBalanceImpl(
+      "eip155:10",
+      mockChainGetter(),
+      "0x0000000000000000000000000000000000000001",
+      DENOM
+    );
+
+    expect(impl).toBeUndefined();
+    expect(batchParentStore.getOrCreate).not.toHaveBeenCalled();
   });
 });
 
