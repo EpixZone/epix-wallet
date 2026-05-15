@@ -13,6 +13,7 @@ import { ObservableQueryEthereumMaxPriorityFee } from "./max-priority-fee";
 import { ObservableQueryThirdpartyERC20BalanceRegistry } from "./erc20-balances";
 import { ObservableQueryCoingeckoTokenInfo } from "./coingecko-token-info";
 import { ObservableQueryEthereumERC20BalanceRegistry } from "./erc20-balance";
+import { ERC20BalanceBatchParentStore } from "./erc20-batch-parent-store";
 import { ObservableQueryEthereumGasPrice } from "./gas-price";
 import { ObservableQueryEthereumTxReceipt } from "./tx-receipt";
 
@@ -24,12 +25,6 @@ export const EthereumQueries = {
   use(options: {
     coingeckoAPIBaseURL: string;
     coingeckoAPIURI: string;
-    forceNativeERC20Query: (
-      chainId: string,
-      chainGetter: ChainGetter,
-      address: string,
-      minimalDenom: string
-    ) => boolean;
   }): (
     queriesSetBase: QueriesSetBase,
     sharedContext: QuerySharedContext,
@@ -46,7 +41,6 @@ export const EthereumQueries = {
         ethereum: new EthereumQueriesImpl(
           queriesSetBase,
           sharedContext,
-          options.forceNativeERC20Query,
           chainId,
           chainGetter,
           options.coingeckoAPIBaseURL,
@@ -70,24 +64,23 @@ export class EthereumQueriesImpl {
   constructor(
     base: QueriesSetBase,
     sharedContext: QuerySharedContext,
-    protected readonly forceNativeERC20Query: (
-      chainId: string,
-      chainGetter: ChainGetter,
-      address: string,
-      minimalDenom: string
-    ) => boolean,
     protected chainId: string,
     protected chainGetter: ChainGetter,
     protected coingeckoAPIBaseURL: string,
     protected coingeckoAPIURI: string
   ) {
+    const batchParentStore = new ERC20BalanceBatchParentStore(sharedContext);
+
     base.queryBalances.addBalanceRegistry(
-      new ObservableQueryEthereumERC20BalanceRegistry(sharedContext)
+      new ObservableQueryEthereumERC20BalanceRegistry(
+        sharedContext,
+        batchParentStore
+      )
     );
     base.queryBalances.addBalanceRegistry(
       new ObservableQueryThirdpartyERC20BalanceRegistry(
         sharedContext,
-        forceNativeERC20Query
+        batchParentStore
       )
     );
     base.queryBalances.addBalanceRegistry(

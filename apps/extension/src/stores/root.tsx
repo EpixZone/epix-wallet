@@ -394,22 +394,6 @@ export class RootStore {
       EthereumQueries.use({
         coingeckoAPIBaseURL: CoinGeckoAPIEndPoint,
         coingeckoAPIURI: CoinGeckoCoinDataByTokenAddress,
-        forceNativeERC20Query: (
-          chainId,
-          _chainGetter,
-          _address,
-          minimalDenom
-        ) => {
-          // Base의 axlUSDC만 밸런스를 가지고 올 수 없는 문제가 있어서 우선 하드코딩으로 처리
-          if (
-            chainId === "eip155:8453" &&
-            minimalDenom === "erc20:0xeb466342c4d449bc9f53a865d5cb90586f405215"
-          ) {
-            return true;
-          }
-
-          return this.tokensStore.tokenIsRegistered(chainId, minimalDenom);
-        },
       }),
       NobleQueries.use()
     );
