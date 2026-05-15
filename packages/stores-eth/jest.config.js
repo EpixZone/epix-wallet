@@ -1,5 +1,8 @@
 module.exports = {
-  preset: "ts-jest",
   testEnvironment: "node",
+  watchman: false,
+  transform: {
+    "^.+\\.tsx?$": ["ts-jest", { tsconfig: "tsconfig.check.json" }],
+  },
   testMatch: ["**/src/**/?(*.)+(spec|test).[jt]s?(x)"],
 };

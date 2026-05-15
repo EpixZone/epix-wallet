@@ -19,6 +19,12 @@ export class ObservableQueryEthereumERC20BalancesBatchParent {
   protected batchQueries: ObservableJsonRpcBatchQuery<string>[] = [];
 
   @observable.ref
+  protected batchQueryKeys: string[] = [];
+
+  @observable.shallow
+  protected lastKnownBalances: Map<string, string> = new Map();
+
+  @observable.ref
   protected lastBuiltKey = "";
 
   // Snapshot of contract → batchQueries index at rebuild time, so getError
@@ -69,15 +75,34 @@ export class ObservableQueryEthereumERC20BalancesBatchParent {
 
   getBalance(contract: string): string | undefined {
     const key = contract.toLowerCase();
+    const lastKnown = this.lastKnownBalances.get(key);
     for (const q of this.batchQueries) {
+      if (!q.isStarted && lastKnown !== undefined) {
+        continue;
+      }
+
       const data = q.response?.data?.[key];
       if (data !== undefined) return data;
     }
-    return undefined;
+    return lastKnown;
+  }
+
+  getLastKnownBalance(contract: string): string | undefined {
+    return this.lastKnownBalances.get(contract.toLowerCase());
   }
 
   get isFetching(): boolean {
     return this.batchQueries.some((q) => q.isFetching);
+  }
+
+  isFetchingContract(contract: string): boolean {
+    const key = contract.toLowerCase();
+    const chunkIdx = this.chunkIndex.get(key);
+    if (chunkIdx === undefined) return false;
+    const q = this.batchQueries[chunkIdx];
+    if (!q) return false;
+    if (!q.isStarted && this.lastKnownBalances.has(key)) return false;
+    return q.isFetching;
   }
 
   // Per-contract error: surface only the error of the chunk that owns this
@@ -90,6 +115,7 @@ export class ObservableQueryEthereumERC20BalancesBatchParent {
     if (chunkIdx === undefined) return undefined;
     const q = this.batchQueries[chunkIdx];
     if (!q) return undefined;
+    if (!q.isStarted && this.lastKnownBalances.has(key)) return undefined;
     if (q.error) return q.error;
     const perReq = q.perRequestErrors[key];
     if (perReq) {
@@ -114,12 +140,16 @@ export class ObservableQueryEthereumERC20BalancesBatchParent {
     // matches the current (refcount + rpc) snapshot.
     await when(() => this.currentKey() === this.lastBuiltKey);
     await Promise.all(this.batchQueries.map((q) => q.waitFreshResponse()));
+    this.rememberCurrentBatchBalances();
   }
 
   protected rebuildBatchQueries(key: string): void {
+    this.rememberCurrentBatchBalances();
+
     if (this.refcount.size === 0) {
       runInAction(() => {
         this.batchQueries = [];
+        this.batchQueryKeys = [];
         this.lastBuiltKey = key;
         this.chunkIndex = new Map();
       });
@@ -130,6 +160,7 @@ export class ObservableQueryEthereumERC20BalancesBatchParent {
     if (!rpcUrl) {
       runInAction(() => {
         this.batchQueries = [];
+        this.batchQueryKeys = [];
         this.lastBuiltKey = key;
         this.chunkIndex = new Map();
       });
@@ -151,8 +182,29 @@ export class ObservableQueryEthereumERC20BalancesBatchParent {
       for (const c of chunk) nextChunkIndex.set(c, idx);
     });
 
+    const previousQueries = new Map<
+      string,
+      ObservableJsonRpcBatchQuery<string>
+    >();
+    this.batchQueries.forEach((q, idx) => {
+      const queryKey = this.batchQueryKeys[idx];
+      if (queryKey) {
+        previousQueries.set(queryKey, q);
+      }
+    });
+
+    const nextBatchQueryKeys = chunks.map(
+      (chunk) => `${rpcUrl}::${chunk.join(",")}`
+    );
+
     runInAction(() => {
-      this.batchQueries = chunks.map((chunk) => {
+      this.batchQueries = chunks.map((chunk, idx) => {
+        const queryKey = nextBatchQueryKeys[idx];
+        const previous = previousQueries.get(queryKey);
+        if (previous) {
+          return previous;
+        }
+
         const requests: JsonRpcBatchRequest[] = chunk.map((c) => ({
           method: "eth_call",
           params: [calldata(c), "latest"],
@@ -165,8 +217,33 @@ export class ObservableQueryEthereumERC20BalancesBatchParent {
           requests
         );
       });
+      this.batchQueryKeys = nextBatchQueryKeys;
       this.lastBuiltKey = key;
       this.chunkIndex = nextChunkIndex;
+    });
+  }
+
+  protected rememberCurrentBatchBalances(): void {
+    const entries: [string, string][] = [];
+    for (const q of this.batchQueries) {
+      const data = q.response?.data;
+      if (!data) {
+        continue;
+      }
+
+      for (const [contract, balance] of Object.entries(data)) {
+        entries.push([contract.toLowerCase(), balance]);
+      }
+    }
+
+    if (entries.length === 0) {
+      return;
+    }
+
+    runInAction(() => {
+      for (const [contract, balance] of entries) {
+        this.lastKnownBalances.set(contract, balance);
+      }
     });
   }
 

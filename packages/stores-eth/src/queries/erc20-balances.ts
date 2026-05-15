@@ -44,7 +44,7 @@ interface ThirdpartyERC20TokenBalance {
     } | null;
   }[];
   // TODO: Support pagination.
-  pageKey: string;
+  pageKey?: string;
 }
 
 export class ObservableQueryThirdpartyERC20BalancesImplParent extends ObservableJsonRPCQuery<ThirdpartyERC20TokenBalance> {
@@ -116,6 +116,26 @@ export class ObservableQueryThirdpartyERC20BalancesImplParent extends Observable
   hasAlchemyBalance(contract: string): boolean {
     return this.alchemyContractSet.has(contract.toLowerCase());
   }
+
+  getAlchemyTokenBalance(
+    contract: string
+  ): ThirdpartyERC20TokenBalance["tokenBalances"][number] | undefined {
+    return this.response?.data.tokenBalances.find(
+      (bal) => bal.contractAddress.toLowerCase() === contract.toLowerCase()
+    );
+  }
+
+  get isAlchemyResponseComplete(): boolean {
+    return !!this.response && !this.response.data.pageKey;
+  }
+
+  resolvesAlchemyBalance(contract: string): boolean {
+    const tokenBalance = this.getAlchemyTokenBalance(contract);
+    return (
+      tokenBalance?.tokenBalance != null ||
+      (this.isAlchemyResponseComplete && !tokenBalance)
+    );
+  }
 }
 
 export class ObservableQueryThirdpartyERC20BalancesImpl
@@ -147,7 +167,7 @@ export class ObservableQueryThirdpartyERC20BalancesImpl
           // advertises the contract as covered.
           if (parent.error) return "missing";
           if (!parent.response) return "pending";
-          if (parent.hasAlchemyBalance(contract)) return "covered";
+          if (parent.resolvesAlchemyBalance(contract)) return "covered";
           return "missing";
         },
         (status) => {
@@ -194,18 +214,22 @@ export class ObservableQueryThirdpartyERC20BalancesImpl
     const currency = this.currency;
     const contract = this.denomHelper.contractAddress;
 
-    if (this.alchemyCovers) {
-      const tokenBalance = this.parent.response?.data.tokenBalances.find(
-        (bal) =>
-          DenomHelper.normalizeDenom(`erc20:${bal.contractAddress}`) ===
-          DenomHelper.normalizeDenom(this.denomHelper.denom)
-      );
+    if (this.alchemyResolvesBalance) {
+      const tokenBalance = this.parent.getAlchemyTokenBalance(contract);
       if (tokenBalance?.tokenBalance != null) {
         return new CoinPretty(
           currency,
           new Int(BigInt(tokenBalance.tokenBalance))
         );
       }
+      const lastKnown = this.parent.batchParent.getLastKnownBalance(contract);
+      if (lastKnown !== undefined) {
+        return new CoinPretty(
+          currency,
+          new Int(bigInteger(lastKnown.replace("0x", ""), 16).toString())
+        );
+      }
+      return new CoinPretty(currency, new Int(0));
     }
 
     const raw = this.parent.batchParent.getBalance(contract);
@@ -232,17 +256,17 @@ export class ObservableQueryThirdpartyERC20BalancesImpl
   // Derived from actual data/error state so imperative callers (which never
   // flip `isInBatch`) observe the same semantics as the reaction path.
   @computed
-  protected get alchemyCovers(): boolean {
+  protected get alchemyResolvesBalance(): boolean {
     return (
       !this.parent.error &&
       !!this.parent.response &&
-      this.parent.hasAlchemyBalance(this.denomHelper.contractAddress)
+      this.parent.resolvesAlchemyBalance(this.denomHelper.contractAddress)
     );
   }
 
   @computed
   get error(): Readonly<QueryError<unknown>> | undefined {
-    if (this.alchemyCovers) return undefined;
+    if (this.alchemyResolvesBalance) return undefined;
     const contract = this.denomHelper.contractAddress;
     const batchErr = this.parent.batchParent.getError(contract);
     if (batchErr) return batchErr;
@@ -254,8 +278,12 @@ export class ObservableQueryThirdpartyERC20BalancesImpl
     return undefined;
   }
   get isFetching(): boolean {
-    if (!this.alchemyCovers) {
-      return this.parent.batchParent.isFetching || this.parent.isFetching;
+    if (!this.alchemyResolvesBalance) {
+      return (
+        this.parent.batchParent.isFetchingContract(
+          this.denomHelper.contractAddress
+        ) || this.parent.isFetching
+      );
     }
     return this.parent.isFetching;
   }
@@ -272,7 +300,7 @@ export class ObservableQueryThirdpartyERC20BalancesImpl
     // Readiness must gate on actual data availability, not the
     // observation-driven `isInBatch` flag, so imperative callers also see
     // batch-backed readiness for tokens missing from Alchemy.
-    if (this.alchemyCovers) return this.parent.response;
+    if (this.alchemyResolvesBalance) return this.parent.response;
     const raw = this.parent.batchParent.getBalance(
       this.denomHelper.contractAddress
     );
@@ -330,7 +358,7 @@ export class ObservableQueryThirdpartyERC20BalancesImpl
     const coveredByAlchemy =
       !this.parent.error &&
       !!this.parent.response &&
-      this.parent.hasAlchemyBalance(contract);
+      this.parent.resolvesAlchemyBalance(contract);
     if (coveredByAlchemy) return;
     this.parent.batchParent.addContract(contract);
     try {
