@@ -91,7 +91,7 @@ describe("ObservableQueryEthereumERC20BalancesBatchParent", () => {
     expect(parent.getBalance(CONTRACT_B)).toBe("0x3");
   });
 
-  it("does not start an inactive query when a last known balance is already available", async () => {
+  it("starts a rebuilt query while serving a last known balance", async () => {
     const parent = new ObservableQueryEthereumERC20BalancesBatchParent(
       new QuerySharedContext(new MemoryKVStore("erc20-balance-batch-test"), {
         responseDebounceMs: 0,
@@ -120,10 +120,16 @@ describe("ObservableQueryEthereumERC20BalancesBatchParent", () => {
       autorun(() => parent.isFetchingContract(CONTRACT_A)),
     ];
 
-    await wait(50);
+    await waitForPendingFetches(pendingFetches, 2);
 
     expect(parent.getBalance(CONTRACT_A)).toBe("0x1");
-    expect(pendingFetches).toHaveLength(1);
+
+    resolveFetch(pendingFetches[1], {
+      [CONTRACT_A]: "0x2",
+    });
+    await waitForCondition(() => parent.getBalance(CONTRACT_A) === "0x2");
+
+    expect(parent.getBalance(CONTRACT_A)).toBe("0x2");
 
     disposers.forEach((dispose) => dispose());
   });
@@ -173,4 +179,14 @@ async function waitForPendingFetches(
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForCondition(fn: () => boolean) {
+  const startedAt = Date.now();
+  while (!fn()) {
+    if (Date.now() - startedAt > 2000) {
+      throw new Error("Timed out waiting for condition");
+    }
+    await wait(10);
+  }
 }

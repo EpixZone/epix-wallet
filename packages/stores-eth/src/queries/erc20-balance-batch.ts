@@ -77,6 +77,7 @@ export class ObservableQueryEthereumERC20BalancesBatchParent {
     const key = contract.toLowerCase();
     const lastKnown = this.lastKnownBalances.get(key);
     for (const q of this.batchQueries) {
+      trackQueryFetching(q);
       if (!q.isStarted && lastKnown !== undefined) {
         continue;
       }
@@ -101,8 +102,9 @@ export class ObservableQueryEthereumERC20BalancesBatchParent {
     if (chunkIdx === undefined) return false;
     const q = this.batchQueries[chunkIdx];
     if (!q) return false;
+    const isFetching = trackQueryFetching(q);
     if (!q.isStarted && this.lastKnownBalances.has(key)) return false;
-    return q.isFetching;
+    return isFetching;
   }
 
   // Per-contract error: surface only the error of the chunk that owns this
@@ -115,6 +117,7 @@ export class ObservableQueryEthereumERC20BalancesBatchParent {
     if (chunkIdx === undefined) return undefined;
     const q = this.batchQueries[chunkIdx];
     if (!q) return undefined;
+    trackQueryFetching(q);
     if (!q.isStarted && this.lastKnownBalances.has(key)) return undefined;
     if (q.error) return q.error;
     const perReq = q.perRequestErrors[key];
@@ -259,4 +262,12 @@ function chunkArray<T>(array: T[], size: number): T[][] {
     chunks.push(array.slice(i, i + size));
   }
   return chunks;
+}
+
+function trackQueryFetching(
+  query: ObservableJsonRpcBatchQuery<string>
+): boolean {
+  // Reading `isFetching` starts ObservableQuery when a caller observes the
+  // parent state, while still letting getters return cached last-known data.
+  return query.isFetching;
 }
