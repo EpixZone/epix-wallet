@@ -125,16 +125,8 @@ export class ObservableQueryThirdpartyERC20BalancesImplParent extends Observable
     );
   }
 
-  get isAlchemyResponseComplete(): boolean {
-    return !!this.response && !this.response.data.pageKey;
-  }
-
   resolvesAlchemyBalance(contract: string): boolean {
-    const tokenBalance = this.getAlchemyTokenBalance(contract);
-    return (
-      tokenBalance?.tokenBalance != null ||
-      (this.isAlchemyResponseComplete && !tokenBalance)
-    );
+    return this.getAlchemyTokenBalance(contract)?.tokenBalance != null;
   }
 }
 
@@ -222,14 +214,6 @@ export class ObservableQueryThirdpartyERC20BalancesImpl
           new Int(BigInt(tokenBalance.tokenBalance))
         );
       }
-      const lastKnown = this.parent.batchParent.getLastKnownBalance(contract);
-      if (lastKnown !== undefined) {
-        return new CoinPretty(
-          currency,
-          new Int(bigInteger(lastKnown.replace("0x", ""), 16).toString())
-        );
-      }
-      return new CoinPretty(currency, new Int(0));
     }
 
     const raw = this.parent.batchParent.getBalance(contract);

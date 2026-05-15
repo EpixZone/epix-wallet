@@ -34,32 +34,37 @@ const CURRENCY: AppCurrency = {
 };
 
 describe("ObservableQueryThirdpartyERC20BalancesImpl", () => {
-  it("treats a missing token as zero when the Alchemy response is complete", async () => {
+  it("falls back to batch eth_call for a missing token when the Alchemy response is complete", async () => {
     const { parent, batchParent } = mockParent({
       address: "0x0000000000000000000000000000000000000001",
       tokenBalances: [],
+    });
+    batchParent.waitFreshResponse.mockImplementation(async () => {
+      batchParent.getBalance.mockReturnValue("0x5");
     });
     const balance = createBalance(parent);
 
     await balance.fetch();
 
-    expect(batchParent.addContract).not.toHaveBeenCalled();
-    expect(balance.response).toBe(parent.response);
+    expect(batchParent.addContract).toHaveBeenCalledWith(CONTRACT);
+    expect(batchParent.waitFreshResponse).toHaveBeenCalledTimes(1);
+    expect(batchParent.removeContract).toHaveBeenCalledWith(CONTRACT);
+    expect(balance.response).not.toBe(parent.response);
     expect(balance.balance.isReady).toBe(true);
-    expect(balance.balance.toDec().isZero()).toBe(true);
+    expect(balance.balance.toCoin().amount).toBe("5");
   });
 
-  it("uses the last known batch balance when complete Alchemy response omits the token", async () => {
+  it("uses the batch parent's cached balance when complete Alchemy response omits the token", async () => {
     const { parent, batchParent } = mockParent({
       address: "0x0000000000000000000000000000000000000001",
       tokenBalances: [],
     });
-    batchParent.getLastKnownBalance.mockReturnValue("0x5");
+    batchParent.getBalance.mockReturnValue("0x5");
     const balance = createBalance(parent);
 
     await balance.fetch();
 
-    expect(batchParent.addContract).not.toHaveBeenCalled();
+    expect(batchParent.addContract).toHaveBeenCalledWith(CONTRACT);
     expect(balance.balance.toCoin().amount).toBe("5");
   });
 
@@ -133,15 +138,8 @@ function mockParent(data: {
         (bal) => bal.contractAddress.toLowerCase() === contract.toLowerCase()
       );
     },
-    get isAlchemyResponseComplete() {
-      return !data.pageKey;
-    },
     resolvesAlchemyBalance(contract: string) {
-      const tokenBalance = this.getAlchemyTokenBalance(contract);
-      return (
-        tokenBalance?.tokenBalance != null ||
-        (this.isAlchemyResponseComplete && !tokenBalance)
-      );
+      return this.getAlchemyTokenBalance(contract)?.tokenBalance != null;
     },
     isFetching: false,
     isObserved: false,
