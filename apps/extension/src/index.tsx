@@ -374,7 +374,11 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
             }),
             ...(() => {
               for (const mc of chainStore.modularChainInfosInUI) {
-                if (mc.type === "cosmos" || mc.type === "ethermint") {
+                if (
+                  mc.type === "cosmos" ||
+                  mc.type === "ethermint" ||
+                  mc.type === "evm"
+                ) {
                   return {
                     disabled: false,
                   };
