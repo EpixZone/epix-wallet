@@ -64,6 +64,7 @@ import { TextButtonProps } from "../../components/button-text";
 import { UnsignedEVMTransactionWithErc20Approvals } from "@keplr-wallet/stores-eth";
 import { InsufficientFeeError } from "@keplr-wallet/hooks";
 import { getSwapWarnings } from "./utils/swap-warnings";
+import { classifySwapFailure } from "./utils/swap-failure-classifier";
 import {
   FeeCoverageDescription,
   StakingRequirementDescription,
@@ -567,6 +568,12 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
 
         if (interactionBlocked) {
           return;
+        }
+        if (isSwap) {
+          logEvent("swap_confirm_started", {
+            quote_id: quoteIdRef.current,
+            is_hold_to_swap: holdToSwapEnabled,
+          });
         }
         if (isSwap && !holdToSwapEnabled) {
           logSwapSignOpened();
@@ -1170,6 +1177,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
                                   ) {
                                     logEvent("erc20_approve_sign_canceled", {
                                       quote_id: quoteIdRef.current,
+                                      ...classifySwapFailure(e, "sign"),
                                     });
                                   }
 
@@ -1445,6 +1453,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
             if (isSwap) {
               logEvent("swap_sign_canceled", {
                 quote_id: quoteIdRef.current,
+                ...classifySwapFailure(e, "sign"),
                 ...swapMilestoneBase,
               });
             }
@@ -1456,6 +1465,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
             logEvent("swap_tx_failed", {
               quote_id: quoteIdRef.current,
               error_message: e?.message,
+              ...classifySwapFailure(e, "submit"),
               ...swapMilestoneBase,
             });
           }

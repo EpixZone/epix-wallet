@@ -10,15 +10,29 @@ import { GasConfig, SenderConfig } from "@keplr-wallet/hooks";
 import { RouteStepType, SwapProvider } from "@keplr-wallet/stores-internal";
 import debounce from "lodash.debounce";
 import { v4 as uuidv4 } from "uuid";
+import { classifySwapFailure } from "../utils/swap-failure-classifier";
 
 const milestoneEvents = new Set([
   "swap_quote_requested",
   "swap_quote_received",
+  "swap_quote_failed",
+  "swap_confirm_started",
   "swap_sign_opened",
+  "swap_sign_canceled",
+  "erc20_approve_sign_canceled",
+  "erc20_approve_tx_submitted",
   "swap_tx_submitted",
   "swap_tx_success",
   "swap_tx_failed",
 ]);
+
+const terminalMilestoneEvents = new Set([
+  "swap_quote_failed",
+  "swap_tx_success",
+  "swap_tx_failed",
+]);
+
+const SWAP_SCHEMA_VERSION = 2;
 
 interface SwapAnalyticsArgs {
   inChainId: string;
@@ -46,6 +60,9 @@ export const useSwapAnalytics = ({
     useStore();
 
   const quoteIdRef = useRef("");
+  const swapSessionIdRef = useRef(uuidv4());
+  const swapAttemptIdRef = useRef("");
+  const quoteRequestIndexRef = useRef(0);
 
   const prevInRef = useRef({
     chainIdentifier: "",
@@ -77,15 +94,39 @@ export const useSwapAnalytics = ({
 
   const logEvent = useCallback(
     (eventName: string, props: Record<string, any> = {}) => {
-      const id = props["quote_id"];
+      const startsSwapAttempt =
+        eventName === "swap_quote_requested" &&
+        (props["starts_swap_attempt"] !== false || !swapAttemptIdRef.current);
 
-      let mergedProps = { ...props };
+      if (startsSwapAttempt) {
+        swapAttemptIdRef.current = uuidv4();
+        quoteRequestIndexRef.current += 1;
+      }
+
+      const isMilestoneEvent = milestoneEvents.has(eventName);
+      const eventProps = { ...props };
+      delete eventProps["starts_swap_attempt"];
+      if (isMilestoneEvent && !eventProps["swap_attempt_id"]) {
+        eventProps["swap_attempt_id"] = swapAttemptIdRef.current || uuidv4();
+        swapAttemptIdRef.current = eventProps["swap_attempt_id"];
+      }
+      if (eventProps["swap_attempt_id"]) {
+        eventProps["quote_request_index"] = quoteRequestIndexRef.current;
+      }
+
+      const baseProps = {
+        swap_schema_version: SWAP_SCHEMA_VERSION,
+        swap_session_id: swapSessionIdRef.current,
+      };
+      const id = eventProps["swap_attempt_id"] ?? eventProps["quote_id"];
+
+      let mergedProps: Record<string, any> = { ...baseProps, ...eventProps };
 
       const durationProps: Record<string, number> = {};
 
-      if (milestoneEvents.has(eventName) && id) {
+      if (isMilestoneEvent && id) {
         const now = performance.now();
-        if (eventName === "swap_quote_requested" || !durationRef.current[id]) {
+        if (startsSwapAttempt || !durationRef.current[id]) {
           durationRef.current[id] = {
             first: requestStartedAtRef.current ?? now,
             prev: now,
@@ -98,7 +139,7 @@ export const useSwapAnalytics = ({
           durationRef.current[id].prev = now;
         }
 
-        if (eventName === "swap_tx_success" || eventName === "swap_tx_failed") {
+        if (terminalMilestoneEvents.has(eventName)) {
           durationProps["total_duration_ms"] =
             now - durationRef.current[id].first;
           delete durationRef.current[id];
@@ -108,8 +149,9 @@ export const useSwapAnalytics = ({
       if (id) {
         aggregatedPropsRef.current[id] = {
           ...aggregatedPropsRef.current[id],
+          ...baseProps,
           ...durationProps,
-          ...props,
+          ...eventProps,
         };
         mergedProps = aggregatedPropsRef.current[id];
       }
@@ -119,13 +161,9 @@ export const useSwapAnalytics = ({
           (p: Record<string, any>) => {
             analyticsAmplitudeStore.logEvent(eventName, p);
 
-            if (
-              eventName === "swap_tx_success" ||
-              eventName === "swap_tx_failed"
-            ) {
-              // Read from payload: closure captures `id` from the first
-              // call that created this debounced fn, not the current quote.
-              delete aggregatedPropsRef.current[p["quote_id"]];
+            if (terminalMilestoneEvents.has(eventName)) {
+              const attemptId = p["swap_attempt_id"] ?? p["quote_id"];
+              delete aggregatedPropsRef.current[attemptId];
             }
           },
           100
@@ -264,6 +302,7 @@ export const useSwapAnalytics = ({
         in_amount_usd: inAmountUsd,
         in_amount_usd_value: inAmountUsdValue,
         swap_fee_bps: swapFeeBps,
+        starts_swap_attempt: isNewQuery || !swapAttemptIdRef.current,
       });
     }
     prevFetchingRef.current = queryRouteForLog.isFetching;
@@ -355,6 +394,7 @@ export const useSwapAnalytics = ({
       out_amount_est_usd: destAmountUsd,
       out_amount_est_usd_value: destAmountUsdValue,
       provider,
+      steps_count: steps.length,
       does_swap: doesSwap,
       route_duration_estimate_sec: estimated_time,
       swap_venues: swapVenues,
@@ -381,6 +421,7 @@ export const useSwapAnalytics = ({
     const errorData = queryRouteForLog.error.data as
       | { message?: string; code?: number }
       | undefined;
+    const errorMessage = queryRouteForLog.error.message ?? errorData?.message;
 
     logEvent("swap_quote_failed", {
       duration_ms: durationMs,
@@ -393,9 +434,10 @@ export const useSwapAnalytics = ({
       in_amount_raw: inAmountRaw,
       in_amount_usd: inAmountUsd,
       in_amount_usd_value: inAmountUsdValue,
-      error_message: queryRouteForLog.error.message ?? errorData?.message,
+      error_message: errorMessage,
       error_status: queryRouteForLog.error.status,
       error_code: errorData?.code ?? undefined,
+      ...classifySwapFailure(errorMessage, "quote"),
     });
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
