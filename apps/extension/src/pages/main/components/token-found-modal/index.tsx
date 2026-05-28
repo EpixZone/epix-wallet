@@ -32,7 +32,7 @@ import { Gutter } from "../../../../components/gutter";
 import { FormattedMessage, useIntl } from "react-intl";
 import SimpleBar from "simplebar-react";
 import { XAxis, YAxis } from "../../../../components/axis";
-import { EmbedChainInfos } from "../../../../config";
+import { isNativeChainInUI } from "../../../../config";
 import { DenomHelper } from "@keplr-wallet/common";
 import { TokenTag } from "../../../register/enable-chains/components/chain-item";
 import { SupportedPaymentType } from "@keplr-wallet/types";
@@ -273,9 +273,7 @@ export const TokenFoundModal: FunctionComponent<{
                 checked={checkedChainIdentifiers.includes(
                   ChainIdHelper.parse(tokenScan.chainId).identifier
                 )}
-                isNativeChain={EmbedChainInfos.some(
-                  (chain) => chain.chainId === tokenScan.chainId
-                )}
+                isNativeChain={isNativeChainInUI(tokenScan.chainId)}
                 onCheckbox={(checked) => {
                   if (checked) {
                     setCheckedChainIdentifiers((ids) => [

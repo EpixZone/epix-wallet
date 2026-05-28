@@ -36,7 +36,10 @@ import styled from "styled-components";
 import { SelectDerivationPathModal } from "./components/select-derivation-path-modal";
 import { ConnectLedgerModal } from "./components/connect-ledger-modal";
 import { useKeyCoinTypeFinalize } from "./hooks/use-key-coin-type-finalize";
-import { EmbedChainInfos } from "../../config";
+import {
+  EmbedChainInfos,
+  isEmbeddedChainVisibleInNativeChainUI,
+} from "../../config";
 import {
   KeyRingCosmosService,
   convertModularChainInfoToChainInfo,
@@ -325,7 +328,7 @@ export const ManageChainsPage: FunctionComponent = observer(() => {
 
   const nativeChainIdentifierSet = useMemo(() => {
     const filtered = EmbedChainInfos.filter((chainInfo) => {
-      if ("hideInUI" in chainInfo && chainInfo.hideInUI) {
+      if (!isEmbeddedChainVisibleInNativeChainUI(chainInfo)) {
         return false;
       }
 
