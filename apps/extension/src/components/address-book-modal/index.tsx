@@ -90,10 +90,12 @@ export const AddressBookModal: FunctionComponent<{
 
     useEffect(() => {
       if (!isOpen) {
+        setAccounts((accounts) => (accounts.length > 0 ? [] : accounts));
         return;
       }
 
       let disposed = false;
+      setAccounts((accounts) => (accounts.length > 0 ? [] : accounts));
 
       uiConfigStore.addressBookConfig
         .getVaultCosmosKeysSettled(
