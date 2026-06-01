@@ -1965,7 +1965,7 @@ export class KeyRingService {
       if (!isHex) {
         const targetModularChainInfos: ModularChainInfo[] = (() => {
           const i = searchText.indexOf("1");
-          if (i < 0) {
+          if (i <= 0) {
             return [];
           }
           const prefix = searchText.slice(0, i);
@@ -1983,78 +1983,69 @@ export class KeyRingService {
           return result;
         })();
 
-        bech32AddressSearchKeyInfos = keyInfos.filter((keyInfo) => {
-          let filteredModularChainInfos = targetModularChainInfos;
-          if (!ignoreChainEnabled) {
-            filteredModularChainInfos = filteredModularChainInfos.filter(
-              (m) => {
-                return this.chainsUIService.isEnabled(keyInfo.id, m.chainId);
-              }
-            );
-          }
+        // Bech32 address search is only meaningful once the query includes a
+        // recognized prefix separator. Otherwise name searches like "dev" would
+        // scan every Cosmos/Ethermint chain for every matching keyring search.
+        if (targetModularChainInfos.length > 0) {
+          bech32AddressSearchKeyInfos = keyInfos.filter((keyInfo) => {
+            let filteredModularChainInfos = targetModularChainInfos;
+            if (!ignoreChainEnabled) {
+              filteredModularChainInfos = filteredModularChainInfos.filter(
+                (m) => {
+                  return this.chainsUIService.isEnabled(keyInfo.id, m.chainId);
+                }
+              );
+            }
 
-          const chainInfos = (() => {
-            if (ignoreChainEnabled) {
-              return this.chainsService
-                .getModularChainInfos()
-                .filter((c) => c.type === "cosmos" || c.type === "ethermint")
-                .flatMap((c) => {
+            const chainInfos = (() => {
+              if (ignoreChainEnabled) {
+                return targetModularChainInfos.flatMap((c) => {
                   const ci = convertModularChainInfoToChainInfo(c);
                   return ci ? [ci] : [];
                 });
-            }
-            if (filteredModularChainInfos.length > 0) {
+              }
               return filteredModularChainInfos.flatMap((c) => {
                 const ci = convertModularChainInfoToChainInfo(c);
                 return ci ? [ci] : [];
               });
-            }
-            const modularChainInfos =
-              this.chainsUIService.enabledModularChainInfosForVault(keyInfo.id);
-            // TODO: 다른 체인도 지원하기
-            return modularChainInfos
-              .filter((c) => c.type === "cosmos" || c.type === "ethermint")
-              .flatMap((c) => {
-                const ci = convertModularChainInfoToChainInfo(c);
-                return ci ? [ci] : [];
-              });
-          })();
+            })();
 
-          for (const chainInfo of chainInfos) {
-            for (const [key, value] of Object.entries(keyInfo.insensitive)) {
-              try {
-                const isEVM = isEthSignChain(
-                  this.chainsService.getModularChainInfoOrThrow(
-                    chainInfo.chainId
-                  )
-                );
-
-                const hexAddress =
-                  KeyRingService.getAddressHexStringFromKeyInfo(
-                    chainInfo,
-                    keyInfo,
-                    key,
-                    value,
-                    isEVM
+            for (const chainInfo of chainInfos) {
+              for (const [key, value] of Object.entries(keyInfo.insensitive)) {
+                try {
+                  const isEVM = isEthSignChain(
+                    this.chainsService.getModularChainInfoOrThrow(
+                      chainInfo.chainId
+                    )
                   );
 
-                if (chainInfo.bech32Config == null) {
-                  return false;
-                }
+                  const hexAddress =
+                    KeyRingService.getAddressHexStringFromKeyInfo(
+                      chainInfo,
+                      keyInfo,
+                      key,
+                      value,
+                      isEVM
+                    );
 
-                const bech32Address = this.getKeySearchBech32FromHex(
-                  chainInfo.bech32Config.bech32PrefixAccAddr,
-                  hexAddress
-                );
-                if (bech32Address.includes(searchText.toLowerCase())) {
-                  return true;
+                  if (chainInfo.bech32Config == null) {
+                    return false;
+                  }
+
+                  const bech32Address = this.getKeySearchBech32FromHex(
+                    chainInfo.bech32Config.bech32PrefixAccAddr,
+                    hexAddress
+                  );
+                  if (bech32Address.includes(searchText.toLowerCase())) {
+                    return true;
+                  }
+                } catch {
+                  // noop
                 }
-              } catch {
-                // noop
               }
             }
-          }
-        });
+          });
+        }
       }
     }
 

@@ -89,41 +89,62 @@ export const AddressBookModal: FunctionComponent<{
     }, [historyType, recipientConfig.chainId, uiConfigStore.addressBookConfig]);
 
     useEffect(() => {
-      (() => {
-        if (type !== "accounts" || !debounceTrimmedSearchText) {
-          return uiConfigStore.addressBookConfig.getVaultCosmosKeysSettled(
-            recipientConfig.chainId,
-            permitSelfKeyInfo ? undefined : keyRingStore.selectedKeyInfo?.id
+      if (!isOpen) {
+        return;
+      }
+
+      let disposed = false;
+
+      uiConfigStore.addressBookConfig
+        .getVaultCosmosKeysSettled(
+          recipientConfig.chainId,
+          permitSelfKeyInfo ? undefined : keyRingStore.selectedKeyInfo?.id
+        )
+        .then((keys) => {
+          if (disposed) {
+            return;
+          }
+
+          setAccounts(
+            keys
+              .filter((res) => {
+                return res.status === "fulfilled";
+              })
+              .map((res) => {
+                if (res.status === "fulfilled") {
+                  return res.value;
+                }
+                throw new Error("Unexpected status");
+              })
           );
-        } else {
-          return uiConfigStore.addressBookConfig.getVaultCosmosKeysWithSearchSettled(
-            debounceTrimmedSearchText,
-            recipientConfig.chainId,
-            permitSelfKeyInfo ? undefined : keyRingStore.selectedKeyInfo?.id
-          );
-        }
-      })().then((keys) => {
-        setAccounts(
-          keys
-            .filter((res) => {
-              return res.status === "fulfilled";
-            })
-            .map((res) => {
-              if (res.status === "fulfilled") {
-                return res.value;
-              }
-              throw new Error("Unexpected status");
-            })
-        );
-      });
+        });
+
+      return () => {
+        disposed = true;
+      };
     }, [
-      type,
+      isOpen,
       keyRingStore.selectedKeyInfo?.id,
       permitSelfKeyInfo,
       recipientConfig.chainId,
       uiConfigStore.addressBookConfig,
-      debounceTrimmedSearchText,
     ]);
+
+    const filterAccountData = (
+      data: { name: string; address: string; isSelf: boolean }[]
+    ) => {
+      const trimSearchText = searchText.trim().toLowerCase();
+      if (!trimSearchText) {
+        return data;
+      }
+
+      return data.filter((account) => {
+        return (
+          account.name.toLowerCase().includes(trimSearchText) ||
+          account.address.toLowerCase().includes(trimSearchText)
+        );
+      });
+    };
 
     const modularChainInfo = chainStore.getModularChain(
       recipientConfig.chainId
@@ -197,7 +218,7 @@ export const AddressBookModal: FunctionComponent<{
             });
         }
         case "accounts": {
-          return accounts.reduce<
+          const accountData = accounts.reduce<
             { name: string; address: string; isSelf: boolean }[]
           >((acc, account) => {
             const isSelf = keyRingStore.selectedKeyInfo?.id === account.vaultId;
@@ -223,6 +244,8 @@ export const AddressBookModal: FunctionComponent<{
 
             return acc;
           }, []);
+
+          return filterAccountData(accountData);
         }
         default: {
           return [];
