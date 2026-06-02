@@ -65,11 +65,13 @@ const EVM_SIMULATION_OUTCOMES = [
 ] as const;
 
 export function getRouteExecutionDiagnostics(routeResponse: {
-  steps: { type: RouteStepType }[];
+  steps?: { type: RouteStepType }[];
   skip_operations?: unknown[];
-}): Pick<TxExecutionDiagnostics, "route_step_kinds" | "route_bridge_kinds"> {
+}): Partial<
+  Pick<TxExecutionDiagnostics, "route_step_kinds" | "route_bridge_kinds">
+> {
   const routeStepKinds = unique(
-    routeResponse.steps.map((step) => {
+    (routeResponse.steps ?? []).map((step) => {
       switch (step.type) {
         case RouteStepType.SWAP:
           return "swap";
@@ -117,7 +119,7 @@ export function getRouteExecutionDiagnostics(routeResponse: {
   );
 
   return {
-    route_step_kinds: routeStepKinds,
+    ...(routeStepKinds.length > 0 ? { route_step_kinds: routeStepKinds } : {}),
     ...(routeBridgeKinds.length > 0
       ? { route_bridge_kinds: routeBridgeKinds }
       : {}),
