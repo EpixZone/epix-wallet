@@ -29,6 +29,16 @@ describe("swap execution diagnostics", () => {
     });
   });
 
+  it("omits route step diagnostics when route steps are missing", () => {
+    expect(
+      getRouteExecutionDiagnostics({
+        skip_operations: [{ axelar_transfer: {}, tx_index: 0 }],
+      })
+    ).toEqual({
+      route_bridge_kinds: ["axelar"],
+    });
+  });
+
   it("summarizes EVM approval and native value shape", () => {
     expect(
       getEvmTxExecutionDiagnostics(
