@@ -16,6 +16,55 @@ type Cache =
       timestamp: number;
     };
 
+function getTokenFactorySubdenom(coinMinimalDenom: string): string | undefined {
+  const prefix = "factory/";
+  if (!coinMinimalDenom.startsWith(prefix)) {
+    return;
+  }
+
+  const index = coinMinimalDenom.indexOf("/", prefix.length);
+  if (index < 0) {
+    return;
+  }
+
+  return coinMinimalDenom.slice(index + 1);
+}
+
+const ALLOWED_TOKEN_FACTORY_ATOM_DENOMS = new Set<string>([
+  // Exact-denom allowlist for known legit ATOM-related token-factory assets,
+  // sourced from cosmos/chain-registry assetlists.
+  "factory/kujira1h9f3k54j060pzlnea8ep8qfymsmwl5yhwc5hqept5p2esqzve7tq2ghnm4/ulp",
+  "factory/kujira13my0qtm2a8jp0wg8uzg49tyn4zcea8scy3dc7ghn8z9eys08yzls49ymdm/ulp",
+  "factory/kujira1yncutssgh2vj9scaymtteg949hwcft07c6qmgarxnaf04yesq3jsn6g2uv/ulp",
+  "factory/neutron1shwxlkpdjd8h5wdtrykypwd2v62z5glr95yp0etdcspkkjwm5meq82ndxs/amatom",
+  "factory/neutron13lkh47msw28yynspc5rnmty3yktk43wc3dsv0l/ATOM1KLFG",
+  "factory/neutron1k6hr0f83e7un2wjf29cspk7j69jrnskk65k3ek2nj9dztrlzpj6q00rtsa/udatom",
+  "factory/neutron15lku24mqhvy4v4gryrqs4662n9v9q4ux9tayn89cmdzldjcgawushxvm76/amatom",
+  "factory/osmo1g8qypve6l95xmhgc0fddaecerffymsl7kn9muw/sqatom",
+]);
+
+export function isBlockedTokenFactoryAtomCurrency(
+  currency: Pick<Currency, "coinDenom" | "coinMinimalDenom">
+): boolean {
+  const denomHelper = new DenomHelper(currency.coinMinimalDenom);
+  if (
+    denomHelper.type !== "native" ||
+    !denomHelper.denom.startsWith("factory/")
+  ) {
+    return false;
+  }
+
+  if (ALLOWED_TOKEN_FACTORY_ATOM_DENOMS.has(denomHelper.denom)) {
+    return false;
+  }
+
+  const subdenom = getTokenFactorySubdenom(denomHelper.denom);
+  return (
+    subdenom?.toLowerCase().includes("atom") === true ||
+    currency.coinDenom.toLowerCase().includes("atom")
+  );
+}
+
 export class TokenFactoryCurrencyRegistrar {
   @observable
   public _isInitialized = false;
@@ -152,6 +201,14 @@ export class TokenFactoryCurrencyRegistrar {
           notFound: true,
         };
       }
+      if (isBlockedTokenFactoryAtomCurrency(cached.currency)) {
+        return {
+          res: undefined,
+          isFetching: false,
+          fromCache: true,
+          notFound: true,
+        };
+      }
       if (!staled) {
         return {
           res: cached.currency,
@@ -177,6 +234,15 @@ export class TokenFactoryCurrencyRegistrar {
 
     if (queryCurrency.response) {
       if (queryCurrency.response.data.coinMinimalDenom !== coinMinimalDenom) {
+        return {
+          res: undefined,
+          isFetching: isGlobalFetching,
+          fromCache: false,
+          notFound: true,
+        };
+      }
+
+      if (isBlockedTokenFactoryAtomCurrency(queryCurrency.response.data)) {
         return {
           res: undefined,
           isFetching: isGlobalFetching,
