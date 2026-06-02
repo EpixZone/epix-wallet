@@ -1,4 +1,4 @@
-import { KVStore } from "@keplr-wallet/common";
+import { EventBusSubscriber, KVStore } from "@keplr-wallet/common";
 import { ChainsService } from "../chains";
 import { KeyRingCosmosService } from "../keyring-cosmos";
 import { KeyRingEthereumService } from "../keyring-ethereum";
@@ -20,6 +20,8 @@ import {
   TxExecutionResult,
   PendingTxExecutionResult,
   IBCSwapMinimalTrackingData,
+  TxExecutionDiagnostics,
+  TxExecutionEvent,
 } from "./types";
 import {
   action,
@@ -49,8 +51,12 @@ import {
 } from "./utils/cosmos";
 import { fillUnsignedEVMTx } from "./utils/evm";
 import { fetchWithRetry } from "./utils/fetch";
-import { EventBusSubscriber } from "@keplr-wallet/common";
-import { TxExecutionEvent } from "./types";
+import { getTxExecutionDiagnostics } from "./utils/diagnostics";
+
+type TraceTxResult = {
+  confirmed: boolean;
+  diagnostics?: TxExecutionDiagnostics;
+};
 
 export class BackgroundTxExecutorService {
   @observable
@@ -418,6 +424,7 @@ export class BackgroundTxExecutorService {
           return {
             status: TxExecutionStatus.FAILED,
             error: result.error,
+            diagnostics: result.diagnostics,
           };
         }
         case BackgroundTxStatus.BLOCKED: {
@@ -507,6 +514,7 @@ export class BackgroundTxExecutorService {
           status: BackgroundTxStatus.FAILED,
           txHash,
           error: e?.message || "Transaction signing failed",
+          diagnostics: getTxExecutionDiagnostics(e),
         };
       }
     }
@@ -531,9 +539,9 @@ export class BackgroundTxExecutorService {
     // trace the tx
     try {
       const txWithHash = { ...tx, txHash };
-      const confirmed = await this.traceTx(txWithHash);
+      const traceResult = await this.traceTx(txWithHash);
 
-      if (confirmed) {
+      if (traceResult.confirmed) {
         return { status: BackgroundTxStatus.CONFIRMED, txHash };
       }
 
@@ -541,6 +549,7 @@ export class BackgroundTxExecutorService {
         status: BackgroundTxStatus.FAILED,
         txHash,
         error: "Transaction confirmation failed",
+        diagnostics: traceResult.diagnostics,
       };
     } catch (e) {
       console.error(`[TxExecutor] tx trace failed:`, e);
@@ -548,6 +557,12 @@ export class BackgroundTxExecutorService {
         status: BackgroundTxStatus.FAILED,
         txHash,
         error: e?.message || "Transaction confirmation failed",
+        diagnostics: getTxExecutionDiagnostics(e) ?? {
+          confirmation_failure_reason:
+            tx.type === BackgroundTxType.EVM
+              ? "evm_trace_error"
+              : "cosmos_trace_error",
+        },
       };
     }
   }
@@ -820,7 +835,7 @@ export class BackgroundTxExecutorService {
     return Buffer.from(txHash).toString("hex");
   }
 
-  protected async traceTx(tx: BackgroundTx): Promise<boolean> {
+  protected async traceTx(tx: BackgroundTx): Promise<TraceTxResult> {
     switch (tx.type) {
       case BackgroundTxType.EVM: {
         return this.traceEvmTx(tx);
@@ -834,7 +849,7 @@ export class BackgroundTxExecutorService {
     }
   }
 
-  private async traceEvmTx(tx: EVMBackgroundTx): Promise<boolean> {
+  private async traceEvmTx(tx: EVMBackgroundTx): Promise<TraceTxResult> {
     if (!tx.txHash) {
       throw new KeplrError("direct-tx-executor", 133, "Tx hash not found");
     }
@@ -851,55 +866,95 @@ export class BackgroundTxExecutorService {
         tx.txHash
       );
     if (!txReceipt) {
-      return false;
+      return {
+        confirmed: false,
+        diagnostics: {
+          confirmation_failure_reason: "evm_receipt_missing",
+        },
+      };
     }
 
-    return txReceipt.status === EthTxStatus.Success;
+    if (txReceipt.status === EthTxStatus.Success) {
+      return { confirmed: true };
+    }
+
+    return {
+      confirmed: false,
+      diagnostics: {
+        confirmation_failure_reason: "evm_receipt_status_failed",
+      },
+    };
   }
 
-  private async traceCosmosTx(tx: CosmosBackgroundTx): Promise<boolean> {
+  private async traceCosmosTx(tx: CosmosBackgroundTx): Promise<TraceTxResult> {
     if (!tx.txHash) {
       throw new KeplrError("direct-tx-executor", 133, "Tx hash not found");
     }
 
     let txResult: any;
+    let traceErrored = false;
     try {
       txResult = await this.backgroundTxService.traceTx(tx.chainId, tx.txHash);
     } catch {
+      traceErrored = true;
       // WS retry 모두 실패 — REST fallback 시도
     }
 
     // WS에서 결과를 못 받은 경우, REST로 tx 존재 여부 확인
     // (tx가 온체인 성공했는데 WS 불안정으로 확인 못한 false positive 대응)
     if (!txResult) {
-      txResult = await this.queryTxByRestFallback(tx.chainId, tx.txHash);
+      const restFallback = await this.queryTxByRestFallback(
+        tx.chainId,
+        tx.txHash
+      );
+      if (restFallback.failed) {
+        return {
+          confirmed: false,
+          diagnostics: {
+            confirmation_failure_reason: "cosmos_rest_fallback_missing",
+          },
+        };
+      }
+      txResult = restFallback.txResult;
     }
 
     if (!txResult) {
-      return false;
+      return {
+        confirmed: false,
+        diagnostics: {
+          confirmation_failure_reason: traceErrored
+            ? "cosmos_trace_error"
+            : "cosmos_trace_missing",
+        },
+      };
     }
 
     // Tendermint/CometBFT omits the code field when tx is successful (code=0)
     // If code is present and non-zero, it's a failure
     if (txResult.code != null && txResult.code !== 0) {
-      return false;
+      return {
+        confirmed: false,
+        diagnostics: {
+          confirmation_failure_reason: "cosmos_code_nonzero",
+        },
+      };
     }
 
-    return true;
+    return { confirmed: true };
   }
 
   private async queryTxByRestFallback(
     chainId: string,
     txHash: string
-  ): Promise<{ code?: number } | undefined> {
+  ): Promise<{ txResult?: { code?: number }; failed: boolean }> {
     try {
       const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
       const { data } = await fetchWithRetry<{
         tx_response?: { code?: number; txhash?: string };
       }>(chainInfo.rest, `/cosmos/tx/v1beta1/txs/${txHash}`);
-      return data.tx_response;
+      return { txResult: data.tx_response, failed: false };
     } catch {
-      return undefined;
+      return { failed: true };
     }
   }
 

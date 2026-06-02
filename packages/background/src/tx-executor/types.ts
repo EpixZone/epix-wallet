@@ -1,5 +1,5 @@
 import { UnsignedTransaction } from "@ethersproject/transactions";
-import { StdFee } from "@keplr-wallet/types";
+import { EvmGasSimulationOutcome, StdFee } from "@keplr-wallet/types";
 import { Any } from "@keplr-wallet/proto-types/google/protobuf/any";
 import { Msg } from "@keplr-wallet/types";
 import { SwapV2HistoryData } from "../recent-send-history";
@@ -94,6 +94,45 @@ export enum TxExecutionType {
 
 export type BackgroundTxFeeType = "low" | "average" | "high";
 
+export type TxConfirmationFailureReason =
+  | "evm_receipt_missing"
+  | "evm_receipt_status_failed"
+  | "evm_trace_error"
+  | "cosmos_trace_missing"
+  | "cosmos_trace_error"
+  | "cosmos_rest_fallback_missing"
+  | "cosmos_code_nonzero";
+
+export type GasEstimateContext =
+  | "review_simulation"
+  | "pre_sign_simulation"
+  | "background_fill_unsigned_tx";
+
+export type GasEstimateErrorCategory =
+  | "allowance_insufficient"
+  | "native_balance_insufficient"
+  | "execution_reverted"
+  | "invalid_calldata"
+  | "rpc_unavailable"
+  | "unknown";
+
+export type TxRouteStepKind = "swap" | "bridge" | "ibc_transfer" | "unknown";
+
+export type TxRouteBridgeKind = "axelar" | "cctp" | "ibc" | "unknown";
+
+export interface TxExecutionDiagnostics {
+  confirmation_failure_reason?: TxConfirmationFailureReason;
+  gas_estimate_context?: GasEstimateContext;
+  gas_estimate_error_category?: GasEstimateErrorCategory;
+  has_required_erc20_approval?: boolean;
+  has_native_value?: boolean;
+  failed_tx_has_required_erc20_approval?: boolean;
+  failed_tx_has_native_value?: boolean;
+  route_step_kinds?: TxRouteStepKind[];
+  route_bridge_kinds?: TxRouteBridgeKind[];
+  evm_simulation_outcome?: EvmGasSimulationOutcome;
+}
+
 export interface TxExecutionBase {
   readonly id: string;
   status: TxExecutionStatus;
@@ -157,6 +196,7 @@ export interface PendingTxExecutionResult {
   status: BackgroundTxStatus;
   txHash?: string;
   error?: string;
+  diagnostics?: TxExecutionDiagnostics;
 }
 
 /**
@@ -166,4 +206,5 @@ export interface PendingTxExecutionResult {
 export interface TxExecutionResult {
   status: TxExecutionStatus;
   error?: string;
+  diagnostics?: TxExecutionDiagnostics;
 }

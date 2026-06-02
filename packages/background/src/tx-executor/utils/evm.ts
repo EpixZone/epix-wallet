@@ -4,6 +4,10 @@ import { Dec } from "@keplr-wallet/unit";
 import { BackgroundTxFeeType, EVMBackgroundTxFeeType } from "../types";
 import { JsonRpcResponse } from "@keplr-wallet/types";
 import { fetchWithRetry } from "./fetch";
+import {
+  createGasEstimateDiagnostics,
+  TxExecutionDiagnosticsError,
+} from "./diagnostics";
 
 const ETH_FEE_HISTORY_REWARD_PERCENTILES = [20, 40, 60];
 const ETH_FEE_SETTINGS_BY_FEE_TYPE: Record<
@@ -189,6 +193,9 @@ export async function fillUnsignedEVMTx(
       ? Math.max(Number(tx.nonce), parseInt(nonceHex, 16))
       : parseInt(nonceHex, 16);
 
+  const estimateGasResponse = hasProvidedGasLimit
+    ? undefined
+    : rpcResponses.find((r) => r.id === ESTIMATE_GAS_ID);
   const gasLimitHex = hasProvidedGasLimit
     ? undefined
     : getResult<string>(ESTIMATE_GAS_ID, true);
@@ -203,7 +210,17 @@ export async function fillUnsignedEVMTx(
       GAS_ADJUSTMENT_DEN;
     finalGasLimit = `0x${adjustedGas.toString(16)}`;
   } else {
-    throw new Error("Failed to estimate gas to fill unsigned transaction");
+    throw new TxExecutionDiagnosticsError(
+      "Failed to estimate gas to fill unsigned transaction",
+      createGasEstimateDiagnostics(
+        new Error(
+          estimateGasResponse?.error?.message ??
+            "Missing eth_estimateGas result"
+        ),
+        "background_fill_unsigned_tx",
+        tx as UnsignedTransaction & { requiredErc20Approvals?: unknown[] }
+      )
+    );
   }
 
   // Legacy chain detection: baseFeePerGas missing or zero
