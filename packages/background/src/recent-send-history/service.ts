@@ -966,7 +966,8 @@ export class RecentSendHistoryService {
     chainId: string,
     txHash: string
   ): Promise<"success" | "failed" | "pending" | "error"> {
-    if (this.chainsService.isEvmChain(chainId)) {
+    const isEvmOnlyChain = this.chainsService.isEvmOnlyChain(chainId);
+    if (isEvmOnlyChain) {
       if (
         modularChainInfo.type !== "evm" &&
         modularChainInfo.type !== "ethermint"
@@ -1024,6 +1025,10 @@ export class RecentSendHistoryService {
         if (!txResult) {
           return "pending";
         }
+        // Tendermint/CometBFT can omit `code` for successful txs.
+        if (txResult.code == null) {
+          return "success";
+        }
         if (typeof txResult.code !== "number") {
           return "error";
         }
@@ -1066,7 +1071,7 @@ export class RecentSendHistoryService {
       return;
     }
 
-    if (this.chainsService.isEvmChain(chainId)) {
+    if (this.chainsService.isEvmOnlyChain(chainId)) {
       this.traceEVMTransactionResult({
         chainId,
         txHash,
@@ -2391,8 +2396,6 @@ export class RecentSendHistoryService {
 
         // resAmount 또는 assetLocationInfo가 없으면 추가적으로 자산 추적을 해야 한다.
         if (targetTxHash && !skipAssetTracking && isAtDestinationChain) {
-          console.log("trackSwapV2ReleasedAssetAmount", id, targetTxHash);
-
           this.trackSwapV2ReleasedAssetAmount(
             id,
             targetTxHash,
