@@ -86,6 +86,13 @@ import {
 import { useSwapAnalytics } from "./hooks/use-swap-analytics";
 import { StepIndicator } from "../../components/step-indicator";
 import { isEVMFeeConfig } from "../../hooks/fee";
+import {
+  getEvmTxExecutionDiagnostics,
+  getRouteExecutionDiagnostics,
+  getTxExecutionDiagnostics,
+  withPreSignGasEstimateDiagnostics,
+  withTxExecutionDiagnostics,
+} from "./utils/swap-execution-diagnostics";
 
 const TextButtonStyles = {
   Container: styled.div`
@@ -732,6 +739,10 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
 
           provider = queryRoute.response.data.provider;
           swapMilestoneBase["provider"] = provider;
+          Object.assign(
+            swapMilestoneBase,
+            getRouteExecutionDiagnostics(queryRoute.response.data)
+          );
           routeDurationSeconds = queryRoute.response.data.estimated_time;
 
           for (const chainId of requiredChainIds) {
@@ -780,6 +791,10 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
           txs = txsResult.txs;
           squidQuoteId = txsResult.squidQuoteId;
           requiresMultipleTxBundles = txs.length > 1;
+          Object.assign(
+            swapMilestoneBase,
+            getEvmTxExecutionDiagnostics(txs, evmSimulationOutcome)
+          );
         } catch (e) {
           setCalculatingTxError(e);
           uiConfigStore.ibcSwapConfig.setIsSwapExecuting(false, swapLoadingKey);
@@ -1091,8 +1106,8 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
                       evmSimulationOutcome ===
                       EvmGasSimulationOutcome.TX_SIMULATED
                     ) {
-                      const result = await ethereumAccount.simulateGas(
-                        sender,
+                      const result = await withPreSignGasEstimateDiagnostics(
+                        () => ethereumAccount.simulateGas(sender, evmTx),
                         evmTx
                       );
 
@@ -1112,8 +1127,8 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
                           EvmGasSimulationOutcome.APPROVAL_ONLY_SIMULATED
                       ) {
                         // 번들 시뮬레이션이 불가 또는 불필요하다
-                        const result = await ethereumAccount.simulateGas(
-                          sender,
+                        const result = await withPreSignGasEstimateDiagnostics(
+                          () => ethereumAccount.simulateGas(sender, evmTx),
                           evmTx
                         );
 
@@ -1121,14 +1136,20 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
                           result.gasUsed * gasSimulator.gasAdjustment
                         );
                       } else {
-                        const result =
-                          await ethereumAccount.simulateGasWithPendingErc20Approval(
-                            sender,
-                            {
-                              ...evmTx,
-                              requiredErc20Approvals: [erc20Approval!],
-                            }
-                          );
+                        const result = await withPreSignGasEstimateDiagnostics(
+                          () =>
+                            ethereumAccount.simulateGasWithPendingErc20Approval(
+                              sender,
+                              {
+                                ...evmTx,
+                                requiredErc20Approvals: [erc20Approval!],
+                              }
+                            ),
+                          {
+                            ...evmTx,
+                            requiredErc20Approvals: [erc20Approval!],
+                          }
+                        );
                         gasLimit = Math.ceil(
                           (result.gasUsed ?? 0) * gasSimulator.gasAdjustment
                         );
@@ -1309,7 +1330,12 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
             executeTxMsg
           );
           if (result.status === TxExecutionStatus.FAILED) {
-            throw new Error(result.error || "Transaction execution failed");
+            const error = new Error(
+              result.error || "Transaction execution failed"
+            );
+            throw result.diagnostics
+              ? withTxExecutionDiagnostics(error, result.diagnostics)
+              : error;
           }
 
           if (!chainStore.isEnabledChain(swapConfigs.amountConfig.outChainId)) {
@@ -1467,6 +1493,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
               error_message: e?.message,
               ...classifySwapFailure(e, "submit"),
               ...swapMilestoneBase,
+              ...getTxExecutionDiagnostics(e),
             });
           }
 
