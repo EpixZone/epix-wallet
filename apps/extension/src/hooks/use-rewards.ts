@@ -6,7 +6,7 @@ import {
   useStarknetClaimRewards,
 } from "./claim";
 import { CoinPretty, Dec, PricePretty } from "@keplr-wallet/unit";
-import { NEUTRON_CHAIN_ID, NOBLE_CHAIN_ID } from "../config.ui";
+import { NOBLE_CHAIN_ID } from "../config.ui";
 import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import { ClaimAllEachState } from "../stores/claim-rewards-state";
 
@@ -55,28 +55,8 @@ export function useRewards() {
     for (const modularChainInfo of chainStore.modularChainInfosInUI) {
       const chainId = modularChainInfo.chainId;
       const account = accountStore.getAccount(chainId);
-      const isNeutron = chainId === NEUTRON_CHAIN_ID;
 
-      if (isNeutron && account.bech32Address) {
-        const queries = queriesStore.get(chainId);
-        const queryNeutronRewardInner =
-          queries.cosmwasm.queryNeutronStakingRewards.getRewardFor(
-            account.bech32Address
-          );
-        const reward = queryNeutronRewardInner.pendingReward;
-
-        if (reward && reward.toDec().gt(zeroDec)) {
-          res.push({
-            token: reward,
-            price: priceStore.calculatePrice(reward),
-            modularChainInfo: modularChainInfo,
-            isFetching: queryNeutronRewardInner.isFetching,
-            error: queryNeutronRewardInner.error,
-            onClaimAll: handleCosmosClaimAllEach,
-            onClaimSingle: handleCosmosClaimSingle,
-          });
-        }
-      } else if (
+      if (
         modularChainInfo.type === "cosmos" ||
         modularChainInfo.type === "ethermint"
       ) {
@@ -117,10 +97,6 @@ export function useRewards() {
         const targetDenom = (() => {
           if (modularChainInfo.chainIdentifier === "dydx-mainnet") {
             return "ibc/8E27BA2D5493AF5636760E354E46004562C46AB7EC0CC4C1CA14E9E20E2545B5";
-          }
-
-          if (modularChainInfo.chainIdentifier === "elys") {
-            return "ueden";
           }
 
           return cosmosInfo?.stakeCurrency?.coinMinimalDenom;

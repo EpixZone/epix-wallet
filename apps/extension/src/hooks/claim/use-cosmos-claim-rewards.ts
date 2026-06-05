@@ -10,7 +10,6 @@ import {
 } from "@keplr-wallet/types";
 import { InExtensionMessageRequester } from "@keplr-wallet/router-extension";
 import {
-  PrivilegeCosmosSignAminoExecuteCosmWasmMsg,
   PrivilegeCosmosSignAminoWithdrawRewardsMsg,
   SendTxMsg,
 } from "@keplr-wallet/background";
@@ -19,11 +18,7 @@ import { isSimpleFetchError } from "@keplr-wallet/simple-fetch";
 import { ClaimAllEachState } from "../../stores/claim-rewards-state";
 import { useNotification } from "../notification";
 import { useNavigate } from "react-router";
-import {
-  NEUTRON_CHAIN_ID,
-  NeutronStakingRewardsContractAddress,
-  NOBLE_CHAIN_ID,
-} from "../../config.ui";
+import { NOBLE_CHAIN_ID } from "../../config.ui";
 import { MakeTxResponse } from "@keplr-wallet/stores";
 import { logNobleClaimAnalytics } from "../../analytics-amplitude";
 
@@ -67,31 +62,6 @@ export const useCosmosClaimRewards = () => {
         rewardToken.currency.coinMinimalDenom === "uusdn"
       ) {
         return account.noble.makeClaimYieldTx("withdrawRewards");
-      } else if (chainId === NEUTRON_CHAIN_ID) {
-        const msg = {
-          claim_rewards: {
-            to_address: account.bech32Address,
-          },
-        };
-        return account.cosmwasm.makeExecuteContractTx(
-          "executeWasm",
-          NeutronStakingRewardsContractAddress,
-          msg,
-          [],
-          {
-            onFulfill: (tx: any) => {
-              if (
-                (tx.code === 0 || tx.code === null) &&
-                chainId === NEUTRON_CHAIN_ID
-              ) {
-                //neutron의 경우 컨트랙트에서 reward 다시 가져옴
-                queries.cosmwasm.queryNeutronStakingRewards
-                  .getRewardFor(account.bech32Address)
-                  .fetch();
-              }
-            },
-          }
-        );
       } else {
         const queryRewards = queries.cosmos.queryRewards.getQueryBech32Address(
           account.bech32Address
@@ -501,25 +471,14 @@ export const useCosmosClaimRewards = () => {
               ): Promise<AminoSignResponse> => {
                 const requester = new InExtensionMessageRequester();
 
-                if (chainId === NEUTRON_CHAIN_ID) {
-                  return await requester.sendMessage(
-                    BACKGROUND_PORT,
-                    new PrivilegeCosmosSignAminoExecuteCosmWasmMsg(
-                      chainId,
-                      signer,
-                      signDoc
-                    )
-                  );
-                } else {
-                  return await requester.sendMessage(
-                    BACKGROUND_PORT,
-                    new PrivilegeCosmosSignAminoWithdrawRewardsMsg(
-                      chainId,
-                      signer,
-                      signDoc
-                    )
-                  );
-                }
+                return await requester.sendMessage(
+                  BACKGROUND_PORT,
+                  new PrivilegeCosmosSignAminoWithdrawRewardsMsg(
+                    chainId,
+                    signer,
+                    signDoc
+                  )
+                );
               },
               sendTx: async (
                 chainId: string,
@@ -634,40 +593,6 @@ export const useCosmosClaimRewards = () => {
           return {
             tx,
             gas: new Int(100000),
-          };
-        } else if (chainId === NEUTRON_CHAIN_ID) {
-          const msg = {
-            claim_rewards: {
-              to_address: account.bech32Address,
-            },
-          };
-
-          const tx = account.cosmwasm.makeExecuteContractTx(
-            "executeWasm",
-            NeutronStakingRewardsContractAddress,
-            msg,
-            [],
-            {
-              onFulfill: (tx: any) => {
-                if (
-                  (tx.code === 0 || tx.code === null) &&
-                  chainId === NEUTRON_CHAIN_ID
-                ) {
-                  //neutron의 경우 컨트랙트에서 reward 다시 가져옴
-                  queries.cosmwasm.queryNeutronStakingRewards
-                    .getRewardFor(account.bech32Address)
-                    .fetch();
-                }
-              },
-            }
-          );
-          state.setIsLoading(true);
-
-          return {
-            tx,
-            //현재 ext 코드에는 wasm/MsgExecuteContract에 대한 기본 Gas 값이 없는 듯해서
-            //KD에서 가져온 값 사용
-            gas: new Int(250000),
           };
         } else {
           const queryRewards =
@@ -785,9 +710,6 @@ export const useCosmosClaimRewards = () => {
       });
     } finally {
       state.setIsSimulating(false);
-      if (chainId === NEUTRON_CHAIN_ID) {
-        state.setIsLoading(false);
-      }
     }
   };
 
