@@ -9,7 +9,7 @@ import { Subtitle4 } from "../../../../components/typography";
 import { Gutter } from "../../../../components/gutter";
 import { BottomTabsHeightRem } from "../../../../bottom-tabs";
 import { DenomHelper } from "@keplr-wallet/common";
-import { INITIA_CHAIN_ID, NEUTRON_CHAIN_ID } from "../../../../config.ui";
+import { INITIA_CHAIN_ID } from "../../../../config.ui";
 import { usePageSimpleBar } from "../../../../hooks/page-simplebar";
 import { isRunningInSidePanel } from "../../../../utils";
 import { useIsNotReady } from "../../index";
@@ -126,17 +126,7 @@ export const RefreshButton: FunctionComponent<{
 
       promises.push(priceStore.waitFreshResponse());
       for (const modularChainInfo of chainStore.modularChainInfosInUI) {
-        const isNeutron = modularChainInfo.chainId === NEUTRON_CHAIN_ID;
-
-        if (isNeutron) {
-          const account = accountStore.getAccount(modularChainInfo.chainId);
-          const queries = queriesStore.get(modularChainInfo.chainId);
-          const queryNeutronRewardInner =
-            queries.cosmwasm.queryNeutronStakingRewards.getRewardFor(
-              account.bech32Address
-            );
-          promises.push(queryNeutronRewardInner.waitFreshResponse());
-        } else if (modularChainInfo.type === "cosmos") {
+        if (modularChainInfo.type === "cosmos") {
           const account = accountStore.getAccount(modularChainInfo.chainId);
 
           if (account.bech32Address !== "") {
