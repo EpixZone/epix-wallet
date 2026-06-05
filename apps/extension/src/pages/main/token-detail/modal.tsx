@@ -193,11 +193,11 @@ export const TokenDetailModal: FunctionComponent<{
   const isSupported: boolean = useMemo(() => {
     const u = modularChainInfo.unwrapped;
     if (u.type === "cosmos" || u.type === "ethermint" || u.type === "evm") {
-      if (
-        chainId.startsWith("eip155:") &&
-        coinMinimalDenom !== "ethereum-native"
-      ) {
-        // 현재 evm msg들은 denoms에 네이티브 minimal denom값만 저장하고 있어서 erc20 주소로 msg를 필터링하는 기능은 제공되지 않는 상태
+      if (chainId.startsWith("eip155:") && isERC20) {
+        // EVM msg는 denoms에 네이티브 minimal denom만 저장하므로 ERC20 토큰 주소로는
+        // msg를 필터링할 수 없다(토큰별 히스토리 미지원). 네이티브 토큰
+        // (ethereum-native / base-native 등)은 supports 목록에 있으면 보여준다.
+        // (기존엔 ethereum-native만 허용해 Base 등 다른 EVM 네이티브가 누락됐음)
         return false;
       }
 
@@ -209,7 +209,7 @@ export const TokenDetailModal: FunctionComponent<{
       return map.get(modularChainInfo.chainIdentifier) ?? false;
     }
     return false;
-  }, [modularChainInfo, querySupported.response, chainId, coinMinimalDenom]);
+  }, [modularChainInfo, querySupported.response, chainId, isERC20]);
 
   const buttons: {
     icon: React.ReactElement;
