@@ -42,7 +42,7 @@ import { useTheme } from "styled-components";
 import { dispatchGlobalEventExceptSelf } from "../../../utils/global-events";
 import { VerticalCollapseTransition } from "../../../components/transition/vertical-collapse";
 import { checkButtonPositionAndScrollToButton } from "../utils/check-button-position-and-scroll-to-button";
-import { EmbedChainInfos } from "../../../config";
+import { getNativeChainIdentifierSetForUI } from "../../../config";
 import { useGetAllNonNativeChain } from "../../../hooks/use-get-all-non-native-chain";
 import { hexToRgba } from "../../../utils";
 import { NativeChainSection } from "./components/native-chain-section";
@@ -136,17 +136,7 @@ export const EnableChainsScene: FunctionComponent<{
     useScrollDownWhenCantSeeSaveButton(buttonContainerRef);
 
     const nativeChainIdentifierSet = useMemo(
-      () =>
-        new Set(
-          EmbedChainInfos.filter((chainInfo) => {
-            if ("hideInUI" in chainInfo && chainInfo.hideInUI) {
-              return false;
-            }
-            return true;
-          }).map(
-            (chainInfo) => ChainIdHelper.parse(chainInfo.chainId).identifier
-          )
-        ),
+      () => getNativeChainIdentifierSetForUI(),
       []
     );
 
@@ -645,9 +635,7 @@ export const EnableChainsScene: FunctionComponent<{
 
         if (enableAllChains) {
           // enableAllChains일때는 native chain만 활성화한다.
-          return EmbedChainInfos.map(
-            (chainInfo) => ChainIdHelper.parse(chainInfo.chainId).identifier
-          );
+          return Array.from(nativeChainIdentifierSet);
         }
 
         return [...new Set(enabledChainIdentifiers)];

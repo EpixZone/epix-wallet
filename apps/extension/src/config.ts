@@ -1,7 +1,11 @@
-import { Bech32Address } from "@keplr-wallet/cosmos";
+import { Bech32Address, ChainIdHelper } from "@keplr-wallet/cosmos";
 import { ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
 
-export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
+export type EmbedChainInfo = (ChainInfo | ModularChainInfo) & {
+  readonly hideInNativeChainUI?: boolean;
+};
+
+export const EmbedChainInfos: EmbedChainInfo[] = [
   {
     rpc: "https://rpc-cosmoshub.keplr.app",
     rest: "https://lcd-cosmoshub.keplr.app",
@@ -573,6 +577,7 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
     rest: "https://lcd-stargaze.keplr.app",
     chainId: "stargaze-1",
     chainName: "Stargaze",
+    hideInNativeChainUI: true,
     stakeCurrency: {
       coinDenom: "STARS",
       coinMinimalDenom: "ustars",
@@ -3675,6 +3680,30 @@ export const EmbedChainInfos: (ChainInfo | ModularChainInfo)[] = [
     features: [],
   },
 ];
+
+export const isEmbeddedChainVisibleInNativeChainUI = (
+  chainInfo: EmbedChainInfo
+): boolean => {
+  return !chainInfo.hideInUI && !chainInfo.hideInNativeChainUI;
+};
+
+export const getNativeChainIdentifierSetForUI = (
+  chainInfos: readonly EmbedChainInfo[] = EmbedChainInfos
+): Set<string> => {
+  return new Set(
+    chainInfos
+      .filter(isEmbeddedChainVisibleInNativeChainUI)
+      .map((chainInfo) => ChainIdHelper.parse(chainInfo.chainId).identifier)
+  );
+};
+
+const nativeChainIdentifierSetForUI = getNativeChainIdentifierSetForUI();
+
+export const isNativeChainInUI = (chainId: string): boolean => {
+  return nativeChainIdentifierSetForUI.has(
+    ChainIdHelper.parse(chainId).identifier
+  );
+};
 
 // The origins that are able to pass any permission that external webpages can have.
 export const PrivilegedOrigins: string[] = [

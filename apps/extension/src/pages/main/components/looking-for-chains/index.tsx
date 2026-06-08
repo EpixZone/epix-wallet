@@ -22,6 +22,7 @@ import { useKeyCoinTypeFinalize } from "../../../manage-chains/hooks/use-key-coi
 import { determineLedgerApp } from "../../../../utils/determine-ledger-app";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { getKeplrFromWindow } from "@keplr-wallet/stores";
+import { isNativeChainInUI } from "../../../../config";
 
 export const LookingForChains: FunctionComponent<{
   lookingForChains: {
@@ -79,6 +80,7 @@ export const LookingForChainItem: FunctionComponent<{
   const { needFinalizeKeyCoinTypeAction } = useKeyCoinTypeFinalize();
 
   const chainId = chainInfo.chainId;
+  const isNativeChain = embedded && isNativeChainInUI(chainId);
   const getChainIdsToEnable = () => {
     const identifier = ChainIdHelper.parse(chainId).identifier;
     const groupedChainInfo = chainStore.groupedModularChainInfosInListUI.find(
@@ -125,7 +127,7 @@ export const LookingForChainItem: FunctionComponent<{
       <Columns sum={1} gutter="0.5rem" alignY="center">
         <Box position="relative">
           <ChainImageFallback chainInfo={chainInfo as any} size="2rem" />
-          {embedded && (
+          {isNativeChain && (
             <Box
               position="absolute"
               style={{
