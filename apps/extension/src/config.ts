@@ -573,48 +573,6 @@ export const EmbedChainInfos: EmbedChainInfo[] = [
     features: ["cosmwasm", "ibc-transfer", "ibc-go", "wasmd_0.24+"],
   },
   {
-    rpc: "https://rpc-stargaze.keplr.app",
-    rest: "https://lcd-stargaze.keplr.app",
-    chainId: "stargaze-1",
-    chainName: "Stargaze",
-    hideInNativeChainUI: true,
-    stakeCurrency: {
-      coinDenom: "STARS",
-      coinMinimalDenom: "ustars",
-      coinDecimals: 6,
-      coinGeckoId: "stargaze",
-    },
-    walletUrl:
-      process.env.NODE_ENV === "production"
-        ? "https://wallet.keplr.app/chains/stargaze"
-        : "http://localhost:8080/chains/stargaze",
-    walletUrlForStaking:
-      process.env.NODE_ENV === "production"
-        ? "https://wallet.keplr.app/chains/stargaze?modal=staking&chain=stargaze-1&step_id=2"
-        : "http://localhost:8080/chains/stargaze?modal=staking&chain=stargaze-1&step_id=2",
-    bip44: {
-      coinType: 118,
-    },
-    bech32Config: Bech32Address.defaultBech32Config("stars"),
-    currencies: [
-      {
-        coinDenom: "STARS",
-        coinMinimalDenom: "ustars",
-        coinDecimals: 6,
-        coinGeckoId: "stargaze",
-      },
-    ],
-    feeCurrencies: [
-      {
-        coinDenom: "STARS",
-        coinMinimalDenom: "ustars",
-        coinDecimals: 6,
-        coinGeckoId: "stargaze",
-      },
-    ],
-    features: ["ibc-transfer", "ibc-go"],
-  },
-  {
     rpc: "https://rpc-axelar.keplr.app",
     rest: "https://lcd-axelar.keplr.app",
     chainId: "axelar-dojo-1",

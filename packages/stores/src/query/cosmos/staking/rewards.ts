@@ -1,4 +1,9 @@
-import { Rewards } from "./types";
+import {
+  assertRewardsResponse,
+  assertStakingResponseData,
+  getRewardsResponse,
+  Rewards,
+} from "./types";
 import {
   ObservableChainQuery,
   ObservableChainQueryMap,
@@ -45,16 +50,29 @@ export class ObservableQueryRewardsInner extends ObservableChainQuery<Rewards> {
     return this.bech32Address.length > 0;
   }
 
+  protected override async fetchResponse(abortController: AbortController) {
+    const response = await super.fetchResponse(abortController);
+    assertStakingResponseData(
+      response.headers,
+      response.data,
+      assertRewardsResponse
+    );
+    return response;
+  }
+
   @computed
   get rewards(): CoinPretty[] {
     const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
 
-    if (!this.response || !this.response.data.rewards) {
+    const response = this.response
+      ? getRewardsResponse(this.response.data)
+      : undefined;
+    if (!response?.rewards) {
       return [];
     }
 
     const map = new Map<string, CoinPrimitive>();
-    for (const valRewards of this.response.data.rewards) {
+    for (const valRewards of response.rewards) {
       for (const coin of valRewards.reward ?? []) {
         const amount = new Dec(coin.amount).truncate();
         if (!amount.gt(new Int(0))) {
@@ -80,7 +98,10 @@ export class ObservableQueryRewardsInner extends ObservableChainQuery<Rewards> {
     (validatorAddress: string): CoinPretty[] => {
       const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
 
-      const rewards = this.response?.data.rewards?.find((r) => {
+      const response = this.response
+        ? getRewardsResponse(this.response.data)
+        : undefined;
+      const rewards = response?.rewards?.find((r) => {
         return r.validator_address === validatorAddress;
       });
 
@@ -186,7 +207,12 @@ export class ObservableQueryRewardsInner extends ObservableChainQuery<Rewards> {
 
     const result: string[] = [];
 
-    for (const reward of this.response.data.rewards ?? []) {
+    const response = getRewardsResponse(this.response.data);
+    if (!response) {
+      return [];
+    }
+
+    for (const reward of response.rewards ?? []) {
       if (reward.reward) {
         for (const r of reward.reward) {
           const dec = new Dec(r.amount);
@@ -219,7 +245,12 @@ export class ObservableQueryRewardsInner extends ObservableChainQuery<Rewards> {
         return [];
       }
 
-      const rewards = this.response.data.rewards?.slice() ?? [];
+      const response = getRewardsResponse(this.response.data);
+      if (!response) {
+        return [];
+      }
+
+      const rewards = response.rewards?.slice() ?? [];
       rewards.sort((reward1, reward2) => {
         const amount1 = StoreUtils.getBalanceFromCurrency(
           cosmosInfo.stakeCurrency!,
@@ -263,13 +294,17 @@ export class ObservableQueryRewardsInner extends ObservableChainQuery<Rewards> {
 
     const denoms: Set<string> = new Set();
     const mcInfo2 = this.chainGetter.getModularChain(this.chainId);
-    if (response.data.total) {
-      response.data.total.forEach((coin) => {
+    const rewardsResponse = getRewardsResponse(response.data);
+    if (!rewardsResponse) {
+      return;
+    }
+    if (rewardsResponse.total) {
+      rewardsResponse.total.forEach((coin) => {
         denoms.add(coin.denom);
       });
     }
-    if (response.data.rewards) {
-      response.data.rewards.forEach((reward) => {
+    if (rewardsResponse.rewards) {
+      rewardsResponse.rewards.forEach((reward) => {
         if (reward.reward) {
           reward.reward.forEach((r) => {
             denoms.add(r.denom);

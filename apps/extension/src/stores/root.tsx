@@ -490,19 +490,6 @@ export class RootStore {
             };
           }
 
-          if (chainId.startsWith("stargaze-")) {
-            return {
-              send: {
-                native: {
-                  gas: 100000,
-                },
-              },
-              withdrawRewards: {
-                gas: 200000,
-              },
-            };
-          }
-
           if (chainId.startsWith("thorchain-")) {
             return {
               send: {
