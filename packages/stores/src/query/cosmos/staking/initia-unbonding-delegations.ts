@@ -2,7 +2,12 @@ import {
   ObservableChainQuery,
   ObservableChainQueryMap,
 } from "../../chain-query";
-import { InitiaUnbondingDelegations, UnbondingDelegation } from "./types";
+import {
+  assertInitiaUnbondingDelegationsResponse,
+  getInitiaUnbondingResponses,
+  InitiaUnbondingDelegations,
+  UnbondingDelegation,
+} from "./types";
 import { ChainGetter, requireCosmosInfo } from "../../../chain";
 import { CoinPretty, Int, Dec } from "@keplr-wallet/unit";
 import { computed, makeObservable } from "mobx";
@@ -40,6 +45,12 @@ export class ObservableQueryInitiaUnbondingDelegationsInner extends ObservableCh
     return this.bech32Address.length > 0;
   }
 
+  protected override async fetchResponse(abortController: AbortController) {
+    const response = await super.fetchResponse(abortController);
+    assertInitiaUnbondingDelegationsResponse(response.data);
+    return response;
+  }
+
   // a function to extract amount from unbonding balance
   // For Initia chain, the balance is an array of Coin
   protected getAmountFromBalanceArray(balance: Coin[]): string {
@@ -70,8 +81,13 @@ export class ObservableQueryInitiaUnbondingDelegationsInner extends ObservableCh
       return new CoinPretty(stakeCurrency, new Int(0)).ready(false);
     }
 
+    const unbondingResponses = getInitiaUnbondingResponses(this.response.data);
+    if (!unbondingResponses) {
+      return new CoinPretty(stakeCurrency, new Int(0)).ready(false);
+    }
+
     let totalBalance = new Int(0);
-    for (const unbondingDelegation of this.response.data.unbonding_responses) {
+    for (const unbondingDelegation of unbondingResponses) {
       for (const entry of unbondingDelegation.entries) {
         const amount = this.getAmountFromBalanceArray(entry.balance);
         const amountInt = new Int(amount);
@@ -141,7 +157,12 @@ export class ObservableQueryInitiaUnbondingDelegationsInner extends ObservableCh
     );
     const stakeCurrency = cosmosInfo.stakeCurrency;
 
-    return this.response.data.unbonding_responses.map((unbonding) => {
+    const unbondingResponses = getInitiaUnbondingResponses(this.response.data);
+    if (!unbondingResponses) {
+      return [];
+    }
+
+    return unbondingResponses.map((unbonding) => {
       const filtered = unbonding.entries.filter((entry) =>
         entry.balance.some((coin) => {
           return coin.denom === stakeCurrency?.coinMinimalDenom;

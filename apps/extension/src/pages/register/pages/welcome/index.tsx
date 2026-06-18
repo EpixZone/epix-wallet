@@ -24,10 +24,6 @@ export const WelcomePage: FunctionComponent = observer(() => {
   const osmosisInfo = chainStore.modularChainInfos.find(
     (chainInfo) => chainInfo.chainId === "osmosis-1"
   );
-  const stargazeInfo = chainStore.modularChainInfos.find(
-    (chainInfo) => chainInfo.chainId === "stargaze-1"
-  );
-
   useLayoutEffect(() => {
     if (window.innerWidth < 1150) {
       setIsDesktop(false);
@@ -144,7 +140,7 @@ export const WelcomePage: FunctionComponent = observer(() => {
                         paragraph={intl.formatMessage({
                           id: "pages.register.pages.welcome.stargaze-link.paragraph",
                         })}
-                        src={stargazeInfo?.chainSymbolImageUrl}
+                        src={require("../../../../public/assets/img/stargaze-logo.png")}
                         url="https://www.stargaze.zone/"
                       />
                     </Column>

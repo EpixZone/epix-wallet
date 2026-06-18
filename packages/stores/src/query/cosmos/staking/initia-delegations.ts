@@ -2,7 +2,12 @@ import {
   ObservableChainQuery,
   ObservableChainQueryMap,
 } from "../../chain-query";
-import { Delegation, InitiaDelegations } from "./types";
+import {
+  assertInitiaDelegationsResponse,
+  Delegation,
+  getInitiaDelegationResponses,
+  InitiaDelegations,
+} from "./types";
 import { ChainGetter, requireCosmosInfo } from "../../../chain";
 import { CoinPretty, Dec, Int } from "@keplr-wallet/unit";
 import { computed, makeObservable } from "mobx";
@@ -39,6 +44,12 @@ export class ObservableQueryInitiaDelegationsInner extends ObservableChainQuery<
     );
   }
 
+  protected override async fetchResponse(abortController: AbortController) {
+    const response = await super.fetchResponse(abortController);
+    assertInitiaDelegationsResponse(response.data);
+    return response;
+  }
+
   // a function to extract amount from delegation balance
   // For Initia chain, the balance is an array of Coin
   protected getAmountFromBalanceArray(balance: Coin[]): string {
@@ -69,8 +80,15 @@ export class ObservableQueryInitiaDelegationsInner extends ObservableChainQuery<
       return new CoinPretty(stakeCurrency, new Int(0)).ready(false);
     }
 
+    const delegationResponses = getInitiaDelegationResponses(
+      this.response.data
+    );
+    if (!delegationResponses) {
+      return new CoinPretty(stakeCurrency, new Int(0)).ready(false);
+    }
+
     let totalBalance = new Int(0);
-    for (const delegation of this.response.data.delegation_responses) {
+    for (const delegation of delegationResponses) {
       const amount = this.getAmountFromBalanceArray(delegation.balance);
 
       const amountInt = new Int(amount);
@@ -102,7 +120,14 @@ export class ObservableQueryInitiaDelegationsInner extends ObservableChainQuery<
 
     const result = [];
 
-    for (const delegation of this.response.data.delegation_responses) {
+    const delegationResponses = getInitiaDelegationResponses(
+      this.response.data
+    );
+    if (!delegationResponses) {
+      return [];
+    }
+
+    for (const delegation of delegationResponses) {
       const amount = this.getAmountFromBalanceArray(delegation.balance);
 
       const balance = new CoinPretty(stakeCurrency, new Int(amount));
@@ -129,14 +154,31 @@ export class ObservableQueryInitiaDelegationsInner extends ObservableChainQuery<
     );
     const stakeCurrency = cosmosInfo.stakeCurrency;
 
-    return this.response.data.delegation_responses
+    const delegationResponses = getInitiaDelegationResponses(
+      this.response.data
+    );
+    if (!delegationResponses) {
+      return [];
+    }
+
+    return delegationResponses
       .filter((del) => {
         const amount = this.getAmountFromBalanceArray(del.balance);
         return new Int(amount).gt(new Int(0));
       })
       .map((del) => {
+        const shares = stakeCurrency?.coinMinimalDenom
+          ? del.delegation.shares.find((coin) => {
+              return coin.denom === stakeCurrency.coinMinimalDenom;
+            })?.amount ?? "0"
+          : "0";
+
         return {
           ...del,
+          delegation: {
+            ...del.delegation,
+            shares,
+          },
           balance: {
             denom: stakeCurrency?.coinMinimalDenom,
             amount: this.getAmountFromBalanceArray(del.balance),

@@ -7175,6 +7175,7 @@ __metadata:
     buffer: ^6.0.3
     deepmerge: ^4.2.2
     eventemitter3: ^4.0.7
+    joi: ^17.5.0
     long: ^4.0.0
     p-queue: ^6.6.2
     utility-types: ^3.10.0

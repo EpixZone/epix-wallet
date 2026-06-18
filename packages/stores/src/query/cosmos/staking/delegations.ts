@@ -2,7 +2,12 @@ import {
   ObservableChainQuery,
   ObservableChainQueryMap,
 } from "../../chain-query";
-import { Delegation, Delegations } from "./types";
+import {
+  assertDelegationsResponse,
+  Delegation,
+  Delegations,
+  getDelegationResponses,
+} from "./types";
 import { ChainGetter, requireCosmosInfo } from "../../../chain";
 import { CoinPretty, Dec, Int } from "@keplr-wallet/unit";
 import { computed, makeObservable } from "mobx";
@@ -38,6 +43,12 @@ export class ObservableQueryDelegationsInner extends ObservableChainQuery<Delega
     );
   }
 
+  protected override async fetchResponse(abortController: AbortController) {
+    const response = await super.fetchResponse(abortController);
+    assertDelegationsResponse(response.data);
+    return response;
+  }
+
   @computed
   get total(): CoinPretty | undefined {
     const cosmosInfo = requireCosmosInfo(
@@ -53,8 +64,13 @@ export class ObservableQueryDelegationsInner extends ObservableChainQuery<Delega
       return new CoinPretty(stakeCurrency, new Int(0)).ready(false);
     }
 
+    const delegationResponses = getDelegationResponses(this.response.data);
+    if (!delegationResponses) {
+      return new CoinPretty(stakeCurrency, new Int(0)).ready(false);
+    }
+
     let totalBalance = new Int(0);
-    for (const delegation of this.response.data.delegation_responses) {
+    for (const delegation of delegationResponses) {
       const amount = new Int(delegation.balance.amount);
       if (amount.gt(new Int(0))) {
         totalBalance = totalBalance.add(amount);
@@ -84,7 +100,12 @@ export class ObservableQueryDelegationsInner extends ObservableChainQuery<Delega
 
     const result = [];
 
-    for (const delegation of this.response.data.delegation_responses) {
+    const delegationResponses = getDelegationResponses(this.response.data);
+    if (!delegationResponses) {
+      return [];
+    }
+
+    for (const delegation of delegationResponses) {
       const balance = new CoinPretty(
         stakeCurrency,
         new Int(delegation.balance.amount)
@@ -106,7 +127,12 @@ export class ObservableQueryDelegationsInner extends ObservableChainQuery<Delega
       return [];
     }
 
-    return this.response.data.delegation_responses.filter((del) => {
+    const delegationResponses = getDelegationResponses(this.response.data);
+    if (!delegationResponses) {
+      return [];
+    }
+
+    return delegationResponses.filter((del) => {
       return new Int(del.balance.amount).gt(new Int(0));
     });
   }

@@ -2,7 +2,12 @@ import {
   ObservableChainQuery,
   ObservableChainQueryMap,
 } from "../../chain-query";
-import { UnbondingDelegation, UnbondingDelegations } from "./types";
+import {
+  assertUnbondingDelegationsResponse,
+  getUnbondingResponses,
+  UnbondingDelegation,
+  UnbondingDelegations,
+} from "./types";
 import { ChainGetter, requireCosmosInfo } from "../../../chain";
 import { CoinPretty, Int, Dec } from "@keplr-wallet/unit";
 import { computed, makeObservable } from "mobx";
@@ -39,6 +44,12 @@ export class ObservableQueryUnbondingDelegationsInner extends ObservableChainQue
     return this.bech32Address.length > 0;
   }
 
+  protected override async fetchResponse(abortController: AbortController) {
+    const response = await super.fetchResponse(abortController);
+    assertUnbondingDelegationsResponse(response.data);
+    return response;
+  }
+
   @computed
   get total(): CoinPretty | undefined {
     const cosmosInfo = requireCosmosInfo(
@@ -54,8 +65,13 @@ export class ObservableQueryUnbondingDelegationsInner extends ObservableChainQue
       return new CoinPretty(stakeCurrency, new Int(0)).ready(false);
     }
 
+    const unbondingResponses = getUnbondingResponses(this.response.data);
+    if (!unbondingResponses) {
+      return new CoinPretty(stakeCurrency, new Int(0)).ready(false);
+    }
+
     let totalBalance = new Int(0);
-    for (const unbondingDelegation of this.response.data.unbonding_responses) {
+    for (const unbondingDelegation of unbondingResponses) {
       for (const entry of unbondingDelegation.entries) {
         const amount = new Int(entry.balance);
         if (amount.gt(new Int(0))) {
@@ -120,7 +136,12 @@ export class ObservableQueryUnbondingDelegationsInner extends ObservableChainQue
 
     const res: UnbondingDelegation[] = [];
 
-    for (const unbonding of this.response.data.unbonding_responses) {
+    const unbondingResponses = getUnbondingResponses(this.response.data);
+    if (!unbondingResponses) {
+      return [];
+    }
+
+    for (const unbonding of unbondingResponses) {
       const u = {
         ...unbonding,
       };
