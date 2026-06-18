@@ -72,7 +72,7 @@ export type InitiaUnbondingDelegation = {
   entries: {
     creation_height: string;
     completion_time: string;
-    initial_balance: string;
+    initial_balance: Coin[];
     balance: Coin[];
   }[];
 };
@@ -145,7 +145,7 @@ const InitiaUnbondingEntrySchema = Joi.object<
 >({
   creation_height: Joi.string().required(),
   completion_time: Joi.string().required(),
-  initial_balance: IntegerStringSchema,
+  initial_balance: Joi.array().items(CoinPrimitiveSchema).required(),
   balance: Joi.array().items(CoinPrimitiveSchema).required(),
 }).unknown(true);
 

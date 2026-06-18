@@ -171,6 +171,7 @@ export class ObservableQueryInitiaUnbondingDelegationsInner extends ObservableCh
 
       const entries = filtered.map((entry) => ({
         ...entry,
+        initial_balance: this.getAmountFromBalanceArray(entry.initial_balance),
         balance: this.getAmountFromBalanceArray(entry.balance),
       }));
 

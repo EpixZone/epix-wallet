@@ -3,12 +3,14 @@ import { QuerySharedContext, QueryResponse } from "../../../common";
 import { ChainGetter } from "../../../chain";
 import { ObservableQueryDelegationsInner } from "./delegations";
 import { ObservableQueryInitiaDelegationsInner } from "./initia-delegations";
+import { ObservableQueryInitiaUnbondingDelegationsInner } from "./initia-unbonding-delegations";
 import {
   assertDelegationsResponse,
   assertRewardsResponse,
   assertUnbondingDelegationsResponse,
   getDelegationResponses,
   getInitiaDelegationResponses,
+  getInitiaUnbondingResponses,
   getRewardsResponse,
   getUnbondingResponses,
 } from "./types";
@@ -96,6 +98,33 @@ const initiaDelegationResponse = {
   ],
 };
 
+const initiaUnbondingDelegationResponse = {
+  unbonding_responses: [
+    {
+      delegator_address: "init10alvsy3f0a6vsr7ghjh3rtygrhygavsk3tscgz",
+      validator_address: "initvaloper1validator",
+      entries: [
+        {
+          creation_height: "123",
+          completion_time: "2026-01-01T00:00:00Z",
+          initial_balance: [
+            {
+              denom: "uinit",
+              amount: "300000",
+            },
+          ],
+          balance: [
+            {
+              denom: "uinit",
+              amount: "200000",
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 class TestDelegationsQuery extends ObservableQueryDelegationsInner {
   setTestResponse(data: unknown) {
     this.setResponse({
@@ -108,6 +137,17 @@ class TestDelegationsQuery extends ObservableQueryDelegationsInner {
 }
 
 class TestInitiaDelegationsQuery extends ObservableQueryInitiaDelegationsInner {
+  setTestResponse(data: unknown) {
+    this.setResponse({
+      data,
+      staled: false,
+      local: true,
+      timestamp: Date.now(),
+    } as QueryResponse<any>);
+  }
+}
+
+class TestInitiaUnbondingDelegationsQuery extends ObservableQueryInitiaUnbondingDelegationsInner {
   setTestResponse(data: unknown) {
     this.setResponse({
       data,
@@ -223,6 +263,56 @@ describe("staking response guards", () => {
     expect(query.delegations[0].delegation.shares).toBe(
       "990000.000000000000000000"
     );
+  });
+
+  test("accepts Initia unbonding responses with coin-array balances", () => {
+    expect(
+      getInitiaUnbondingResponses(initiaUnbondingDelegationResponse)
+    ).toHaveLength(1);
+
+    expect(
+      getInitiaUnbondingResponses({
+        unbonding_responses: [
+          {
+            delegator_address: "init10alvsy3f0a6vsr7ghjh3rtygrhygavsk3tscgz",
+            validator_address: "initvaloper1validator",
+            entries: [
+              {
+                creation_height: "123",
+                completion_time: "2026-01-01T00:00:00Z",
+                initial_balance: "300000",
+                balance: [
+                  {
+                    denom: "uinit",
+                    amount: "200000",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      })
+    ).toBeUndefined();
+  });
+
+  test("Initia unbonding getters total and normalize coin-array balances", () => {
+    const query = new TestInitiaUnbondingDelegationsQuery(
+      new QuerySharedContext(new MemoryKVStore("test"), {
+        responseDebounceMs: 10,
+      }),
+      "interwoven-1",
+      initiaChainGetter,
+      "init10alvsy3f0a6vsr7ghjh3rtygrhygavsk3tscgz"
+    );
+
+    query.setTestResponse(initiaUnbondingDelegationResponse);
+
+    expect(query.total?.toCoin()).toEqual({
+      denom: "uinit",
+      amount: "200000",
+    });
+    expect(query.unbondings[0].entries[0].initial_balance).toBe("300000");
+    expect(query.unbondings[0].entries[0].balance).toBe("200000");
   });
 
   test("rejects malformed reward responses without coercing values", () => {
