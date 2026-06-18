@@ -4,6 +4,7 @@ import {
 } from "../../chain-query";
 import {
   assertInitiaUnbondingDelegationsResponse,
+  assertStakingResponseData,
   getInitiaUnbondingResponses,
   InitiaUnbondingDelegations,
   UnbondingDelegation,
@@ -47,7 +48,11 @@ export class ObservableQueryInitiaUnbondingDelegationsInner extends ObservableCh
 
   protected override async fetchResponse(abortController: AbortController) {
     const response = await super.fetchResponse(abortController);
-    assertInitiaUnbondingDelegationsResponse(response.data);
+    assertStakingResponseData(
+      response.headers,
+      response.data,
+      assertInitiaUnbondingDelegationsResponse
+    );
     return response;
   }
 

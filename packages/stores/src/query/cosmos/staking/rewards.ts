@@ -1,4 +1,9 @@
-import { assertRewardsResponse, getRewardsResponse, Rewards } from "./types";
+import {
+  assertRewardsResponse,
+  assertStakingResponseData,
+  getRewardsResponse,
+  Rewards,
+} from "./types";
 import {
   ObservableChainQuery,
   ObservableChainQueryMap,
@@ -47,7 +52,11 @@ export class ObservableQueryRewardsInner extends ObservableChainQuery<Rewards> {
 
   protected override async fetchResponse(abortController: AbortController) {
     const response = await super.fetchResponse(abortController);
-    assertRewardsResponse(response.data);
+    assertStakingResponseData(
+      response.headers,
+      response.data,
+      assertRewardsResponse
+    );
     return response;
   }
 

@@ -7,6 +7,7 @@ import { ObservableQueryInitiaUnbondingDelegationsInner } from "./initia-unbondi
 import {
   assertDelegationsResponse,
   assertRewardsResponse,
+  assertStakingResponseData,
   assertUnbondingDelegationsResponse,
   getDelegationResponses,
   getInitiaDelegationResponses,
@@ -183,6 +184,41 @@ describe("staking response guards", () => {
     expect(() => assertDelegationsResponse("")).toThrow(
       "Invalid Cosmos staking delegations response"
     );
+  });
+
+  test("lets known malformed text responses reach the base retry path", () => {
+    const assertResponse = jest.fn(() => {
+      throw new Error("should not validate retryable string responses");
+    });
+
+    expect(() =>
+      assertStakingResponseData(
+        {},
+        "The network connection was lost.",
+        assertResponse
+      )
+    ).not.toThrow();
+    expect(assertResponse).not.toHaveBeenCalled();
+
+    expect(() =>
+      assertStakingResponseData(
+        {
+          get: (key: string) =>
+            key === "content-type" ? "application/json" : "",
+        },
+        '{"delegation_responses":[',
+        assertResponse
+      )
+    ).not.toThrow();
+    expect(assertResponse).not.toHaveBeenCalled();
+  });
+
+  test("still rejects unknown malformed text responses", () => {
+    expect(() =>
+      assertStakingResponseData({}, "<html>bad gateway</html>", (data) =>
+        assertDelegationsResponse(data)
+      )
+    ).toThrow("Invalid Cosmos staking delegations response");
   });
 
   test("rejects malformed unbonding delegation responses", () => {

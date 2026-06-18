@@ -3,6 +3,7 @@ import {
   ObservableChainQueryMap,
 } from "../../chain-query";
 import {
+  assertStakingResponseData,
   assertUnbondingDelegationsResponse,
   getUnbondingResponses,
   UnbondingDelegation,
@@ -46,7 +47,11 @@ export class ObservableQueryUnbondingDelegationsInner extends ObservableChainQue
 
   protected override async fetchResponse(abortController: AbortController) {
     const response = await super.fetchResponse(abortController);
-    assertUnbondingDelegationsResponse(response.data);
+    assertStakingResponseData(
+      response.headers,
+      response.data,
+      assertUnbondingDelegationsResponse
+    );
     return response;
   }
 

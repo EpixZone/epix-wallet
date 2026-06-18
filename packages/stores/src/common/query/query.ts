@@ -183,6 +183,33 @@ export interface IObservableQuery<T = unknown, E = unknown> {
   waitFreshResponse(): Promise<Readonly<QueryResponse<T>> | undefined>;
 }
 
+const suspectedResponseDatasWithInvalidValue = [
+  "The network connection was lost.",
+  "The request timed out.",
+];
+
+function guessResponseTruncated(headers: any, data: string): boolean {
+  return (
+    headers &&
+    "get" in headers &&
+    typeof headers.get === "function" &&
+    (headers.get("content-type") || "").startsWith("application/json") &&
+    data.startsWith("{")
+  );
+}
+
+export function isSuspectedResponseDataWithInvalidValue(
+  headers: any,
+  data: unknown
+): data is string {
+  return (
+    typeof data === "string" &&
+    (data.startsWith("stream was reset:") ||
+      suspectedResponseDatasWithInvalidValue.includes(data) ||
+      guessResponseTruncated(headers, data))
+  );
+}
+
 /**
  * Base of the observable query classes.
  * This recommends to use the fetch to query the response.
@@ -190,19 +217,11 @@ export interface IObservableQuery<T = unknown, E = unknown> {
 export abstract class ObservableQuery<T = unknown, E = unknown>
   implements IObservableQuery<T, E>
 {
-  protected static suspectedResponseDatasWithInvalidValue: string[] = [
-    "The network connection was lost.",
-    "The request timed out.",
-  ];
+  protected static suspectedResponseDatasWithInvalidValue: string[] =
+    suspectedResponseDatasWithInvalidValue;
 
   protected static guessResponseTruncated(headers: any, data: string): boolean {
-    return (
-      headers &&
-      "get" in headers &&
-      typeof headers.get === "function" &&
-      (headers.get("content-type") || "").startsWith("application/json") &&
-      data.startsWith("{")
-    );
+    return guessResponseTruncated(headers, data);
   }
 
   protected readonly options: QueryOptions;
@@ -438,15 +457,7 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
           }
         )
       );
-      if (
-        data &&
-        typeof data === "string" &&
-        (data.startsWith("stream was reset:") ||
-          ObservableQuery.suspectedResponseDatasWithInvalidValue.includes(
-            data
-          ) ||
-          ObservableQuery.guessResponseTruncated(headers, data))
-      ) {
+      if (data && isSuspectedResponseDataWithInvalidValue(headers, data)) {
         // In some devices, it is a http ok code, but a strange response is sometimes returned.
         // It's not that they can't query at all, it seems that they get weird response from time to time.
         // These causes are not clear.
@@ -481,7 +492,7 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
         data = refetched.data;
         headers = refetched.headers;
 
-        if (data && typeof data === "string") {
+        if (data && isSuspectedResponseDataWithInvalidValue(headers, data)) {
           if (
             data.startsWith("stream was reset:") ||
             ObservableQuery.suspectedResponseDatasWithInvalidValue.includes(

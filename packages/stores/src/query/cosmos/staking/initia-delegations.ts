@@ -4,6 +4,7 @@ import {
 } from "../../chain-query";
 import {
   assertInitiaDelegationsResponse,
+  assertStakingResponseData,
   Delegation,
   getInitiaDelegationResponses,
   InitiaDelegations,
@@ -46,7 +47,11 @@ export class ObservableQueryInitiaDelegationsInner extends ObservableChainQuery<
 
   protected override async fetchResponse(abortController: AbortController) {
     const response = await super.fetchResponse(abortController);
-    assertInitiaDelegationsResponse(response.data);
+    assertStakingResponseData(
+      response.headers,
+      response.data,
+      assertInitiaDelegationsResponse
+    );
     return response;
   }
 

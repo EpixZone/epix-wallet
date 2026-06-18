@@ -1,5 +1,8 @@
 import { Coin } from "@keplr-wallet/types";
-import { CoinPrimitive } from "../../../common";
+import {
+  CoinPrimitive,
+  isSuspectedResponseDataWithInvalidValue,
+} from "../../../common";
 import Joi from "joi";
 
 export type Rewards = {
@@ -196,6 +199,18 @@ function getValidatedResponse<T>(
   }
 
   return validated.value;
+}
+
+export function assertStakingResponseData(
+  headers: any,
+  data: unknown,
+  assertResponse: (data: unknown) => void
+): void {
+  if (isSuspectedResponseDataWithInvalidValue(headers, data)) {
+    return;
+  }
+
+  assertResponse(data);
 }
 
 export function getDelegationResponses(
