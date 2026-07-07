@@ -12,37 +12,86 @@ import { useEpixStatus, shieldColor } from "./use-epix-status";
  * native host isn't present (e.g. a non-Firefox shell), so it never shows a
  * dead control.
  */
-export const EpixNetworkShield: FunctionComponent<{ size?: string }> = observer(
-  ({ size = "1.5rem" }) => {
-    const { available, status, torClearnet } = useEpixStatus();
-    const [isOpen, setIsOpen] = useState(false);
+export const EpixNetworkShield: FunctionComponent<{
+  size?: string;
+  // How the panel opens on tap:
+  // - "bottom" (default): a bottom-sheet Modal (portal to document.body).
+  // - "inline": an absolutely-positioned popover anchored under the shield,
+  //   with no portal. The register page renders under a fixed layout-width
+  //   viewport (so the wide scenes fit a phone); the portal Modal's
+  //   viewport-fixed root does not position correctly there, so the shield on
+  //   that page uses the inline popover instead.
+  panelMode?: "bottom" | "inline";
+}> = observer(({ size = "1.5rem", panelMode = "bottom" }) => {
+  const { available, status, torClearnet } = useEpixStatus();
+  const [isOpen, setIsOpen] = useState(false);
 
-    if (!available) {
-      return null;
-    }
+  if (!available) {
+    return null;
+  }
 
-    const color = shieldColor(status, torClearnet);
+  const color = shieldColor(status, torClearnet);
 
+  const shieldButton = (
+    <Box
+      cursor="pointer"
+      onClick={() => setIsOpen((v) => (panelMode === "inline" ? !v : true))}
+      width={size}
+      height={size}
+      alignX="center"
+      alignY="center"
+    >
+      <ShieldIcon color={color} />
+    </Box>
+  );
+
+  if (panelMode === "inline") {
     return (
-      <React.Fragment>
-        <Box
-          cursor="pointer"
-          onClick={() => setIsOpen(true)}
-          width={size}
-          height={size}
-          alignX="center"
-          alignY="center"
-        >
-          <ShieldIcon color={color} />
-        </Box>
-
-        <Modal isOpen={isOpen} align="bottom" close={() => setIsOpen(false)}>
-          <EpixNetworkPanel onClose={() => setIsOpen(false)} />
-        </Modal>
-      </React.Fragment>
+      <div style={{ position: "relative" }}>
+        {shieldButton}
+        {isOpen ? (
+          <React.Fragment>
+            {/* Tap-away backdrop to close the popover. */}
+            <div
+              onClick={() => setIsOpen(false)}
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 100,
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                top: "calc(100% + 0.5rem)",
+                right: 0,
+                width: "22rem",
+                maxWidth: "90vw",
+                maxHeight: "80vh",
+                overflowY: "auto",
+                zIndex: 101,
+                borderRadius: "1.25rem",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
+              }}
+            >
+              <EpixNetworkPanel onClose={() => setIsOpen(false)} rounded />
+            </div>
+          </React.Fragment>
+        ) : null}
+      </div>
     );
   }
-);
+
+  return (
+    <React.Fragment>
+      {shieldButton}
+
+      <Modal isOpen={isOpen} align="bottom" close={() => setIsOpen(false)}>
+        <EpixNetworkPanel onClose={() => setIsOpen(false)} />
+      </Modal>
+    </React.Fragment>
+  );
+});
 
 const ShieldIcon: FunctionComponent<{ color: string }> = ({ color }) => (
   <svg

@@ -42,7 +42,10 @@ function openDashboardConfig(): void {
  */
 export const EpixNetworkPanel: FunctionComponent<{
   onClose?: () => void;
-}> = ({ onClose }) => {
+  // A bottom sheet rounds only its top corners; a centered card rounds all
+  // four (used where the panel floats, e.g. the register page).
+  rounded?: boolean;
+}> = ({ onClose, rounded }) => {
   const intl = useIntl();
   const theme = useTheme();
   const isLight = theme.mode === "light";
@@ -93,6 +96,8 @@ export const EpixNetworkPanel: FunctionComponent<{
       style={{
         borderTopLeftRadius: "1.25rem",
         borderTopRightRadius: "1.25rem",
+        borderBottomLeftRadius: rounded ? "1.25rem" : undefined,
+        borderBottomRightRadius: rounded ? "1.25rem" : undefined,
       }}
     >
       <Subtitle2>

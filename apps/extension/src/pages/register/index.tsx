@@ -40,6 +40,17 @@ import {
   ConnectKeystoneUSBScene,
 } from "./connect-keystone";
 import { ScanKeystoneScene } from "./connect-keystone/scan";
+import { EpixNetworkShield } from "../../components/epix-network";
+
+// The Tor/I2P shield, pinned to the page corner: the browser's privacy
+// controls are useful before (or without) ever creating a wallet, and the
+// register page is the first thing a new install shows.
+const ShieldCorner = styled.div`
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 1000;
+`;
 
 const Container = styled.div`
   min-width: 100vw;
@@ -93,7 +104,14 @@ export const RegisterPage: FunctionComponent = observer(() => {
     }
   }, [isReady, keyRingStore]);
 
-  return <Container>{isReady ? <RegisterPageImpl /> : null}</Container>;
+  return (
+    <Container>
+      <ShieldCorner>
+        <EpixNetworkShield size="2rem" panelMode="inline" />
+      </ShieldCorner>
+      {isReady ? <RegisterPageImpl /> : null}
+    </Container>
+  );
 });
 
 const RegisterPageImpl: FunctionComponent = observer(() => {
