@@ -1,0 +1,60 @@
+name: Build wallet dist
+
+# Builds the Firefox extension and publishes it to the rolling "wallet-dist"
+# release. The Epix repo's epix-browser build.rs downloads that artifact when
+# shells/wallet-ext is not populated locally, so consumers of the Epix repo
+# never need a local wallet build.
+
+on:
+  push:
+    branches:
+      - epix
+  workflow_dispatch:
+
+concurrency:
+  group: build-dist
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable yarn 3
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build libraries
+        run: yarn build:libs
+
+      - name: Build extension
+        run: yarn workspace @keplr-wallet/extension build
+
+      - name: Zip firefox build
+        run: |
+          cd apps/extension/build/firefox
+          zip -qr "$GITHUB_WORKSPACE/epix-wallet-firefox.zip" .
+
+      - name: Publish to rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create wallet-dist \
+            --title "Wallet extension build" \
+            --notes "Rolling build of the epix branch. Updated automatically on every push." \
+            --prerelease || true
+          gh release upload wallet-dist epix-wallet-firefox.zip --clobber

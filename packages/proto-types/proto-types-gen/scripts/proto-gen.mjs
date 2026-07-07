@@ -42,7 +42,14 @@ async function calculateOutputHash(root) {
 }
 
 function getOutputHash(root) {
-  return fs.readFileSync(path.join(root, "outputHash")).toString();
+  // The hash file is a local build cache (gitignored in this fork): it depends
+  // on the protoc version, so it is not reproducible across machines. Missing
+  // file just means "no previous output to compare against".
+  try {
+    return fs.readFileSync(path.join(root, "outputHash")).toString();
+  } catch {
+    return undefined;
+  }
 }
 
 function setOutputHash(root, hash) {

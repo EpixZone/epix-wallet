@@ -50,3 +50,5 @@ build-storybook.log
 .claude/*
 !.claude/settings.json
 !.claude/rules
+# proto-gen output cache: depends on the local protoc version, not reproducible
+packages/proto-types/outputHash
