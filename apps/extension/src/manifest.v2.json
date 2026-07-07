@@ -27,7 +27,10 @@
     "unlimitedStorage",
     "activeTab",
     "scripting",
-    "webNavigation"
+    "webNavigation",
+    "nativeMessaging",
+    "webRequest",
+    "webRequestBlocking"
   ],
   "host_permissions": ["http://*/*", "https://*/*"],
   "content_scripts": [

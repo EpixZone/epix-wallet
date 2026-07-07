@@ -47,6 +47,7 @@ import { SettingGeneralThemePage } from "./pages/setting/general/theme";
 import { SettingGeneralAuthZPage } from "./pages/setting/general/authz";
 import { SettingGeneralAuthZRevokePage } from "./pages/setting/general/authz/revoke";
 import { SettingAdvancedPage } from "./pages/setting/advanced";
+import { SettingEpixPage } from "./pages/setting/epix";
 import { SettingGeneralDeleteSuggestChainPage } from "./pages/setting/advanced/delete-suggest-chain";
 import { SettingSecurityPage } from "./pages/setting/security";
 import { SettingSecurityPermissionPage } from "./pages/setting/security/permission";
@@ -468,6 +469,7 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
                 element={<SettingGeneralLinkKeplrMobilePage />}
               />
               <Route path="/setting/about" element={<AboutKeplrPage />} />
+              <Route path="/setting/epix" element={<SettingEpixPage />} />
               <Route
                 path="/setting/advanced"
                 element={<SettingAdvancedPage />}

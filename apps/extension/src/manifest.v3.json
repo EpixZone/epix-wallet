@@ -30,7 +30,8 @@
     "sidePanel",
     "activeTab",
     "scripting",
-    "webNavigation"
+    "webNavigation",
+    "nativeMessaging"
   ],
   "host_permissions": ["http://*/*", "https://*/*"],
   "content_scripts": [

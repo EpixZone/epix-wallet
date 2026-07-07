@@ -26,6 +26,11 @@ import {
   PrivilegedOrigins,
   TokenContractListURL,
 } from "../config";
+import { initEpixNative } from "./epix-native";
+
+// Epix desktop integration: the clearnet-block enforcement + native-host bridge
+// (Tor/I2P status, routing, per-site allow). No-op on non-desktop shells.
+initEpixNative();
 
 const router = new ExtensionRouter(ExtensionEnv.produceEnv);
 router.addGuard(ExtensionGuards.checkOriginIsValid);

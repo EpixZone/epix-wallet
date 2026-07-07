@@ -383,6 +383,16 @@ export const SettingPage: FunctionComponent = observer(() => {
                   },
                 },
                 {
+                  key: "epix-network",
+                  icon: IconEpixNetwork,
+                  title: intl.formatMessage({
+                    id: "page.setting.epix.title",
+                  }),
+                  right: ClickableRightIcon,
+                  rightProps: {},
+                  onClick: () => navigate("/setting/epix"),
+                },
+                {
                   key: "about-keplr",
                   icon: IconAboutKeplr,
                   title: intl.formatMessage({
@@ -1110,6 +1120,27 @@ const IconHelpDesk: FunctionComponent = () => {
         fill="currentColor"
         d="M13.96 19q.437 0 .74-.302.3-.302.301-.74 0-.436-.302-.739a1 1 0 0 0-.74-.302q-.437 0-.739.302a1 1 0 0 0-.302.74q0 .437.302.74.302.3.74.301M14 22.334a8.1 8.1 0 0 1-3.25-.657 8.4 8.4 0 0 1-2.646-1.78 8.4 8.4 0 0 1-1.78-2.647A8.1 8.1 0 0 1 5.667 14q0-1.729.656-3.25a8.4 8.4 0 0 1 1.781-2.646 8.4 8.4 0 0 1 2.646-1.78 8.1 8.1 0 0 1 3.25-.657q1.73 0 3.25.656a8.4 8.4 0 0 1 2.646 1.781 8.4 8.4 0 0 1 1.781 2.646 8.1 8.1 0 0 1 .657 3.25 8.1 8.1 0 0 1-.657 3.25 8.4 8.4 0 0 1-1.78 2.646 8.4 8.4 0 0 1-2.647 1.781 8.1 8.1 0 0 1-3.25.657m0-1.667q2.792 0 4.73-1.937 1.937-1.938 1.937-4.73 0-2.79-1.937-4.729Q16.793 7.334 14 7.334q-2.79 0-4.729 1.937-1.937 1.938-1.937 4.73 0 2.79 1.937 4.729 1.938 1.937 4.73 1.937m.084-10.25q.52 0 .906.333.385.334.385.834 0 .458-.28.812a5 5 0 0 1-.636.667q-.48.417-.844.916a1.86 1.86 0 0 0-.365 1.126q0 .29.22.49a.74.74 0 0 0 .51.197q.312 0 .53-.208a.96.96 0 0 0 .282-.521q.083-.438.375-.781t.625-.657q.48-.458.823-1 .345-.541.344-1.208 0-1.062-.865-1.74Q15.231 9 14.085 9q-.793 0-1.51.334a2.33 2.33 0 0 0-1.094 1.02.75.75 0 0 0-.094.532q.051.281.281.427a.83.83 0 0 0 1.125-.25q.23-.313.573-.48.345-.165.719-.166"
       />
+    </svg>
+  );
+};
+
+// A privacy shield, for the Epix Network (Tor/I2P) settings entry.
+const IconEpixNetwork: FunctionComponent = () => {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="28"
+      height="28"
+      fill="none"
+      viewBox="0 0 28 28"
+    >
+      <path
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        d="M14 4.5l7 2.5v5.5c0 4.5-2.9 7.9-7 9.5-4.1-1.6-7-5-7-9.5V7l7-2.5z"
+      />
+      <path stroke="currentColor" strokeWidth="1.4" d="M14 9v9M9.5 12.5h9" />
     </svg>
   );
 };
