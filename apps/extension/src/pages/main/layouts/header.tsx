@@ -17,6 +17,7 @@ import { XAxis, YAxis } from "../../../components/axis";
 import { Body2, Subtitle3, Subtitle4 } from "../../../components/typography";
 import { Gutter } from "../../../components/gutter";
 import { ConnectedEcosystems } from "../components/connected-ecosystems";
+import { EpixNetworkShield } from "../../../components/epix-network";
 import { COMMON_HOVER_OPACITY } from "../../../styles/constant";
 import { IconButton } from "../../../components/icon-button";
 import { FloatingMenuBar } from "../components/floating-menu-bar";
@@ -349,6 +350,7 @@ export const MainHeaderLayout = observer<
           }
           right={
             <Columns sum={1} alignY="center" gutter="0.875rem">
+              <EpixNetworkShield />
               <ConnectedEcosystems />
               <Tooltip
                 hideArrow={true}

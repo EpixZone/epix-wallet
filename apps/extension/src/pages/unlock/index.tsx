@@ -11,6 +11,7 @@ import { observer } from "mobx-react-lite";
 import { useStore } from "../../stores";
 import { Button } from "../../components/button";
 import { Gutter } from "../../components/gutter";
+import { EpixNetworkShield } from "../../components/epix-network";
 import { Box } from "../../components/box";
 import { TextButton } from "../../components/button-text";
 import { ColorPalette, PopupWidth, SidePanelMaxWidth } from "../../styles";
@@ -236,6 +237,7 @@ export const UnlockPage: FunctionComponent = observer(() => {
   return (
     <Box
       ref={ref}
+      position="relative"
       width="100vw"
       paddingX="1.5rem"
       style={{
@@ -248,6 +250,14 @@ export const UnlockPage: FunctionComponent = observer(() => {
           : `${PopupWidth}px`,
       }}
     >
+      {/* Tor / I2P privacy status, visible and toggleable before unlock. */}
+      <Box
+        position="absolute"
+        style={{ top: "0.75rem", right: "1rem", zIndex: 1000 }}
+      >
+        <EpixNetworkShield size="1.75rem" />
+      </Box>
+
       <form
         onSubmit={async (e) => {
           e.preventDefault();
