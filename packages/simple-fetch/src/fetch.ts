@@ -2,6 +2,16 @@ import { SimpleFetchRequestOptions, SimpleFetchResponse } from "./types";
 import { SimpleFetchError } from "./error";
 
 export function makeURL(baseURL: string, url: string): string {
+  if (!baseURL) {
+    // Some service endpoints are optional and can be unset - for example a
+    // fork built without Keplr's private endpoint env vars leaves several
+    // KEPLR_EXT_* URLs empty. Building `new URL("")` throws, and because this
+    // runs synchronously inside query stores' cache-key/init path, that throw
+    // used to wedge store initialization and hang the whole popup. Degrade
+    // gracefully instead: return the path so those (unconfigured) queries just
+    // fail their fetch quietly rather than crashing everything.
+    return url;
+  }
   const baseURLInstance = new URL(baseURL);
   baseURL = removeLastSlashIfIs(baseURLInstance.origin);
   url =

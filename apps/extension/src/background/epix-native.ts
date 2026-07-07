@@ -110,59 +110,48 @@ export function initEpixNative(): void {
   );
 
   // 2. UI bridge: the Epix settings page talks to this over runtime messaging.
-  browser.runtime.onMessage.addListener(
-    (msg: any, _sender: any, sendResponse: (r: any) => void) => {
-      if (
-        !msg ||
-        typeof msg.type !== "string" ||
-        !msg.type.startsWith("epix-")
-      ) {
-        return false;
-      }
-      (async () => {
-        switch (msg.type) {
-          case "epix-status": {
-            try {
-              const status: EpixStatus = await nativeSend({ cmd: "status" });
-              sendResponse({ ok: true, status });
-            } catch (e) {
-              sendResponse({ ok: false, error: String(e) });
-            }
-            break;
-          }
-          case "epix-set-tor-clearnet": {
-            try {
-              const on = !!msg.on;
-              await nativeSend({ cmd: "setTorClearnet", on });
-              sendResponse({ ok: true, on });
-            } catch (e) {
-              sendResponse({ ok: false, error: String(e) });
-            }
-            break;
-          }
-          case "epix-list-clearnet-allow": {
-            await refreshAllowed();
-            sendResponse({ ok: true, sites: Array.from(allowed) });
-            break;
-          }
-          case "epix-set-clearnet-allow": {
-            try {
-              const site: string = msg.site;
-              const allow = !!msg.allow;
-              await nativeSend({ cmd: "setClearnetAllow", site, allow });
-              if (allow) allowed.add(site);
-              else allowed.delete(site);
-              sendResponse({ ok: true, site, allow });
-            } catch (e) {
-              sendResponse({ ok: false, error: String(e) });
-            }
-            break;
-          }
-          default:
-            sendResponse({ ok: false, error: "unknown epix message" });
-        }
-      })();
-      return true; // async sendResponse
+  //
+  // Keplr's own router listens on this same `runtime.onMessage`, and `browser`
+  // here is the webextension-polyfill, which does NOT support the Chrome-style
+  // `sendResponse` + `return true` async pattern - it expects the listener to
+  // return a Promise for an async reply, or undefined to not handle the
+  // message. Returning `true`/`false` would wedge the shared channel and hang
+  // Keplr's popup. So: return undefined for anything that isn't ours (Keplr's
+  // router handles it), and a Promise for our own messages.
+  browser.runtime.onMessage.addListener((msg: any) => {
+    if (!msg || typeof msg.type !== "string" || !msg.type.startsWith("epix-")) {
+      return undefined; // not ours - let Keplr's router handle it
     }
-  );
+    switch (msg.type) {
+      case "epix-status":
+        return nativeSend({ cmd: "status" }).then(
+          (status: EpixStatus) => ({ ok: true, status }),
+          (e) => ({ ok: false, error: String(e) })
+        );
+      case "epix-set-tor-clearnet":
+        return nativeSend({ cmd: "setTorClearnet", on: !!msg.on }).then(
+          () => ({ ok: true, on: !!msg.on }),
+          (e) => ({ ok: false, error: String(e) })
+        );
+      case "epix-list-clearnet-allow":
+        return refreshAllowed().then(() => ({
+          ok: true,
+          sites: Array.from(allowed),
+        }));
+      case "epix-set-clearnet-allow": {
+        const site: string = msg.site;
+        const allow = !!msg.allow;
+        return nativeSend({ cmd: "setClearnetAllow", site, allow }).then(
+          () => {
+            if (allow) allowed.add(site);
+            else allowed.delete(site);
+            return { ok: true, site, allow };
+          },
+          (e) => ({ ok: false, error: String(e) })
+        );
+      }
+      default:
+        return Promise.resolve({ ok: false, error: "unknown epix message" });
+    }
+  });
 }
