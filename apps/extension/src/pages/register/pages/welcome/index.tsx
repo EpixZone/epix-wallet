@@ -202,7 +202,7 @@ export const WelcomePage: FunctionComponent = observer(() => {
               e.preventDefault();
 
               browser.tabs.create({
-                url: "https://twitter.com/intent/follow?twterm%5Efollow%7Ctwgr%5Ekeplrwallet&screen_name=KeplrWallet",
+                url: "https://x.com/EpixZone",
               });
             }}
           >

@@ -78,7 +78,7 @@ const keplr = new InjectedKeplr(
   },
   {
     id: "keplr",
-    name: "Keplr",
+    name: "Epix Wallet",
     icon: process.env.KEPLR_EXT_STARKNET_PROVIDER_INFO_ICON,
   }
 );

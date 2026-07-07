@@ -155,7 +155,7 @@ export const PermissionBasicAccessForBitcoinPage: FunctionComponent<{
       <Box minHeight="100%" padding="0.75rem" paddingBottom="0">
         <Box alignX="center">
           <Image
-            alt="Keplr Logo Image"
+            alt="Epix Wallet logo"
             src={require("../../../public/assets/logo-256.png")}
             style={{ width: "4.625rem", height: "4.625rem" }}
           />

@@ -6,6 +6,58 @@ export type EmbedChainInfo = (ChainInfo | ModularChainInfo) & {
 };
 
 export const EmbedChainInfos: EmbedChainInfo[] = [
+  // EPIX is this wallet's home chain: first in the list, default on fresh
+  // installs. A Cosmos SDK chain with EVM (like Injective below): coinType 60,
+  // eth-style keys, 18-decimal native denom.
+  {
+    rpc: "https://rpc.epix.zone",
+    rest: "https://api.epix.zone",
+    evm: {
+      chainId: 1916,
+      rpc: "https://evmrpc.epix.zone",
+    },
+    chainId: "epix_1916-1",
+    chainName: "Epix",
+    chainSymbolImageUrl:
+      "https://raw.githubusercontent.com/EpixZone/assets/main/images/icons/icon.png",
+    stakeCurrency: {
+      coinDenom: "EPIX",
+      coinMinimalDenom: "aepix",
+      coinDecimals: 18,
+      coinImageUrl:
+        "https://raw.githubusercontent.com/EpixZone/assets/main/images/icons/icon.png",
+    },
+    bip44: {
+      coinType: 60,
+    },
+    bech32Config: Bech32Address.defaultBech32Config("epix"),
+    currencies: [
+      {
+        coinDenom: "EPIX",
+        coinMinimalDenom: "aepix",
+        coinDecimals: 18,
+        coinImageUrl:
+          "https://raw.githubusercontent.com/EpixZone/assets/main/images/icons/icon.png",
+      },
+    ],
+    feeCurrencies: [
+      {
+        coinDenom: "EPIX",
+        coinMinimalDenom: "aepix",
+        coinDecimals: 18,
+        coinImageUrl:
+          "https://raw.githubusercontent.com/EpixZone/assets/main/images/icons/icon.png",
+        // The live feemarket sits around 20-25 gwei (eth_gasPrice probe);
+        // aepix is 18 decimals so these are wei-scale like Injective's.
+        gasPriceStep: {
+          low: 20000000000,
+          average: 25000000000,
+          high: 40000000000,
+        },
+      },
+    ],
+    features: ["ibc-transfer", "ibc-go", "eth-address-gen", "eth-key-sign"],
+  },
   {
     rpc: "https://rpc-cosmoshub.keplr.app",
     rest: "https://lcd-cosmoshub.keplr.app",

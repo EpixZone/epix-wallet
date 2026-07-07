@@ -758,6 +758,21 @@ export const EnableChainsScene: FunctionComponent<{
           bModularChainInfo.chainId
         ).identifier;
 
+        // EPIX first: this wallet's home chain.
+        if (
+          aChainIdentifier.startsWith("epix") &&
+          !bChainIdentifier.startsWith("epix")
+        ) {
+          return -1;
+        }
+
+        if (
+          !aChainIdentifier.startsWith("epix") &&
+          bChainIdentifier.startsWith("epix")
+        ) {
+          return 1;
+        }
+
         // Cosmos Hub를 먼저 배치
         if (
           aChainIdentifier.startsWith("cosmoshub") &&

@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
 
-  "name": "Keplr",
-  "description": "Keplr is a browser extension wallet for the Inter blockchain ecosystem.",
+  "name": "Epix Wallet",
+  "description": "Epix Wallet is a browser extension wallet for the EPIX chain and the wider interchain ecosystem.",
   "version": "0.13.39",
   "icons": {
     "16": "assets/icon-16.png",
@@ -12,7 +12,7 @@
 
   "browser_action": {
     "default_popup": "popup.html",
-    "default_title": "Keplr"
+    "default_title": "Epix Wallet"
   },
   "background": {
     "page": "background.html",

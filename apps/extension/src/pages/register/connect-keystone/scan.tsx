@@ -52,7 +52,7 @@ export const ScanKeystoneScene: FunctionComponent<{
 
   const handleScan = (ur: { type: string; cbor: string }) => {
     const sdk = new KeystoneSDK({
-      origin: "Keplr Extension",
+      origin: "Epix Wallet",
     });
     const accounts = sdk.parseMultiAccounts(
       new UR(Buffer.from(ur.cbor, "hex"), ur.type)

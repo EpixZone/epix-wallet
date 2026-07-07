@@ -211,7 +211,7 @@ export const MainHeaderLayout = observer<
 
     const theme = useTheme();
     const name = useMemo(() => {
-      return keyRingStore.selectedKeyInfo?.name || "Keplr Account";
+      return keyRingStore.selectedKeyInfo?.name || "Epix Account";
     }, [keyRingStore.selectedKeyInfo?.name]);
 
     const [isOpenMenu, setIsOpenMenu] = React.useState(false);

@@ -592,7 +592,7 @@ const TopSection: FunctionComponent<{
                   whiteSpace: "nowrap",
                 }}
               >
-                {keyRingStore.selectedKeyInfo?.name || "Keplr Account"}
+                {keyRingStore.selectedKeyInfo?.name || "Epix Account"}
               </Subtitle3>
               <Gutter size="0.38rem" />
               <Body3 color={ColorPalette["gray-300"]}>{totalPriceText}</Body3>

@@ -189,7 +189,7 @@ export const AccountItemSwitchModal = observer(
       return defaults;
     })();
 
-    const accountName = keyInfo.name || "Keplr Account";
+    const accountName = keyInfo.name || "Epix Account";
 
     return (
       <React.Fragment>

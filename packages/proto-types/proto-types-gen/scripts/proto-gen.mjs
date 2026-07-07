@@ -145,6 +145,24 @@ function setOutputHash(root, hash) {
 
     $.verbose = false;
 
+    // Newer protoc ships a larger google/protobuf/descriptor.proto, so
+    // ts-proto's generated descriptor.ts has object literals whose inferred
+    // type exceeds what tsc can serialize into a .d.ts (TS7056), breaking the
+    // declaration build. Nothing imports these descriptor value-types, so give
+    // each `export const X = {` an explicit `: any` annotation - trivially
+    // serializable and harmless. Regeneration-safe because it runs every build.
+    {
+      const descriptorPath = path.join(outDir, "google/protobuf/descriptor.ts");
+      if (fs.existsSync(descriptorPath)) {
+        const src = fs.readFileSync(descriptorPath, "utf8");
+        const patched = src.replace(
+          /^export const (\w+) = \{$/gm,
+          "export const $1: any = {"
+        );
+        fs.writeFileSync(descriptorPath, patched);
+      }
+    }
+
     // Move tsconfig.json to package root
     await $`cp ${packageRoot}/proto-types-gen/tsconfig.json ${packageRoot}/tsconfig.json`;
 
