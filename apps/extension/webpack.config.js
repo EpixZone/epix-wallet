@@ -237,7 +237,9 @@ module.exports = {
       chunks: ["popup"],
     }),
     new HtmlWebpackPlugin({
-      template: "./src/index.html",
+      // register.html has its own template: a fixed layout-width viewport so
+      // the mobile shells scale the desktop-sized scenes to fit.
+      template: "./src/register.html",
       filename: "register.html",
       chunks: ["register"],
     }),

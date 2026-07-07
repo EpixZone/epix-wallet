@@ -9,6 +9,33 @@ export const PopupSize = {
 };
 
 const lastWindowIds: Record<string, number | undefined> = {};
+const lastTabIds: Record<string, number | undefined> = {};
+
+// GeckoView (the Epix mobile shell) has no browser.windows API. Open the UI
+// as a tab instead; the host app renders extension tabs as sheets over the
+// browser (WebExtension.TabDelegate), so this behaves like a popup there.
+async function openPopupTab(
+  url: string,
+  channel: string,
+  ignoreURIReplacement: boolean
+): Promise<number> {
+  const lastTabId = lastTabIds[channel];
+  if (lastTabId !== undefined) {
+    try {
+      if (!ignoreURIReplacement) {
+        await browser.tabs.update(lastTabId, { active: true, url });
+      } else {
+        await browser.tabs.update(lastTabId, { active: true });
+      }
+      return lastTabId;
+    } catch {
+      // The tab is gone; fall through and open a new one.
+    }
+  }
+  const tab = await browser.tabs.create({ url, active: true });
+  lastTabIds[channel] = tab.id;
+  return tab.id ?? -1;
+}
 
 /**
  * Try open window if no previous window exists.
@@ -25,6 +52,10 @@ export async function openPopupWindow(
       } = {}
 ): Promise<number> {
   const ignoreURIReplacement = options.ignoreURIReplacement;
+
+  if (typeof browser.windows === "undefined") {
+    return openPopupTab(url, channel, !!ignoreURIReplacement);
+  }
   const windowInfo = await browser.windows.getCurrent();
   const option = {
     top: (windowInfo.top || 0) + 80,
@@ -83,6 +114,14 @@ export async function openPopupWindow(
 
 export function closePopupWindow(channel: string) {
   (async () => {
+    if (typeof browser.windows === "undefined") {
+      const tabId = lastTabIds[channel];
+      if (tabId !== undefined) {
+        await browser.tabs.remove(tabId);
+      }
+      return;
+    }
+
     const windowId = lastWindowIds[channel];
 
     if (windowId) {

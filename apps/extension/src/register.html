@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      The register scenes are laid out at fixed widths up to 53.75rem (860px),
+      which cannot fit a phone at 1:1. A fixed layout-width viewport makes
+      mobile GeckoView (the Epix Android shell) render the full page scaled to
+      fit instead of clipping it. Desktop browsers ignore viewport metas, so
+      this template only differs from index.html on mobile.
+    -->
+    <meta name="viewport" content="width=880" />
+    <title>Epix Wallet</title>
+    <script type="application/javascript" src="browser-polyfill.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+</html>

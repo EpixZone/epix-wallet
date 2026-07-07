@@ -116,6 +116,12 @@ async function getSidePanelWindowId(): Promise<number | undefined> {
     return _sidePanelWindowId;
   }
 
+  // GeckoView (the Epix mobile shell) has no browser.windows API, and no
+  // side panel either, so there is no window id to find.
+  if (typeof browser.windows === "undefined") {
+    return undefined;
+  }
+
   const current = await browser.windows.getCurrent();
   _sidePanelWindowId = current.id;
   return _sidePanelWindowId;
