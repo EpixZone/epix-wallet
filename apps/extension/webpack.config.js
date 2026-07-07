@@ -58,6 +58,7 @@ module.exports = {
   watch: isEnvDevelopment,
   entry: {
     popup: ["./src/index.tsx"],
+    mobileShim: ["./src/mobile-shim.ts"],
     register: ["./src/register.tsx"],
     blocklist: ["./src/pages/blocklist/index.tsx"],
     ledgerGrant: ["./src/ledger-grant.tsx"],
@@ -242,6 +243,22 @@ module.exports = {
       template: "./src/register.html",
       filename: "register.html",
       chunks: ["register"],
+    }),
+    // The mobile wallet pages (iOS WKWebView, served by the embedded node):
+    // the shim provides the WebExtension APIs, and the background services
+    // run in the same document as the UI. chunksSortMode manual keeps the
+    // shim first so the browser global exists before any bundle runs.
+    new HtmlWebpackPlugin({
+      template: "./src/mobile.html",
+      filename: "mobile.html",
+      chunks: ["mobileShim", "background", "popup"],
+      chunksSortMode: "manual",
+    }),
+    new HtmlWebpackPlugin({
+      template: "./src/mobile-register.html",
+      filename: "mobile-register.html",
+      chunks: ["mobileShim", "background", "register"],
+      chunksSortMode: "manual",
     }),
     new HtmlWebpackPlugin({
       template: "./src/blocklist.html",
