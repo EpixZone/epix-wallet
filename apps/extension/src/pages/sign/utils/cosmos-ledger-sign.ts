@@ -1,4 +1,3 @@
-import TransportWebUSB from "@ledgerhq/hw-transport-webusb";
 import Transport from "@ledgerhq/hw-transport";
 import { CosmosApp } from "@keplr-wallet/ledger-cosmos";
 import { KeplrError } from "@keplr-wallet/router";
@@ -11,7 +10,6 @@ import { LedgerUtils } from "../../../utils";
 import Eth from "@ledgerhq/hw-app-eth";
 import { EIP712MessageValidator } from "@keplr-wallet/background";
 import { domainHash, messageHash } from "@keplr-wallet/background";
-import TransportWebHID from "@ledgerhq/hw-transport-webhid";
 import {
   ErrModuleLedgerSign,
   ErrFailedInit,
@@ -23,6 +21,7 @@ import {
   ErrSignRejected,
 } from "./ledger-types";
 import { sortObjectByKey } from "@keplr-wallet/common";
+import { getLedgerTransport } from "../../../utils/ledger-transport";
 
 export const connectAndSignEIP712WithLedger = async (
   useWebHID: boolean,
@@ -42,9 +41,7 @@ export const connectAndSignEIP712WithLedger = async (
 ): Promise<Uint8Array> => {
   let transport: Transport;
   try {
-    transport = useWebHID
-      ? await TransportWebHID.create()
-      : await TransportWebUSB.create();
+    transport = await getLedgerTransport(useWebHID);
   } catch (e) {
     throw new KeplrError(
       ErrModuleLedgerSign,
@@ -203,9 +200,7 @@ export const connectAndSignWithLedger = async (
 
   let transport: Transport;
   try {
-    transport = useWebHID
-      ? await TransportWebHID.create()
-      : await TransportWebUSB.create();
+    transport = await getLedgerTransport(useWebHID);
   } catch (e) {
     throw new KeplrError(
       ErrModuleLedgerSign,

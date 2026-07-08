@@ -155,6 +155,27 @@ export function initEpixNative(): void {
           (r: any) => (r && r.ok ? { ok: true } : { ok: false }),
           () => ({ ok: false })
         );
+      // Ledger over the native host: the UI transport (TransportNativeBridge)
+      // cannot call the host directly (native messaging is background-only),
+      // so it relays APDUs through here. The host implements the Ledger HID
+      // framing (epix-nmh's ledger module).
+      case "epix-ledger-list":
+        return nativeSend({ cmd: "ledgerList" }).then(
+          (r: any) => ({ ok: !r?.error, ...r }),
+          (e) => ({ ok: false, error: String(e) })
+        );
+      case "epix-ledger-exchange":
+        return nativeSend({
+          cmd: "ledgerExchange",
+          apdu: msg.apdu,
+          path: msg.path,
+        }).then(
+          (r: any) =>
+            r?.response
+              ? { ok: true, response: r.response }
+              : { ok: false, error: r?.error || "no response" },
+          (e) => ({ ok: false, error: String(e) })
+        );
       case "epix-set-clearnet-allow": {
         const site: string = msg.site;
         const allow = !!msg.allow;

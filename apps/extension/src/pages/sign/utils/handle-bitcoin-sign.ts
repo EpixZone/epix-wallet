@@ -10,8 +10,6 @@ import {
   LedgerOptions,
 } from "./ledger-types";
 import Transport from "@ledgerhq/hw-transport";
-import TransportWebHID from "@ledgerhq/hw-transport-webhid";
-import TransportWebUSB from "@ledgerhq/hw-transport-webusb";
 import { PubKeyBitcoinCompatible, toXOnly } from "@keplr-wallet/crypto";
 import { KeplrError } from "@keplr-wallet/router";
 import { IModularChainInfoImpl } from "@keplr-wallet/stores";
@@ -23,6 +21,7 @@ import AppClient, {
 import { Network, Psbt } from "bitcoinjs-lib";
 import { toOutputScript } from "bitcoinjs-lib/src/address";
 import { BIP322 } from "@keplr-wallet/background";
+import { getLedgerTransport } from "../../../utils/ledger-transport";
 
 // TODO: Support babylon staking with script path spending
 // const BABYLON_SCRIPT_TYPES = {
@@ -149,9 +148,7 @@ export const connectAndSignMessageWithLedger = async (
 
   let transport: Transport;
   try {
-    transport = options?.useWebHID
-      ? await TransportWebHID.create()
-      : await TransportWebUSB.create();
+    transport = await getLedgerTransport(options?.useWebHID);
   } catch (e) {
     throw new KeplrError(
       ErrModuleLedgerSign,
@@ -322,9 +319,7 @@ export const connectAndSignPsbtsWithLedger = async (
 
   let transport: Transport;
   try {
-    transport = options?.useWebHID
-      ? await TransportWebHID.create()
-      : await TransportWebUSB.create();
+    transport = await getLedgerTransport(options?.useWebHID);
   } catch (e) {
     throw new KeplrError(
       ErrModuleLedgerSign,
@@ -476,9 +471,7 @@ async function checkBitcoinPubKey(
   const hdPath = `${purpose}'/${coinType}'/${account}'/${change}/${addressIndex}`;
 
   try {
-    transport = options?.useWebHID
-      ? await TransportWebHID.create()
-      : await TransportWebUSB.create();
+    transport = await getLedgerTransport(options?.useWebHID);
   } catch (e) {
     throw new KeplrError(
       ErrModuleLedgerSign,

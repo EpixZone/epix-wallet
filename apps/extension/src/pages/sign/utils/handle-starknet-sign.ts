@@ -22,8 +22,6 @@ import {
   EDataAvailabilityMode,
 } from "starknet";
 import Transport from "@ledgerhq/hw-transport";
-import TransportWebHID from "@ledgerhq/hw-transport-webhid";
-import TransportWebUSB from "@ledgerhq/hw-transport-webusb";
 import { KeplrError } from "@keplr-wallet/router";
 import {
   LedgerError,
@@ -37,6 +35,7 @@ import {
 import { PubKeyStarknet } from "@keplr-wallet/crypto";
 import { Fee } from "@keplr-wallet/stores-starknet/build/account/internal";
 import { safeToBigInt } from "@keplr-wallet/common";
+import { getLedgerTransport } from "../../../utils/ledger-transport";
 
 // eip-2645 derivation path, m/2645'/starknet'/{application}'/0'/{accountId}'/0
 export const STARKNET_LEDGER_DERIVATION_PATH =
@@ -61,9 +60,7 @@ export const connectAndSignDeployAccountTxWithLedger = async (
 
   let transport: Transport;
   try {
-    transport = options.useWebHID
-      ? await TransportWebHID.create()
-      : await TransportWebUSB.create();
+    transport = await getLedgerTransport(options.useWebHID);
   } catch (e) {
     console.error(e);
     throw new KeplrError(
@@ -170,9 +167,7 @@ export const connectAndSignInvokeTxWithLedger = async (
 
   let transport: Transport;
   try {
-    transport = options?.useWebHID
-      ? await TransportWebHID.create()
-      : await TransportWebUSB.create();
+    transport = await getLedgerTransport(options?.useWebHID);
   } catch (e) {
     console.error(e);
     throw new KeplrError(
@@ -232,9 +227,7 @@ export const connectAndSignMessageWithLedger = async (
 
   let transport: Transport;
   try {
-    transport = options?.useWebHID
-      ? await TransportWebHID.create()
-      : await TransportWebUSB.create();
+    transport = await getLedgerTransport(options?.useWebHID);
   } catch (e) {
     console.error(e);
     throw new KeplrError(
@@ -323,9 +316,7 @@ async function checkStarknetPubKey(
 ) {
   let transport: Transport;
   try {
-    transport = options?.useWebHID
-      ? await TransportWebHID.create()
-      : await TransportWebUSB.create();
+    transport = await getLedgerTransport(options?.useWebHID);
   } catch (e) {
     throw new KeplrError(
       ErrModuleLedgerSign,

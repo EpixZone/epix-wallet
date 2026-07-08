@@ -13,7 +13,6 @@ import { ColorPalette } from "../../../styles";
 import { Stack } from "../../../components/stack";
 import { Button } from "../../../components/button";
 import { App, AppHRP, CosmosApp } from "@keplr-wallet/ledger-cosmos";
-import TransportWebUSB from "@ledgerhq/hw-transport-webusb";
 import { observer } from "mobx-react-lite";
 import Transport from "@ledgerhq/hw-transport";
 import { useStore } from "../../../stores";
@@ -24,7 +23,6 @@ import { Buffer } from "buffer/";
 import { PubKeySecp256k1, PubKeyStarknet } from "@keplr-wallet/crypto";
 import { LedgerUtils } from "../../../utils";
 import { Checkbox } from "../../../components/checkbox";
-import TransportWebHID from "@ledgerhq/hw-transport-webhid";
 import { useConfirm } from "../../../hooks/confirm";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useTheme } from "styled-components";
@@ -33,6 +31,7 @@ import { GuideBox } from "../../../components/guide-box";
 import { ExtendedKey } from "@keplr-wallet/background";
 import AppClient from "ledger-bitcoin";
 import { dispatchGlobalEventExceptSelf } from "../../../utils/global-events";
+import { getLedgerTransport } from "../../../utils/ledger-transport";
 
 type Step = "unknown" | "connected" | "app";
 
@@ -133,11 +132,10 @@ export const ConnectLedgerScene: FunctionComponent<{
       let transport: Transport;
 
       try {
-        transport =
-          // XXX: Use WebHID for Starknet because WebUSB doesn't work for Starknet app.
+        // XXX: Use WebHID for Starknet because WebUSB doesn't work for Starknet app.
+        transport = await getLedgerTransport(
           uiConfigStore.useWebHIDLedger || propApp === "Starknet"
-            ? await TransportWebHID.create()
-            : await TransportWebUSB.create();
+        );
       } catch (e) {
         console.log(e);
         setStep("unknown");

@@ -1,7 +1,6 @@
 import { SignEthereumInteractionStore } from "@keplr-wallet/stores-core";
 import { EthSignType } from "@keplr-wallet/types";
 import Transport from "@ledgerhq/hw-transport";
-import TransportWebUSB from "@ledgerhq/hw-transport-webusb";
 import { UREncoder } from "@keystonehq/keystone-sdk";
 import Base from "@keystonehq/hw-app-base";
 import { KeplrError } from "@keplr-wallet/router";
@@ -24,7 +23,6 @@ import {
   messageHash,
 } from "@keplr-wallet/background";
 import { serialize, TransactionTypes } from "@ethersproject/transactions";
-import TransportWebHID from "@ledgerhq/hw-transport-webhid";
 import {
   KeystoneKeys,
   KeystoneUR,
@@ -36,6 +34,7 @@ import {
 } from "./keystone";
 import KeystoneSDK, { UR, utils } from "@keystonehq/keystone-sdk";
 import { EthermintChainIdHelper } from "@keplr-wallet/cosmos";
+import { getLedgerTransport } from "../../../utils/ledger-transport";
 import {
   createKeystoneTransport,
   handleKeystoneUSBError,
@@ -185,9 +184,7 @@ export const connectAndSignEthWithLedger = async (
 ): Promise<Uint8Array> => {
   let transport: Transport;
   try {
-    transport = useWebHID
-      ? await TransportWebHID.create()
-      : await TransportWebUSB.create();
+    transport = await getLedgerTransport(useWebHID);
   } catch (e) {
     throw new KeplrError(
       ErrModuleLedgerSign,
