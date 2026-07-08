@@ -77,37 +77,46 @@ async function refreshAllowed(): Promise<void> {
  */
 export function initEpixNative(): void {
   const browser: any = (globalThis as any).browser;
-  if (!browser?.webRequest?.onBeforeRequest) {
+  // The UI bridge (part 2) only needs runtime messaging; the clearnet block
+  // (part 1) needs webRequest. The mobile shells have no webRequest, so gate
+  // the block on it but always register the bridge - otherwise the Tor/I2P
+  // shield can't reach the native host and stays hidden there.
+  if (!browser?.runtime?.onMessage) {
     return;
   }
 
-  // Prime the allow-list from the native host.
-  refreshAllowed();
-
   // 1. Clearnet block: a request whose origin is a `.epix` page may only reach
   // another `.epix` site or loopback (the node), unless the user allowed that
-  // origin. Ported verbatim from the old browser-ext background.
-  browser.webRequest.onBeforeRequest.addListener(
-    (details: any) => {
-      const originHost = hostOf(details.originUrl || details.documentUrl || "");
-      if (!isEpix(originHost)) return {};
-      const url: string = details.url || "";
-      if (
-        url.startsWith("data:") ||
-        url.startsWith("blob:") ||
-        url.startsWith("about:") ||
-        url.startsWith("moz-extension:")
-      ) {
-        return {};
-      }
-      const targetHost = hostOf(url);
-      if (isEpix(targetHost) || isLocal(targetHost)) return {};
-      if (allowed.has(originHost)) return {};
-      return { cancel: true };
-    },
-    { urls: ["<all_urls>"] },
-    ["blocking"]
-  );
+  // origin. Ported verbatim from the old browser-ext background. Desktop only
+  // (webRequest); on mobile the node/engine enforces the policy instead.
+  if (browser.webRequest?.onBeforeRequest) {
+    // Prime the allow-list from the native host.
+    refreshAllowed();
+
+    browser.webRequest.onBeforeRequest.addListener(
+      (details: any) => {
+        const originHost = hostOf(
+          details.originUrl || details.documentUrl || ""
+        );
+        if (!isEpix(originHost)) return {};
+        const url: string = details.url || "";
+        if (
+          url.startsWith("data:") ||
+          url.startsWith("blob:") ||
+          url.startsWith("about:") ||
+          url.startsWith("moz-extension:")
+        ) {
+          return {};
+        }
+        const targetHost = hostOf(url);
+        if (isEpix(targetHost) || isLocal(targetHost)) return {};
+        if (allowed.has(originHost)) return {};
+        return { cancel: true };
+      },
+      { urls: ["<all_urls>"] },
+      ["blocking"]
+    );
+  }
 
   // 2. UI bridge: the Epix settings page talks to this over runtime messaging.
   //
