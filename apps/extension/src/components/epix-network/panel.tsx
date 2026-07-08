@@ -23,8 +23,27 @@ const StatusDot: FunctionComponent<{ color: string }> = ({ color }) => (
 // other node) settings live. Opened in a new browser tab from the panel.
 const DASHBOARD_CONFIG_URL = "https://dashboard.epix/Config";
 
-function openDashboardConfig(): void {
+async function openDashboardConfig(): Promise<void> {
   const runtime: any = (globalThis as any).browser;
+  // On the mobile shells there is one browser view plus the wallet sheet, and
+  // `.epix` names only resolve in the browser view - so opening the config in
+  // a wallet "tab" would go nowhere. Ask the host app instead (routed through
+  // the background, since native messaging is background-only): it closes the
+  // wallet and points the browser at the node's config page. The desktop
+  // native host does not implement it and answers not-ok, so we fall back to
+  // opening a real browser tab.
+  if (runtime?.runtime?.sendMessage) {
+    try {
+      const res = await runtime.runtime.sendMessage({
+        type: "epix-open-config",
+      });
+      if (res?.ok) {
+        return;
+      }
+    } catch {
+      // background not reachable; fall through to a tab
+    }
+  }
   if (runtime?.tabs?.create) {
     runtime.tabs.create({ url: DASHBOARD_CONFIG_URL });
   } else {

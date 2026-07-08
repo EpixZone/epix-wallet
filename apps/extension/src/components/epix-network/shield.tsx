@@ -12,17 +12,23 @@ import { useEpixStatus, shieldColor } from "./use-epix-status";
  * native host isn't present (e.g. a non-Firefox shell), so it never shows a
  * dead control.
  */
+// Whether we run inside one of the mobile shells (Android GeckoView, iOS
+// WKWebView) rather than desktop Firefox. The bottom-sheet Modal is a portal
+// with a viewport-fixed root that does not position reliably inside those
+// WebViews (it broke outright on the register page's fixed layout-width
+// viewport), so on mobile the shield opens an inline popover anchored under
+// the icon instead. Detected by the user agent - both mobile engines report
+// Android/iOS + "Mobile", desktop Firefox does not.
+const isMobileShell = (): boolean =>
+  typeof navigator !== "undefined" &&
+  /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
 export const EpixNetworkShield: FunctionComponent<{
   size?: string;
-  // How the panel opens on tap:
-  // - "bottom" (default): a bottom-sheet Modal (portal to document.body).
-  // - "inline": an absolutely-positioned popover anchored under the shield,
-  //   with no portal. The register page renders under a fixed layout-width
-  //   viewport (so the wide scenes fit a phone); the portal Modal's
-  //   viewport-fixed root does not position correctly there, so the shield on
-  //   that page uses the inline popover instead.
+  // Panel style override. Defaults to "inline" on the mobile shells and
+  // "bottom" (a bottom-sheet Modal) on desktop.
   panelMode?: "bottom" | "inline";
-}> = observer(({ size = "1.5rem", panelMode = "bottom" }) => {
+}> = observer(({ size = "1.5rem", panelMode }) => {
   const { available, status, torClearnet } = useEpixStatus();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -30,22 +36,28 @@ export const EpixNetworkShield: FunctionComponent<{
     return null;
   }
 
+  const mode = panelMode ?? (isMobileShell() ? "inline" : "bottom");
   const color = shieldColor(status, torClearnet);
 
   const shieldButton = (
     <Box
       cursor="pointer"
-      onClick={() => setIsOpen((v) => (panelMode === "inline" ? !v : true))}
-      width={size}
-      height={size}
+      onClick={() => setIsOpen((v) => (mode === "inline" ? !v : true))}
+      // A comfortable tap target around the small glyph - the icon itself is
+      // `size`, but the clickable area is padded so it is easy to hit on a
+      // phone (the glyph sits near the screen edge).
+      minWidth="2.75rem"
+      minHeight="2.75rem"
       alignX="center"
       alignY="center"
     >
-      <ShieldIcon color={color} />
+      <Box width={size} height={size} alignX="center" alignY="center">
+        <ShieldIcon color={color} />
+      </Box>
     </Box>
   );
 
-  if (panelMode === "inline") {
+  if (mode === "inline") {
     return (
       <div style={{ position: "relative" }}>
         {shieldButton}

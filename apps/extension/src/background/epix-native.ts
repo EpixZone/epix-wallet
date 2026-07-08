@@ -147,6 +147,14 @@ export function initEpixNative(): void {
           ok: true,
           sites: Array.from(allowed),
         }));
+      case "epix-open-config":
+        // Ask the host to open the node's config page in the browser. Only
+        // the mobile hosts implement this (the desktop epix-nmh answers with
+        // an error); the panel falls back to a browser tab when not ok.
+        return nativeSend({ cmd: "openConfig" }).then(
+          (r: any) => (r && r.ok ? { ok: true } : { ok: false }),
+          () => ({ ok: false })
+        );
       case "epix-set-clearnet-allow": {
         const site: string = msg.site;
         const allow = !!msg.allow;
