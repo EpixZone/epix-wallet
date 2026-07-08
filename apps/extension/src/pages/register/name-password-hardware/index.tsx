@@ -16,6 +16,14 @@ import { useIntl } from "react-intl";
 import { Dropdown } from "../../../components/dropdown";
 import { Label } from "../../../components/input";
 
+// Keystone's USB mode needs WebUSB, which only Chromium has. The Epix shells
+// (desktop Firefox, Android GeckoView, iOS WKWebView) do not, so offer only
+// the QR (camera) mode there. Ledger has no QR mode; it goes through the
+// native transport bridge instead (see utils/ledger-transport.ts).
+const hasWebUSB =
+  typeof navigator !== "undefined" &&
+  typeof (navigator as any).usb !== "undefined";
+
 export const RegisterNamePasswordHardwareScene: FunctionComponent<{
   type: string;
 }> = observer(({ type }) => {
@@ -43,8 +51,10 @@ export const RegisterNamePasswordHardwareScene: FunctionComponent<{
     },
   });
 
-  const [keystoneWay, setKeystoneWay] = useState<string>("USB");
-  const [isKeystoneUSB, setIsKeystoneUSB] = useState(true);
+  const [keystoneWay, setKeystoneWay] = useState<string>(
+    hasWebUSB ? "USB" : "QR"
+  );
+  const [isKeystoneUSB, setIsKeystoneUSB] = useState(hasWebUSB);
   useEffect(() => {
     if (headerHasSet && type === "keystone") {
       const prev = header.header;
@@ -185,12 +195,16 @@ export const RegisterNamePasswordHardwareScene: FunctionComponent<{
                 size="large"
                 selectedItemKey={keystoneWay}
                 items={[
-                  {
-                    key: "USB",
-                    label: intl.formatMessage({
-                      id: "pages.register.name-password-hardware.connect-to-keystone-USB",
-                    }),
-                  },
+                  ...(hasWebUSB
+                    ? [
+                        {
+                          key: "USB",
+                          label: intl.formatMessage({
+                            id: "pages.register.name-password-hardware.connect-to-keystone-USB",
+                          }),
+                        },
+                      ]
+                    : []),
                   {
                     key: "QR",
                     label: intl.formatMessage({
