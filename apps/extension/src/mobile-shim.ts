@@ -78,16 +78,21 @@ function dispatchMessage(message: any): Promise<any> {
 
 const LOCAL_PREFIX = "epix-ext-storage/";
 
+// A WebExtension storage area over a string-keyed backend. The backend is
+// async so it can be the native persistent store: WKWebView's localStorage
+// is unreliable (it comes back null in the mobile shell), and the keyring
+// vault must survive there, so storage.local is persisted by the host app
+// (see the epixStore bridge below). storage.session stays in memory.
 function storageArea(backend: {
-  get: (k: string) => string | null;
-  set: (k: string, v: string) => void;
-  remove: (k: string) => void;
-  keys: () => string[];
+  get: (k: string) => Promise<string | null>;
+  set: (k: string, v: string) => Promise<void>;
+  remove: (k: string) => Promise<void>;
+  keys: () => Promise<string[]>;
 }) {
   const get = async (keys?: any): Promise<Record<string, any>> => {
     const out: Record<string, any> = {};
-    const read = (k: string, fallback?: any) => {
-      const raw = backend.get(k);
+    const read = async (k: string, fallback?: any) => {
+      const raw = await backend.get(k);
       if (raw != null) {
         try {
           out[k] = JSON.parse(raw);
@@ -99,27 +104,100 @@ function storageArea(backend: {
       if (fallback !== undefined) out[k] = fallback;
     };
     if (keys == null) {
-      for (const k of backend.keys()) read(k);
+      const all = await backend.keys();
+      await Promise.all(all.map((k) => read(k)));
     } else if (typeof keys === "string") {
-      read(keys);
+      await read(keys);
     } else if (Array.isArray(keys)) {
-      keys.forEach((k) => read(k));
+      await Promise.all(keys.map((k) => read(k)));
     } else {
-      Object.keys(keys).forEach((k) => read(k, keys[k]));
+      await Promise.all(Object.keys(keys).map((k) => read(k, keys[k])));
     }
     return out;
   };
   return {
     get,
     set: async (items: Record<string, any>) => {
-      for (const k of Object.keys(items)) {
-        backend.set(k, JSON.stringify(items[k]));
-      }
+      await Promise.all(
+        Object.keys(items).map((k) => backend.set(k, JSON.stringify(items[k])))
+      );
     },
     remove: async (keys: string | string[]) => {
-      (Array.isArray(keys) ? keys : [keys]).forEach((k) => backend.remove(k));
+      await Promise.all(
+        (Array.isArray(keys) ? keys : [keys]).map((k) => backend.remove(k))
+      );
     },
     onChanged: stubEvent(),
+  };
+}
+
+// The persistent store for storage.local: the host app over epixStore, with
+// an in-memory + localStorage fallback for a plain browser (the register page
+// preview, and any non-mobile use of these pages).
+let storeSeq = 0;
+const storePending = new Map<
+  number,
+  { resolve: (v: any) => void; reject: (e: any) => void }
+>();
+
+(window as any).__epixStoreReply = (id: number, result: any) => {
+  storePending.get(id)?.resolve(result);
+  storePending.delete(id);
+};
+
+function sendStore(op: object): Promise<any> {
+  const handler = (window as any).webkit?.messageHandlers?.epixStore;
+  return new Promise((resolve, reject) => {
+    const id = ++storeSeq;
+    storePending.set(id, { resolve, reject });
+    handler.postMessage(JSON.stringify({ id, op }));
+  });
+}
+
+const memStore = new Map<string, string>();
+
+function localBackend() {
+  const nativeOk = !!(window as any).webkit?.messageHandlers?.epixStore;
+  const lsOk = (() => {
+    try {
+      return typeof window.localStorage?.getItem === "function";
+    } catch {
+      return false;
+    }
+  })();
+  if (nativeOk) {
+    return {
+      get: (k: string) => sendStore({ cmd: "get", key: k }),
+      set: (k: string, v: string) =>
+        sendStore({ cmd: "set", key: k, value: v }),
+      remove: (k: string) => sendStore({ cmd: "remove", key: k }),
+      keys: () => sendStore({ cmd: "keys" }),
+    };
+  }
+  if (lsOk) {
+    return {
+      get: async (k: string) => window.localStorage.getItem(LOCAL_PREFIX + k),
+      set: async (k: string, v: string) =>
+        window.localStorage.setItem(LOCAL_PREFIX + k, v),
+      remove: async (k: string) =>
+        window.localStorage.removeItem(LOCAL_PREFIX + k),
+      keys: async () => {
+        const out: string[] = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const k = window.localStorage.key(i);
+          if (k && k.startsWith(LOCAL_PREFIX)) {
+            out.push(k.slice(LOCAL_PREFIX.length));
+          }
+        }
+        return out;
+      },
+    };
+  }
+  return {
+    get: async (k: string) => memStore.get(k) ?? null,
+    set: async (k: string, v: string) => void memStore.set(k, v),
+    remove: async (k: string) => void memStore.delete(k),
+    keys: async () => [...memStore.keys()],
   };
 }
 
@@ -198,26 +276,12 @@ const browserShim = {
     }),
   },
   storage: {
-    local: storageArea({
-      get: (k) => window.localStorage.getItem(LOCAL_PREFIX + k),
-      set: (k, v) => window.localStorage.setItem(LOCAL_PREFIX + k, v),
-      remove: (k) => window.localStorage.removeItem(LOCAL_PREFIX + k),
-      keys: () => {
-        const out: string[] = [];
-        for (let i = 0; i < window.localStorage.length; i++) {
-          const k = window.localStorage.key(i);
-          if (k && k.startsWith(LOCAL_PREFIX)) {
-            out.push(k.slice(LOCAL_PREFIX.length));
-          }
-        }
-        return out;
-      },
-    }),
+    local: storageArea(localBackend()),
     session: storageArea({
-      get: (k) => sessionMem.get(k) ?? null,
-      set: (k, v) => void sessionMem.set(k, v),
-      remove: (k) => void sessionMem.delete(k),
-      keys: () => [...sessionMem.keys()],
+      get: async (k) => sessionMem.get(k) ?? null,
+      set: async (k, v) => void sessionMem.set(k, v),
+      remove: async (k) => void sessionMem.delete(k),
+      keys: async () => [...sessionMem.keys()],
     }),
     onChanged: stubEvent(),
   },
@@ -225,17 +289,21 @@ const browserShim = {
     // Full pages (register, sign approvals) replace this document, exactly
     // like the Android sheet behaves. The extension's page names map to
     // their mobile builds (same app + the in-page background + this shim).
-    create: async (options: { url?: string }) => {
+    // The returned promise intentionally never resolves: callers commonly do
+    // `tabs.create(...).then(() => window.close())`, and letting that run
+    // would race the navigation we just kicked off. The document is
+    // unloading, so nothing downstream needs the result.
+    create: (options: { url?: string }) => {
       if (options?.url) {
         window.location.href = toMobileUrl(options.url);
       }
-      return { id: 1 };
+      return new Promise<{ id: number }>(() => {});
     },
-    update: async (_id: number, options: { url?: string }) => {
+    update: (_id: number, options: { url?: string }) => {
       if (options?.url) {
         window.location.href = toMobileUrl(options.url);
       }
-      return { id: 1 };
+      return new Promise<{ id: number }>(() => {});
     },
     remove: async () => {
       // The host app owns the sheet; ask it to close.
@@ -279,5 +347,78 @@ if (!(globalThis as any).browser?.runtime?.id) {
   (globalThis as any).browser = browserShim;
   (globalThis as any).chrome = browserShim;
 }
+
+// A synchronous localStorage polyfill for the mobile shell. Some wallet code
+// touches window.localStorage directly (an EVM-migration flag, WalletConnect,
+// the LocalKVStore), and WKWebView returns null for it here. Back it with an
+// in-memory map, persisted through the native store (best-effort) so it
+// survives across launches. Installed only when the real one is unusable.
+function installLocalStoragePolyfill(): void {
+  // On the mobile shell, always override window.localStorage with the
+  // native-backed polyfill: WKWebView's own localStorage is unreliable here
+  // (it reads as a working object one moment and null the next, crashing any
+  // direct localStorage.getItem). Off the shell (no native store, e.g. a
+  // plain browser preview) leave the real one in place.
+  if (!(window as any).webkit?.messageHandlers?.epixStore) return;
+
+  const LS_PREFIX = "epix-ls/";
+  const mem = new Map<string, string>();
+
+  const storage = {
+    getItem: (k: string): string | null => (mem.has(k) ? mem.get(k)! : null),
+    setItem: (k: string, v: string) => {
+      mem.set(k, String(v));
+      sendStore({ cmd: "set", key: LS_PREFIX + k, value: String(v) });
+    },
+    removeItem: (k: string) => {
+      mem.delete(k);
+      sendStore({ cmd: "remove", key: LS_PREFIX + k });
+    },
+    clear: () => {
+      for (const k of [...mem.keys()]) {
+        sendStore({ cmd: "remove", key: LS_PREFIX + k });
+      }
+      mem.clear();
+    },
+    key: (i: number): string | null => [...mem.keys()][i] ?? null,
+    get length() {
+      return mem.size;
+    },
+  };
+
+  let installed = false;
+  try {
+    Object.defineProperty(window, "localStorage", {
+      value: storage,
+      configurable: true,
+      writable: false,
+    });
+    installed = window.localStorage === (storage as any);
+  } catch {
+    // fall through to direct assignment
+  }
+  if (!installed) {
+    try {
+      (window as any).localStorage = storage;
+    } catch {
+      // give up; the native store still backs browser.storage.local
+    }
+  }
+
+  // Hydrate from the native store (async, best-effort). The direct consumers
+  // are optional features that tolerate a cold miss on the very first launch.
+  sendStore({ cmd: "keys" }).then(async (keys: string[]) => {
+    await Promise.all(
+      (keys || [])
+        .filter((k) => k.startsWith(LS_PREFIX))
+        .map(async (k) => {
+          const v = await sendStore({ cmd: "get", key: k });
+          if (typeof v === "string") mem.set(k.slice(LS_PREFIX.length), v);
+        })
+    );
+  });
+}
+
+installLocalStoragePolyfill();
 
 export {};
