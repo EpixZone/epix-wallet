@@ -1,0 +1,22 @@
+# gitleaks config for epix-wallet.
+# Extends the default ruleset and allowlists known-noisy paths so CI surfaces
+# only real secrets. Trufflehog (verified scan) found 0 live secrets here; the
+# default gitleaks run flags build output, the bundled yarn binary, and test
+# vectors as generic-api-key false positives.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Build artifacts, vendored tooling, and test fixtures"
+paths = [
+  '''apps/.*/build/.*''',
+  '''.*/dist/.*''',
+  '''\.yarn/releases/.*''',
+  '''\.yarn/.*\.cjs''',
+  '''.*\.test\.(ts|tsx|js|jsx)''',
+  '''.*\.spec\.(ts|tsx|js|jsx)''',
+  '''.*/__snapshots__/.*''',
+  '''.*/__tests__/.*''',
+  '''.*/testdata/.*''',
+  '''yarn\.lock''',
+]
