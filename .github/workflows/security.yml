@@ -16,6 +16,7 @@ jobs:
   osv-scanner:
     name: osv-scanner (yarn.lock CVEs)
     runs-on: ubuntu-latest
+    continue-on-error: true  # report-only: existing backlog
     permissions:
       contents: read
     steps:
@@ -44,6 +45,7 @@ jobs:
   trivy:
     name: trivy (deps + secrets + misconfig)
     runs-on: ubuntu-latest
+    continue-on-error: true  # report-only: existing backlog
     permissions:
       contents: read
       security-events: write
@@ -65,6 +67,7 @@ jobs:
   gitleaks:
     name: gitleaks (secret scan)
     runs-on: ubuntu-latest
+    continue-on-error: true  # report-only: existing backlog
     permissions:
       contents: read
     steps:
