@@ -27,7 +27,9 @@ export const EarnOverviewExternalLink: FunctionComponent<{
       <XAxis alignY="center" gap="0.375rem">
         <DiamondStarIcon
           color={
-            isLightMode ? ColorPalette["purple-300"] : ColorPalette["purple-200"]
+            isLightMode
+              ? ColorPalette["purple-300"]
+              : ColorPalette["purple-200"]
           }
           width="0.875rem"
           height="0.875rem"
