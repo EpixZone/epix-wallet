@@ -485,7 +485,7 @@ const SuggestionTooltipContent: FunctionComponent<{
           }}
         >
           <XAxis gap="0.25rem" alignY="center">
-            <FireIcon color={ColorPalette["blue-400"]} />
+            <FireIcon color={ColorPalette["purple-400"]} />
             <Body3
               color={
                 theme.mode === "light"

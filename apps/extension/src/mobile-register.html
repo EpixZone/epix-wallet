@@ -1,17 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="background: #09090a">
   <head>
     <meta charset="UTF-8" />
     <!--
-      The register page for the mobile wallet: like register.html (fixed
-      layout-width viewport so the wide scenes scale to fit a phone), but
+      The register page for the mobile wallet: like register.html (the
+      register scenes are responsive, so a normal device-width viewport), but
       with the background services and the mobile shim in the same document,
       since there is no extension background process on mobile.
     -->
-    <meta name="viewport" content="width=880" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Epix Wallet</title>
   </head>
-  <body>
-    <div id="app"></div>
+  <body style="margin: 0; background: #09090a">
+    <div id="app">
+      <!-- Inline splash: paints before the bundles parse and is replaced by
+           the app's first render. Dark on every theme, like the shells'
+           native launch screens. -->
+      <style>
+        @keyframes epix-splash {
+          0%, 100% { opacity: 0.5; transform: scale(0.96); }
+          50% { opacity: 1; transform: scale(1); }
+        }
+      </style>
+      <div style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #09090a">
+        <svg viewBox="0 0 72 72" width="88" height="88" fill="none" style="animation: epix-splash 1.6s ease-in-out infinite">
+          <path d="M54.7402 54.7937L68.7215 40.8112C73.4302 36.1037 70.184 32.1425 68.8152 30.7737L54.7402 16.6987V54.7937Z" fill="#8A4BDB"/>
+          <path d="M16.4302 16.6927L30.4114 2.71144C35.1202 -1.99106 39.0864 1.25394 40.4552 2.61769L54.5302 16.6927H16.4302Z" fill="#5954CD"/>
+          <path d="M16.5562 54.8149L30.5387 68.7974C35.2462 73.4999 39.2124 70.2549 40.5762 68.8899L54.6512 54.8149H16.5562Z" fill="#69E9F5"/>
+          <path d="M16.5236 16.709L2.56858 30.7127C-2.16142 35.399 1.08358 39.359 2.44858 40.729L16.5236 54.804V16.709Z" fill="#31BDC6"/>
+        </svg>
+      </div>
+    </div>
   </body>
 </html>

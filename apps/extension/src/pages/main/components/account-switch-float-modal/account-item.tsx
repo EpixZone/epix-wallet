@@ -1,12 +1,11 @@
 import React, { useState } from "react";
 import styled, { css, useTheme } from "styled-components";
 import { ColorPalette } from "../../../../styles";
-import { Body3, Caption2, Subtitle4 } from "../../../../components/typography";
+import { Body3, Subtitle4 } from "../../../../components/typography";
 import { KeyInfo } from "@keplr-wallet/background";
 import { observer } from "mobx-react-lite";
 import { EllipsisIcon } from "../../../../components/icon";
 import { XAxis, YAxis } from "../../../../components/axis";
-import { Image } from "../../../../components/image";
 import { Gutter } from "../../../../components/gutter";
 import { COMMON_HOVER_OPACITY } from "../../../../styles/constant";
 import { useIntl } from "react-intl";
@@ -20,10 +19,8 @@ import {
 import { autoUpdate } from "@floating-ui/react-dom";
 import { FloatModal } from "../../../../components/float-modal";
 import { useGetKeyInfoParagraph } from "../../../../hooks/key-info";
-import { useGetIcnsName } from "../../../../hooks/use-get-icns-name";
 import { ContextMenuStyles } from "../../../../components/context-menu";
 import { AccountNameIcon } from "../account-icon";
-import { PortalTooltip } from "../../../../components/tooltip/portal";
 
 const Styles = {
   AccountItem: styled.div<{ isSelected: boolean }>`
@@ -119,12 +116,10 @@ const Styles = {
 export const AccountItemSwitchModal = observer(
   ({
     keyInfo,
-    bech32Address,
     isSelected,
     onSelect,
   }: {
     keyInfo: KeyInfo;
-    bech32Address: string;
     isSelected: boolean;
     onSelect: (isSelected: boolean) => void;
   }) => {
@@ -143,7 +138,6 @@ export const AccountItemSwitchModal = observer(
     const dismiss = useDismiss(context);
     const { getReferenceProps, getFloatingProps } = useInteractions([dismiss]);
 
-    const icnsPrimaryName = useGetIcnsName(bech32Address);
     const paragraph = useGetKeyInfoParagraph(keyInfo, true);
     const dropdownItems = (() => {
       const defaults = [
@@ -215,32 +209,6 @@ export const AccountItemSwitchModal = observer(
                 <Styles.AccountName isSelected={isSelected}>
                   {accountName}
                 </Styles.AccountName>
-                {icnsPrimaryName && (
-                  <React.Fragment>
-                    <Gutter size="0.375rem" />
-                    <PortalTooltip
-                      hideArrow={true}
-                      content={
-                        <Caption2 color={ColorPalette["white"]}>
-                          {icnsPrimaryName}
-                        </Caption2>
-                      }
-                      allowedPlacements={["top"]}
-                    >
-                      <Image
-                        alt="icns-icon"
-                        src={require(theme.mode === "light"
-                          ? "../../../../public/assets/img/icns-icon-light.png"
-                          : "../../../../public/assets/img/icns-icon.png")}
-                        style={{
-                          width: "1rem",
-                          height: "1rem",
-                          opacity: isSelected ? COMMON_HOVER_OPACITY : 1,
-                        }}
-                      />
-                    </PortalTooltip>
-                  </React.Fragment>
-                )}
               </XAxis>
               {paragraph ? (
                 <React.Fragment>

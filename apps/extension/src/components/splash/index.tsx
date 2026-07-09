@@ -30,7 +30,7 @@ export const Splash: FunctionComponent = () => {
       position="fixed"
       backgroundColor={
         theme.mode === "light"
-          ? ColorPalette["light-gradient"]
+          ? ColorPalette["light-background"]
           : ColorPalette["gray-700"]
       }
       style={{

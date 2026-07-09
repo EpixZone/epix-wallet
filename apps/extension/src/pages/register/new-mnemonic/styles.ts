@@ -8,6 +8,12 @@ export const Styles = {
     display: grid;
     grid-template-columns: repeat(${({ columns }) => columns}, 1fr);
     gap: 0.75rem 0;
+
+    // On narrow (phone) viewports the scene is fluid and 3-4 columns leave
+    // the word inputs too small to read, so fall back to two columns.
+    @media screen and (max-width: 480px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
   `,
 
   IndexText: styled.div`

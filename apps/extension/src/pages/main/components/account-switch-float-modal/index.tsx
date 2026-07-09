@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import styled, { useTheme } from "styled-components";
 import SimpleBar from "simplebar-react";
 import { ColorPalette } from "../../../../styles";
@@ -36,10 +36,7 @@ export const AccountSwitchFloatModal = observer(
       "x" | "y" | "strategy" | "refs"
     >;
   }) => {
-    const { keyRingStore, chainStore, uiConfigStore } = useStore();
-    const [addressMap, setAddressMap] = useState<Map<string, string>>(
-      new Map()
-    );
+    const { keyRingStore, chainStore } = useStore();
     const searchInputRef = useRef<HTMLInputElement>(null);
     const intl = useIntl();
     const theme = useTheme();
@@ -60,30 +57,6 @@ export const AccountSwitchFloatModal = observer(
         searchInputRef.current.focus();
       }
     }, [isOpen, shouldShowSearch]);
-
-    useEffect(() => {
-      (async () => {
-        if (uiConfigStore.icnsInfo) {
-          const keysSettled =
-            await uiConfigStore.addressBookConfig.getVaultCosmosKeysSettled(
-              chainStore.getModularChain(uiConfigStore.icnsInfo.chainId).chainId
-            );
-          const addressMap = new Map<string, string>();
-          keysSettled.forEach((res) => {
-            if (res.status === "fulfilled") {
-              addressMap.set(res.value.vaultId, res.value.bech32Address);
-            }
-          });
-          setAddressMap(addressMap);
-        }
-      })();
-    }, [
-      chainStore,
-      uiConfigStore.addressBookConfig,
-      uiConfigStore.icnsInfo,
-      // 새로 추가된 계정의 bech32Address를 포함하도록
-      keyRingStore.keyInfos.length,
-    ]);
 
     const handleAccountSelect = async (keyInfo: KeyInfo) => {
       if (keyInfo.id === keyRingStore.selectedKeyInfo?.id) {
@@ -212,7 +185,6 @@ export const AccountSwitchFloatModal = observer(
 
                         handleAccountSelect(keyInfo);
                       }}
-                      bech32Address={addressMap.get(keyInfo.id) ?? ""}
                     />
                   );
                 })}

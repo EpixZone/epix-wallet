@@ -1934,7 +1934,7 @@ export const EnableChainsScene: FunctionComponent<{
         </VerticalCollapseTransition>
 
         <Gutter size="1.25rem" />
-        <Box width="22.5rem" marginX="auto">
+        <Box width="100%" maxWidth="22.5rem" marginX="auto">
           <div ref={buttonContainerRef}>
             <Button
               text={intl.formatMessage({

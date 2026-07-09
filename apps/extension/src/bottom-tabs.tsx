@@ -59,10 +59,10 @@ export const BottomTabsRouteProvider: FunctionComponent<
     }
 
     if (theme.mode === "light") {
-      return isActive ? ColorPalette["blue-400"] : ColorPalette["gray-200"];
+      return isActive ? ColorPalette["purple-400"] : ColorPalette["gray-200"];
     }
 
-    return isActive ? ColorPalette["blue-400"] : ColorPalette["gray-300"];
+    return isActive ? ColorPalette["purple-400"] : ColorPalette["gray-300"];
   };
 
   return (
@@ -157,7 +157,7 @@ export const BottomTabsRouteProvider: FunctionComponent<
 
                         if (theme.mode === "light") {
                           return isActive
-                            ? ColorPalette["blue-400"]
+                            ? ColorPalette["purple-400"]
                             : ColorPalette["gray-100"];
                         }
 
@@ -183,7 +183,10 @@ export const BottomTabsRouteProvider: FunctionComponent<
                           transform: "translateX(-50%)",
                           width: "18px",
                           height: "2px",
-                          backgroundColor: "#14afeb",
+                          backgroundColor:
+                            theme.mode === "light"
+                              ? ColorPalette["purple-400"]
+                              : ColorPalette["cyan-400"],
                           borderRadius: "31px",
                         }}
                       />

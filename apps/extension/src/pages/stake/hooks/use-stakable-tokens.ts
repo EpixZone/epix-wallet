@@ -1,14 +1,13 @@
 import { useMemo } from "react";
 import { useStore } from "../../../stores";
-import { useKcrStakingUrls } from "../../../hooks/use-kcr-staking-urls";
 import { Dec } from "@keplr-wallet/unit";
 import { ViewToken } from "../../main";
+import { supportsNativeStaking } from "../utils";
 
 const zeroDec = new Dec(0);
 
 export const useStakableTokens = () => {
   const { hugeQueriesStore, priceStore } = useStore();
-  const { getKcrStakingUrl, hasKcrStakingUrl } = useKcrStakingUrls();
 
   const stakableTokens = useMemo(() => {
     return hugeQueriesStore.stakables
@@ -25,15 +24,10 @@ export const useStakableTokens = () => {
         if (token.chainInfo.type === "bitcoin") {
           return false;
         }
-        const hasNativeUrl = (() => {
-          if (!token.chainInfo.embedded.isBuiltInChain) return false;
-          const u = token.chainInfo.unwrapped;
-          if (u.type === "cosmos" || u.type === "ethermint") {
-            return !!u.cosmos.walletUrlForStaking;
-          }
+        if (token.chainInfo.isTestnet) {
           return false;
-        })();
-        return hasNativeUrl || hasKcrStakingUrl(token.chainInfo.chainId);
+        }
+        return supportsNativeStaking(token.chainInfo);
       })
       .sort((a, b) => {
         const aPrice = priceStore.calculatePrice(a.token)?.toDec() ?? zeroDec;
@@ -44,18 +38,15 @@ export const useStakableTokens = () => {
         }
         return aPrice.gt(bPrice) ? -1 : 1;
       });
-  }, [hugeQueriesStore.stakables, priceStore, hasKcrStakingUrl]);
+  }, [hugeQueriesStore.stakables, priceStore]);
 
+  // Only the chains without a native staking flow keep an external url
+  // (e.g. starknet). Cosmos chains stake natively inside the wallet.
   const getStakingUrl = (viewToken: ViewToken): string | undefined => {
     if (viewToken.chainInfo.type === "starknet") {
       return "https://voyager.online/staking";
     }
-    const u = viewToken.chainInfo.unwrapped;
-    const walletUrlForStaking =
-      u.type === "cosmos" || u.type === "ethermint"
-        ? u.cosmos.walletUrlForStaking
-        : undefined;
-    return walletUrlForStaking || getKcrStakingUrl(viewToken.chainInfo.chainId);
+    return undefined;
   };
 
   return {

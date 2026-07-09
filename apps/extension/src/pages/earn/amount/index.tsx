@@ -325,13 +325,13 @@ export const EarnAmountPage: FunctionComponent = observer(() => {
                 }}
                 color={
                   isLightMode
-                    ? ColorPalette["blue-500"]
-                    : ColorPalette["blue-300"]
+                    ? ColorPalette["purple-500"]
+                    : ColorPalette["purple-300"]
                 }
                 hoverColor={
                   isLightMode
-                    ? ColorPalette["blue-300"]
-                    : ColorPalette["blue-200"]
+                    ? ColorPalette["purple-300"]
+                    : ColorPalette["purple-200"]
                 }
               >
                 {intl.formatMessage({

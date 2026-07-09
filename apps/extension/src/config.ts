@@ -5,6 +5,15 @@ export type EmbedChainInfo = (ChainInfo | ModularChainInfo) & {
   readonly hideInNativeChainUI?: boolean;
 };
 
+// EPIX's logo ships inside the extension: in the Epix browser all clearnet
+// rides Tor (when the shield is on) and raw.githubusercontent.com refuses
+// most Tor exits, so a remote logo URL would never load there. Bundling makes
+// the home chain's mark instant and offline-safe on every shell. Other
+// chains keep their registry URLs and degrade to letter avatars when
+// unreachable.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const EPIX_LOGO: string = require("./public/assets/logo-256.png");
+
 export const EmbedChainInfos: EmbedChainInfo[] = [
   // EPIX is this wallet's home chain: first in the list, default on fresh
   // installs. A Cosmos SDK chain with EVM (like Injective below): coinType 60,
@@ -18,14 +27,12 @@ export const EmbedChainInfos: EmbedChainInfo[] = [
     },
     chainId: "epix_1916-1",
     chainName: "Epix",
-    chainSymbolImageUrl:
-      "https://raw.githubusercontent.com/EpixZone/assets/main/images/icons/icon.png",
+    chainSymbolImageUrl: EPIX_LOGO,
     stakeCurrency: {
       coinDenom: "EPIX",
       coinMinimalDenom: "aepix",
       coinDecimals: 18,
-      coinImageUrl:
-        "https://raw.githubusercontent.com/EpixZone/assets/main/images/icons/icon.png",
+      coinImageUrl: EPIX_LOGO,
     },
     bip44: {
       coinType: 60,
@@ -36,8 +43,7 @@ export const EmbedChainInfos: EmbedChainInfo[] = [
         coinDenom: "EPIX",
         coinMinimalDenom: "aepix",
         coinDecimals: 18,
-        coinImageUrl:
-          "https://raw.githubusercontent.com/EpixZone/assets/main/images/icons/icon.png",
+        coinImageUrl: EPIX_LOGO,
       },
     ],
     feeCurrencies: [
@@ -45,8 +51,7 @@ export const EmbedChainInfos: EmbedChainInfo[] = [
         coinDenom: "EPIX",
         coinMinimalDenom: "aepix",
         coinDecimals: 18,
-        coinImageUrl:
-          "https://raw.githubusercontent.com/EpixZone/assets/main/images/icons/icon.png",
+        coinImageUrl: EPIX_LOGO,
         // The live feemarket sits around 20-25 gwei (eth_gasPrice probe);
         // aepix is 18 decimals so these are wei-scale like Injective's.
         gasPriceStep: {

@@ -761,7 +761,7 @@ const KeyringItem = observer<
             border: isSelected
               ? `1px solid ${
                   theme.mode === "light"
-                    ? ColorPalette["blue-400"]
+                    ? ColorPalette["purple-400"]
                     : ColorPalette["white"]
                 }`
               : undefined,

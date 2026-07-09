@@ -49,7 +49,7 @@ export const AllNativeToggleItem: FunctionComponent<
       iconElement={<IconElement />}
       style={{
         border: `0.09375rem solid ${
-          ColorPalette[theme.mode === "light" ? "blue-200" : "blue-700"]
+          ColorPalette[theme.mode === "light" ? "purple-200" : "purple-700"]
         }`,
       }}
     />
@@ -69,9 +69,7 @@ const IconElement = () => {
         justifyContent: "center",
         borderRadius: "1000000px",
         background:
-          theme.mode === "light"
-            ? "rgba(220, 220, 227, 0.50)"
-            : "linear-gradient(180deg, #323A6B 0%, #1A1B41 100%)",
+          theme.mode === "light" ? "rgba(220, 220, 227, 0.50)" : "#262A56",
       }}
     >
       {theme.mode === "light" ? (

@@ -13,6 +13,8 @@ import { IModularChainInfoImpl } from "@keplr-wallet/stores";
 import { ThemeOption } from "../../../theme";
 import { INITIA_CHAIN_ID } from "../../../config.ui";
 import { useGetStakingApr } from "../../../hooks/use-get-staking-apr";
+import { useNavigate } from "react-router";
+import { supportsNativeStaking } from "../../stake/utils";
 
 export const StakedBalance: FunctionComponent<{
   modularChainInfo: IModularChainInfoImpl;
@@ -33,13 +35,14 @@ const CosmosStakedBalance: FunctionComponent<{
   chainId: string;
 }> = observer(({ chainId }) => {
   const theme = useTheme();
+  const navigate = useNavigate();
 
   const { queriesStore, accountStore, chainStore, uiConfigStore } = useStore();
 
   const [isHover, setIsHover] = useState(false);
 
   const modularChainInfo = chainStore.getModularChain(chainId);
-  const u = modularChainInfo.unwrapped;
+  const isNativeStaking = supportsNativeStaking(modularChainInfo);
 
   const cosmosAPRDec = useGetStakingApr(chainId);
   const cosmosAPR = cosmosAPRDec
@@ -60,28 +63,22 @@ const CosmosStakedBalance: FunctionComponent<{
 
   return (
     <StakedBalanceLayout
-      stakingUrl={
-        u.type === "cosmos" || u.type === "ethermint"
-          ? u.cosmos.walletUrlForStaking
+      onClick={
+        isNativeStaking
+          ? () => {
+              navigate(`/stake?chainId=${chainId}`);
+            }
           : undefined
       }
       isHover={isHover}
       onHoverStateChange={setIsHover}
     >
       <XAxis alignY="center">
-        {theme.mode === "light" ? (
-          <StakingGradientLightIcon />
-        ) : (
-          <StakingGradientDarkIcon />
-        )}
+        {theme.mode === "light" ? <StakingLightIcon /> : <StakingDarkIcon />}
         <Gutter size="0.75rem" />
         <YAxis>
           {(() => {
-            if (
-              stakeBalanceIsZero &&
-              (u.type === "cosmos" || u.type === "ethermint") &&
-              u.cosmos.walletUrlForStaking
-            ) {
+            if (stakeBalanceIsZero && isNativeStaking) {
               return (
                 <React.Fragment>
                   <Subtitle1
@@ -162,8 +159,7 @@ const CosmosStakedBalance: FunctionComponent<{
             </Subtitle3>
           ) : null}
 
-          {(u.type === "cosmos" || u.type === "ethermint") &&
-          u.cosmos.walletUrlForStaking ? (
+          {isNativeStaking ? (
             stakeBalanceIsZero ? (
               <React.Fragment>
                 <Gutter size="0.25rem" />
@@ -248,12 +244,12 @@ const StarknetStakedBalance: FunctionComponent<{
           stakeBalanceIsZero ? (
             <VoyagerLightIcon />
           ) : (
-            <StakingGradientLightIcon />
+            <StakingLightIcon />
           )
         ) : stakeBalanceIsZero ? (
           <VoyagerDarkIcon />
         ) : (
-          <StakingGradientDarkIcon />
+          <StakingDarkIcon />
         )}
         <Gutter size="0.75rem" />
         <YAxis>
@@ -432,43 +428,52 @@ const StarknetStakedBalance: FunctionComponent<{
 });
 
 const StakedBalanceLayout: FunctionComponent<{
+  // External staking page for the chains without a native staking flow.
   stakingUrl?: string;
+  // Used instead of stakingUrl when staking is handled inside the wallet.
+  onClick?: () => void;
   isHover: boolean;
   onHoverStateChange: (isHover: boolean) => void;
   children: React.ReactNode;
-}> = observer(({ stakingUrl, isHover, onHoverStateChange, children }) => {
-  const theme = useTheme();
+}> = observer(
+  ({ stakingUrl, onClick, isHover, onHoverStateChange, children }) => {
+    const theme = useTheme();
 
-  const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (stakingUrl) {
-      browser.tabs.create({ url: stakingUrl });
-    }
-  };
+    const handleClick = (e: React.MouseEvent) => {
+      e.preventDefault();
+      if (onClick) {
+        onClick();
+        return;
+      }
+      if (stakingUrl) {
+        browser.tabs.create({ url: stakingUrl });
+      }
+    };
 
-  return (
-    <Box paddingX="0.75rem">
-      <Box
-        backgroundColor={getBackgroundColor(isHover, theme.mode)}
-        style={{
-          boxShadow:
-            theme.mode === "light"
-              ? "0 1px 4px 0 rgba(43,39,55,0.1)"
-              : undefined,
-        }}
-        cursor={stakingUrl ? "pointer" : undefined}
-        onClick={handleClick}
-        onHoverStateChange={onHoverStateChange}
-        borderRadius="0.375rem"
-        padding="1rem"
-      >
-        {children}
+    return (
+      <Box paddingX="0.75rem">
+        <Box
+          backgroundColor={getBackgroundColor(isHover, theme.mode)}
+          style={{
+            boxShadow:
+              theme.mode === "light"
+                ? "0 1px 4px 0 rgba(43,39,55,0.1)"
+                : undefined,
+          }}
+          cursor={stakingUrl || onClick ? "pointer" : undefined}
+          onClick={handleClick}
+          onHoverStateChange={onHoverStateChange}
+          borderRadius="0.375rem"
+          padding="1rem"
+        >
+          {children}
+        </Box>
       </Box>
-    </Box>
-  );
-});
+    );
+  }
+);
 
-const StakingGradientLightIcon = () => {
+const StakingLightIcon = () => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -477,35 +482,16 @@ const StakingGradientLightIcon = () => {
       fill="none"
       viewBox="0 0 32 33"
     >
-      <circle
-        cx="16"
-        cy="16.5"
-        r="16"
-        fill="url(#paint0_linear_9517_5789)"
-        opacity="0.4"
-      />
+      <circle cx="16" cy="16.5" r="16" fill="#8A4BDB" opacity="0.4" />
       <path
         fill="#fff"
         d="M16 9.299a1.25 1.25 0 00-.566.14h-.011L9.46 12.5a.628.628 0 00-.005 1.164v.012l5.972 3.05.004-.003c.172.087.362.14.568.14.206 0 .396-.053.567-.14l.005.003 5.972-3.05v-.012a.628.628 0 00-.005-1.165L16.577 9.44h-.01A1.25 1.25 0 0016 9.3zm-5.372 6.383l-1.167.598a.628.628 0 00-.005 1.165v.012l5.972 3.05.004-.003c.172.087.362.14.568.14.206 0 .396-.053.567-.14l.005.002 5.972-3.049v-.012a.628.628 0 00-.005-1.165l-1.167-.598c-1.83.937-4.33 2.213-4.359 2.223a2.468 2.468 0 01-2.03-.001c-.028-.01-2.524-1.284-4.355-2.222zm0 3.782l-1.167.598a.628.628 0 00-.005 1.165v.012l5.972 3.05.004-.003c.172.087.362.14.568.14.206 0 .396-.053.567-.14l.005.002 5.972-3.05v-.011a.628.628 0 00-.005-1.165l-1.167-.598c-1.83.937-4.33 2.212-4.359 2.223a2.466 2.466 0 01-2.03-.001c-.028-.01-2.524-1.284-4.355-2.222z"
       />
-      <defs>
-        <linearGradient
-          id="paint0_linear_9517_5789"
-          x1="32"
-          x2="0"
-          y1="16.5"
-          y2="16.5"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor="#48A2E1" />
-          <stop offset="1" stopColor="#B04AE0" />
-        </linearGradient>
-      </defs>
     </svg>
   );
 };
 
-const StakingGradientDarkIcon = () => {
+const StakingDarkIcon = () => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -514,30 +500,11 @@ const StakingGradientDarkIcon = () => {
       fill="none"
       viewBox="0 0 32 33"
     >
-      <circle
-        cx="16"
-        cy="16.5"
-        r="16"
-        fill="url(#paint0_linear_9027_4987)"
-        opacity="0.4"
-      />
+      <circle cx="16" cy="16.5" r="16" fill="#A06CE5" opacity="0.4" />
       <path
         fill="#fff"
         d="M16 9.299a1.25 1.25 0 00-.566.14h-.011L9.46 12.5a.628.628 0 00-.005 1.164v.012l5.972 3.05.004-.003c.172.087.363.14.568.14.206 0 .396-.053.568-.14l.005.003 5.971-3.05v-.012a.628.628 0 00-.005-1.165L16.577 9.44h-.01A1.25 1.25 0 0016 9.3zm-5.372 6.383l-1.167.598a.628.628 0 00-.005 1.165v.012l5.972 3.05.004-.003c.172.087.363.14.568.14.206 0 .396-.053.568-.14l.005.002 5.971-3.049v-.012a.628.628 0 00-.005-1.165l-1.167-.598c-1.83.937-4.33 2.213-4.359 2.223a2.468 2.468 0 01-2.03-.001c-.027-.01-2.524-1.284-4.355-2.222zm0 3.782l-1.167.598a.628.628 0 00-.005 1.165v.012l5.972 3.05.004-.003c.172.087.363.14.568.14.206 0 .396-.053.568-.14l.005.002 5.971-3.05v-.011a.628.628 0 00-.005-1.165l-1.167-.598c-1.83.937-4.33 2.212-4.359 2.223a2.466 2.466 0 01-2.03-.001c-.027-.01-2.524-1.284-4.355-2.222z"
       />
-      <defs>
-        <linearGradient
-          id="paint0_linear_9027_4987"
-          x1="32"
-          x2="0"
-          y1="16.5"
-          y2="16.5"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor="#71C4FF" />
-          <stop offset="1" stopColor="#D378FE" />
-        </linearGradient>
-      </defs>
     </svg>
   );
 };

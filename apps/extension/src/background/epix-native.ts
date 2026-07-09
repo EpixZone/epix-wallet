@@ -10,9 +10,12 @@
 //      flip the "route clearnet through Tor" setting + per-site clearnet
 //      allowances.
 //
-// The proxy routing itself (PAC: `.epix` -> node proxy, clearnet -> DIRECT or
-// the node's Tor SOCKS) is written by the launcher's Firefox profile, exactly
-// as before. This module only enforces the block and surfaces state.
+// The base proxy routing (PAC: `.epix` -> node proxy, clearnet -> DIRECT or
+// the node's Tor SOCKS) is written by the launcher's Firefox profile at
+// startup. On top of it, a `proxy.onRequest` listener here re-decides the
+// clearnet leg per request, so flipping "route clearnet through Tor" applies
+// immediately instead of on the next launch. `.epix`, loopback, and
+// `*.epix.zone` always return undefined and fall through to the PAC.
 //
 // Native messaging only exists in the desktop Firefox shell; on GeckoView /
 // WKWebView the calls throw and are swallowed, so this is a no-op there.
@@ -23,6 +26,27 @@ const NATIVE_HOST = "zone.epix.nmh";
 // synchronous webRequest listener can consult it without a round-trip. (The Tor
 // routing state lives on the native host; the UI reads it from `status`.)
 let allowed = new Set<string>();
+
+// Tor routing state, mirrored the same way for the synchronous proxy
+// listener. null = not learned yet; the listener then defers to the PAC's
+// launch-time choice.
+let torClearnet: boolean | null = null;
+let torEnabled: boolean | null = null;
+
+// The node's Tor SOCKS listener, a fixed contract with the desktop shell
+// (SOCKS_ADDR in epix-browser's launcher).
+const TOR_SOCKS_HOST = "127.0.0.1";
+const TOR_SOCKS_PORT = 43111;
+
+function mirrorRoutingState(status: EpixStatus | undefined): void {
+  if (!status) return;
+  if (typeof status.tor_clearnet === "boolean") {
+    torClearnet = status.tor_clearnet;
+  }
+  if (typeof status.tor_enabled === "boolean") {
+    torEnabled = status.tor_enabled;
+  }
+}
 
 function hostOf(url: string): string {
   try {
@@ -118,6 +142,52 @@ export function initEpixNative(): void {
     );
   }
 
+  // 1b. Live clearnet routing (Firefox shells only; Chrome has no
+  // proxy.onRequest and never enters here). Only general clearnet is steered:
+  // everything the PAC routes specially falls through with undefined. Until
+  // the native host has answered a status query, everything falls through,
+  // so shells without a native host keep exactly the launcher's routing.
+  if (browser.proxy?.onRequest) {
+    browser.proxy.onRequest.addListener(
+      (details: any) => {
+        const host = hostOf(details.url || "");
+        if (
+          !host ||
+          isEpix(host) ||
+          isLocal(host) ||
+          host === "epix.zone" ||
+          host.endsWith(".epix.zone")
+        ) {
+          return undefined; // the PAC decides (node proxy / DIRECT)
+        }
+        if (torClearnet == null || torEnabled == null) {
+          return undefined; // state unknown: keep the launch-time routing
+        }
+        if (torClearnet && torEnabled) {
+          return [
+            {
+              type: "socks",
+              host: TOR_SOCKS_HOST,
+              port: TOR_SOCKS_PORT,
+              proxyDNS: true,
+            },
+          ];
+        }
+        return { type: "direct" };
+      },
+      { urls: ["<all_urls>"] }
+    );
+
+    // Prime the routing mirror; the panel's status polling keeps it fresh.
+    nativeSend({ cmd: "status" }).then(
+      (status: EpixStatus) => mirrorRoutingState(status),
+      () => {
+        // No native host (mobile shells, plain Firefox): mirrors stay null
+        // and the listener keeps falling through.
+      }
+    );
+  }
+
   // 2. UI bridge: the Epix settings page talks to this over runtime messaging.
   //
   // Keplr's own router listens on this same `runtime.onMessage`, and `browser`
@@ -134,12 +204,19 @@ export function initEpixNative(): void {
     switch (msg.type) {
       case "epix-status":
         return nativeSend({ cmd: "status" }).then(
-          (status: EpixStatus) => ({ ok: true, status }),
+          (status: EpixStatus) => {
+            mirrorRoutingState(status);
+            return { ok: true, status };
+          },
           (e) => ({ ok: false, error: String(e) })
         );
       case "epix-set-tor-clearnet":
         return nativeSend({ cmd: "setTorClearnet", on: !!msg.on }).then(
-          () => ({ ok: true, on: !!msg.on }),
+          () => {
+            // The routing listener picks the change up immediately.
+            torClearnet = !!msg.on;
+            return { ok: true, on: !!msg.on };
+          },
           (e) => ({ ok: false, error: String(e) })
         );
       case "epix-list-clearnet-allow":

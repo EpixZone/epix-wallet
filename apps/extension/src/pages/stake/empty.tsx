@@ -15,6 +15,8 @@ import { MainH1 } from "../../components/typography/main-h1";
 import { useGetStakingApr } from "../../hooks/use-get-staking-apr";
 import { EarnRewardsIcon } from "./components/earn-rewards-icon";
 import { useStakableTokens } from "./hooks/use-stakable-tokens";
+import { supportsNativeStaking } from "./utils";
+import { ViewToken } from "../main";
 
 export const StakeEmptyPage: FunctionComponent = observer(() => {
   const theme = useTheme();
@@ -64,33 +66,17 @@ export const StakeEmptyPage: FunctionComponent = observer(() => {
 
         <Gutter size="1rem" />
 
-        {stakableTokens.map((viewToken) => {
-          const stakingUrl = getStakingUrl(viewToken);
-          const stakingAprDec = useGetStakingApr(viewToken.chainInfo.chainId);
-
-          return (
-            <Box
-              key={`${viewToken.chainInfo.chainId}-${viewToken.token.currency.coinMinimalDenom}`}
-            >
-              <TokenItem
-                viewToken={viewToken}
-                stakingApr={
-                  stakingAprDec
-                    ? `APR ${stakingAprDec.toString(2)}%`
-                    : undefined
-                }
-                onClick={() => {
-                  if (stakingUrl) {
-                    browser.tabs.create({
-                      url: stakingUrl,
-                    });
-                  }
-                }}
-              />
-              <Gutter size="0.5rem" />
-            </Box>
-          );
-        })}
+        {stakableTokens.map((viewToken) => (
+          <Box
+            key={`${viewToken.chainInfo.chainId}-${viewToken.token.currency.coinMinimalDenom}`}
+          >
+            <StakableTokenItem
+              viewToken={viewToken}
+              stakingUrl={getStakingUrl(viewToken)}
+            />
+            <Gutter size="0.5rem" />
+          </Box>
+        ))}
 
         <Gutter size="1.25rem" />
 
@@ -109,5 +95,38 @@ export const StakeEmptyPage: FunctionComponent = observer(() => {
         />
       </Box>
     </MainHeaderLayout>
+  );
+});
+
+const StakableTokenItem: FunctionComponent<{
+  viewToken: ViewToken;
+  stakingUrl?: string;
+}> = observer(({ viewToken, stakingUrl }) => {
+  const navigate = useNavigate();
+
+  const chainId = viewToken.chainInfo.chainId;
+  const stakingAprDec = useGetStakingApr(chainId);
+
+  const isNativeStaking = supportsNativeStaking(viewToken.chainInfo);
+
+  return (
+    <TokenItem
+      viewToken={viewToken}
+      stakingApr={
+        stakingAprDec ? `APR ${stakingAprDec.toString(2)}%` : undefined
+      }
+      onClick={() => {
+        if (isNativeStaking) {
+          navigate(`/stake/validators?chainId=${chainId}`);
+          return;
+        }
+
+        if (stakingUrl) {
+          browser.tabs.create({
+            url: stakingUrl,
+          });
+        }
+      }}
+    />
   );
 });

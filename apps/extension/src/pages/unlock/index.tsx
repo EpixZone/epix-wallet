@@ -26,8 +26,10 @@ import { useTheme } from "styled-components";
 import { Buffer } from "buffer/";
 import {
   handleExternalInteractionWithNoProceedNext,
+  isMobileShell,
   isRunningInSidePanel,
 } from "../../utils";
+import { HelpDeskUrl } from "../../config.ui";
 import { useHorizontalResizeObserver } from "../../components/transition/horizontal-collapse/hook";
 export const UnlockPage: FunctionComponent = observer(() => {
   const { keyRingStore, interactionStore } = useStore();
@@ -245,9 +247,12 @@ export const UnlockPage: FunctionComponent = observer(() => {
         backgroundSize: "100% auto",
         backgroundPosition,
         backgroundRepeat: "no-repeat",
-        maxWidth: isRunningInSidePanel()
-          ? SidePanelMaxWidth
-          : `${PopupWidth}px`,
+        // The side panel and the mobile shells lay the UI out fluidly (up
+        // to the side panel max width); the popup is fixed at PopupWidth.
+        maxWidth:
+          isRunningInSidePanel() || isMobileShell()
+            ? SidePanelMaxWidth
+            : `${PopupWidth}px`,
       }}
     >
       {/* Tor / I2P privacy status, visible and toggleable before unlock. */}
@@ -400,7 +405,7 @@ export const UnlockPage: FunctionComponent = observer(() => {
             color="faint"
             onClick={() => {
               browser.tabs.create({
-                url: `https://help.keplr.app/general-faq/5R3bMyjtr3tXNeJo8ojSDV/privacy--security/5So5gM41LjRMhRcps2GQmq#i-cant-remember-my-keplr-password-how-can-i-reset-it`,
+                url: HelpDeskUrl,
               });
             }}
             style={{ width: "100%", color: ColorPalette["gray-300"] }}

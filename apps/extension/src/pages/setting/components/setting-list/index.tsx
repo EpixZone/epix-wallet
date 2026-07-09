@@ -325,7 +325,7 @@ export const HighlightedSubtitle3: FunctionComponent<{
               style={{
                 whiteSpace: "pre-wrap",
               }}
-              color={ColorPalette["blue-300"]}
+              color={ColorPalette["purple-300"]}
             >
               {part}
             </Subtitle3> // 파란색 강조

@@ -43,7 +43,7 @@ import { Button } from "../../../components/button";
 import { FormattedMessage } from "react-intl";
 import { NOBLE_CHAIN_ID } from "../../../config.ui";
 import { MintPhotonButton } from "./mint-photon-button";
-import { useKcrStakingUrls } from "../../../hooks/use-kcr-staking-urls";
+import { supportsNativeStaking } from "../../stake/utils";
 
 const Styles = {
   Container: styled.div`
@@ -51,7 +51,7 @@ const Styles = {
 
     background: ${({ theme }) => {
       if (theme.mode === "light") {
-        return "linear-gradient(90deg, #FCFAFF 2.44%, #FBFBFF 96.83%)";
+        return ColorPalette["light-background"];
       }
       return ColorPalette["gray-700"];
     }};
@@ -95,7 +95,6 @@ export const TokenDetailModal: FunctionComponent<{
   } = useStore();
 
   const theme = useTheme();
-  const { hasKcrStakingUrl } = useKcrStakingUrls();
 
   const account = accountStore.getAccount(chainId);
   const modularChainInfo = chainStore.getModularChain(chainId);
@@ -470,7 +469,7 @@ export const TokenDetailModal: FunctionComponent<{
                 color={
                   isIBCCurrency
                     ? theme.mode === "light"
-                      ? ColorPalette["blue-400"]
+                      ? ColorPalette["purple-400"]
                       : ColorPalette["white"]
                     : theme.mode === "light"
                     ? ColorPalette["gray-500"]
@@ -486,7 +485,7 @@ export const TokenDetailModal: FunctionComponent<{
                 alignY="center"
                 backgroundColor={
                   theme.mode === "light"
-                    ? ColorPalette["blue-50"]
+                    ? ColorPalette["purple-50"]
                     : ColorPalette["gray-600"]
                 }
                 borderRadius="0.375rem"
@@ -501,7 +500,7 @@ export const TokenDetailModal: FunctionComponent<{
                   }}
                   color={
                     theme.mode === "light"
-                      ? ColorPalette["blue-400"]
+                      ? ColorPalette["purple-400"]
                       : ColorPalette["gray-200"]
                   }
                 >
@@ -631,14 +630,9 @@ export const TokenDetailModal: FunctionComponent<{
               const isStakeCurrency =
                 uStake.cosmos.stakeCurrency?.coinMinimalDenom ===
                 currency.coinMinimalDenom;
-              const hasNativeStaking =
-                modularChainInfo.embedded.isBuiltInChain &&
-                uStake.cosmos.walletUrlForStaking;
+              const hasNativeStaking = supportsNativeStaking(modularChainInfo);
 
-              if (
-                isStakeCurrency &&
-                (hasNativeStaking || hasKcrStakingUrl(chainId))
-              ) {
+              if (isStakeCurrency && hasNativeStaking) {
                 return (
                   <React.Fragment>
                     <Gutter size="1.25rem" />

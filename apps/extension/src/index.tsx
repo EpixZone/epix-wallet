@@ -12,7 +12,7 @@ require("./public/assets/icon/icon-beta-16.png");
 require("./public/assets/icon/icon-beta-48.png");
 require("./public/assets/icon/icon-beta-128.png");
 require("./public/assets/svg/megaphone.svg");
-require("./public/assets/img/locked-keplr-logo-128.png");
+require("./public/assets/img/locked-logo-128.png");
 require("./public/assets/icon-click-cursor.png");
 
 import React, {
@@ -98,7 +98,7 @@ import { IBCSwapDestinationSelectAssetPage } from "./pages/ibc-swap/select-asset
 import { RoutePageAnalytics } from "./route-page-analytics";
 import { useIntl } from "react-intl";
 import { HistoryPage } from "./pages/history";
-import { isRunningInSidePanel } from "./utils";
+import { isMobileShell, isRunningInSidePanel } from "./utils";
 import { StarknetSendPage } from "./pages/starknet/send";
 import { SignStarknetTxPage } from "./pages/starknet/sign/tx";
 import { SignStarknetMessagePage } from "./pages/starknet/sign/message";
@@ -124,6 +124,11 @@ import { HistoryDetailPage } from "./pages/history-detail";
 import { StakePage } from "./pages/stake";
 import { StakeExplorePage } from "./pages/stake/explore";
 import { StakeEmptyPage } from "./pages/stake/empty";
+import { StakeValidatorListPage } from "./pages/stake/validators";
+import { StakeValidatorDetailPage } from "./pages/stake/validator";
+import { StakeDelegatePage } from "./pages/stake/delegate";
+import { StakeUndelegatePage } from "./pages/stake/undelegate";
+import { StakeRedelegatePage } from "./pages/stake/redelegate";
 import { SwitchAccountPage } from "./pages/switch-account";
 
 configure({
@@ -437,6 +442,26 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
               <Route path="/stake/explore" element={<StakeExplorePage />} />
               <Route path="/stake/empty" element={<StakeEmptyPage />} />
               <Route
+                path="/stake/validators"
+                element={<StakeValidatorListPage />}
+              />
+              <Route
+                path="/stake/validator/:chainId/:validatorAddress"
+                element={<StakeValidatorDetailPage />}
+              />
+              <Route
+                path="/stake/delegate/:chainId/:validatorAddress"
+                element={<StakeDelegatePage />}
+              />
+              <Route
+                path="/stake/undelegate/:chainId/:validatorAddress"
+                element={<StakeUndelegatePage />}
+              />
+              <Route
+                path="/stake/redelegate/:chainId/:validatorAddress"
+                element={<StakeRedelegatePage />}
+              />
+              <Route
                 path="/manage-view-asset-token-list"
                 element={<ManageViewAssetTokenListPage />}
               />
@@ -647,7 +672,12 @@ const App: FunctionComponent = () => {
                 {
                   // isRunningInSidePanel()은 반응형이 아니지만 어차피 popup <-> sidePanel은 실행시점에 정해지고
                   // UI가 작동중에 변경될 수 없기 때문에 이렇게 해도 괜찮다.
-                  isRunningInSidePanel() ? (
+                  // The mobile shells (GeckoView tabs, the WKWebView's
+                  // mobile.html) always show the UI as a full-screen
+                  // document, so they get the fluid side-panel layout
+                  // instead of the fixed 360px popup layout; that is what
+                  // lets the pages fit narrow (320px) phone screens.
+                  isRunningInSidePanel() || isMobileShell() ? (
                     <GlobalSidePanelStyle />
                   ) : (
                     <GlobalPopupStyle />

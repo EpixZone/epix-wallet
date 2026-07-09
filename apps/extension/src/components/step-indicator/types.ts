@@ -11,7 +11,7 @@ export interface StepIndicatorProps {
   height?: string;
   /** Gap between indicator dots (default: "0.25rem") */
   gap?: string;
-  /** Active color (default: theme-based blue-400/white) */
+  /** Active color (default: theme-based purple-400/white) */
   activeColor?: string;
   /** Inactive opacity (default: 0.3) */
   inactiveOpacity?: number;

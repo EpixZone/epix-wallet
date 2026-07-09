@@ -37,17 +37,15 @@ import { useFocusOnMount } from "../../../../hooks/use-focus-on-mount";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Tooltip } from "../../../../components/tooltip";
 
-const glowSlideAnimation = keyframes`
+const loadingPulseAnimation = keyframes`
   0% {
-    background-position: 100% 0;
-    animation-timing-function: ease-in;
+    opacity: 0.35;
   }
   50% {
-    background-position: 50% 0;
-    animation-timing-function: linear;
+    opacity: 1;
   }
   100% {
-    background-position: 0% 0;
+    opacity: 0.35;
   }
 `;
 
@@ -65,22 +63,15 @@ const GlowBorderWrapper = styled.div<{ $isLoading: boolean }>`
         content: "";
         position: absolute;
         inset: 0;
-        padding: 1.5px;
+        border: 1.5px solid
+          ${props.theme.mode === "light"
+            ? ColorPalette["purple-200"]
+            : ColorPalette["gray-300"]};
         border-radius: inherit;
-
-        background: ${props.theme.mode === "light"
-          ? `linear-gradient(270deg, ${ColorPalette.white} 0%, ${ColorPalette.white} 25%, ${ColorPalette["blue-200"]} 50%, ${ColorPalette.white} 75%, ${ColorPalette.white} 100%)`
-          : `linear-gradient(90deg, ${ColorPalette["gray-600"]} 0%, ${ColorPalette["gray-600"]} 25%, ${ColorPalette["gray-300"]} 50%, ${ColorPalette["gray-600"]} 75%, ${ColorPalette["gray-600"]} 100%)`};
-        background-size: 400% 100%;
-
-        -webkit-mask: linear-gradient(#000 0 0) content-box,
-          linear-gradient(#000 0 0);
-        -webkit-mask-composite: xor;
-        mask-composite: exclude;
 
         pointer-events: none;
         z-index: 2;
-        animation: ${glowSlideAnimation} 1.5s infinite;
+        animation: ${loadingPulseAnimation} 1.5s ease-in-out infinite;
       }
     `}
 `;
@@ -94,11 +85,10 @@ const GlowOverlay = styled.div`
 
   background: ${(props) =>
     props.theme.mode === "light"
-      ? `linear-gradient(270deg, ${ColorPalette.white} 0%, ${ColorPalette.white} 25%, #E0F1FF 50%, ${ColorPalette.white} 75%, ${ColorPalette.white} 100%)`
-      : `linear-gradient(90deg, ${ColorPalette["gray-600"]} 0%, ${ColorPalette["gray-600"]} 25%, ${ColorPalette["gray-550"]} 50%, ${ColorPalette["gray-600"]} 75%, ${ColorPalette["gray-600"]} 100%)`};
-  background-size: 400% 100%;
+      ? ColorPalette["purple-50"]
+      : ColorPalette["gray-550"]};
 
-  animation: ${glowSlideAnimation} 1.5s infinite;
+  animation: ${loadingPulseAnimation} 1.5s ease-in-out infinite;
 `;
 
 const Styles = {
@@ -153,6 +143,10 @@ export const SwapAssetInfo: FunctionComponent<{
 
   decorateUpperAmountTextIfTypeIsTo?: string;
 
+  // "to" only: no destination has been picked yet, so the box shows a
+  // "Select token" placeholder instead of the config's fallback chain.
+  unselected?: boolean;
+
   onDestinationChainSelect?: (
     chainId: string,
     coinMinimalDenom: string
@@ -163,6 +157,7 @@ export const SwapAssetInfo: FunctionComponent<{
     senderConfig,
     amountConfig,
     decorateUpperAmountTextIfTypeIsTo,
+    unselected,
     onDestinationChainSelect,
   }) => {
     const {
@@ -432,6 +427,8 @@ export const SwapAssetInfo: FunctionComponent<{
                         return amountConfig.value;
                       }
                     })()
+                  : unselected
+                  ? ""
                   : amountConfig.outAmount
                       .maxDecimals(6)
                       .trim(true)
@@ -593,6 +590,22 @@ export const SwapAssetInfo: FunctionComponent<{
                 {(() => {
                   const currency = type === "from" ? fromCurrency : outCurrency;
 
+                  if (type === "to" && unselected) {
+                    return (
+                      <Subtitle2
+                        color={
+                          theme.mode === "light"
+                            ? ColorPalette["gray-300"]
+                            : ColorPalette["gray-200"]
+                        }
+                      >
+                        {intl.formatMessage({
+                          id: "page.ibc-swap.components.swap-asset-info.select-token",
+                        })}
+                      </Subtitle2>
+                    );
+                  }
+
                   if (type === "to") {
                     if (
                       chainStore
@@ -674,6 +687,9 @@ export const SwapAssetInfo: FunctionComponent<{
                 return null;
               }
               if (type === "to") {
+                if (unselected) {
+                  return null;
+                }
                 if (!priceStore.calculatePrice(amountConfig.outAmount)) {
                   return null;
                 }
@@ -761,22 +777,24 @@ export const SwapAssetInfo: FunctionComponent<{
                 flex: 1,
               }}
             />
-            <Body3 color={ColorPalette["gray-300"]}>
-              {intl.formatMessage(
-                {
-                  id: "page.ibc-swap.components.swap-asset-info.on-chain-name",
-                },
-                {
-                  chainName: (() => {
-                    const chainInfo =
-                      type === "from" ? fromChainInfo : toChainInfo;
-                    return chainInfo.chainName;
-                  })(),
-                }
-              )}
-            </Body3>
+            {type === "to" && unselected ? null : (
+              <Body3 color={ColorPalette["gray-300"]}>
+                {intl.formatMessage(
+                  {
+                    id: "page.ibc-swap.components.swap-asset-info.on-chain-name",
+                  },
+                  {
+                    chainName: (() => {
+                      const chainInfo =
+                        type === "from" ? fromChainInfo : toChainInfo;
+                      return chainInfo.chainName;
+                    })(),
+                  }
+                )}
+              </Body3>
+            )}
             {(() => {
-              if (type === "to") {
+              if (type === "to" && !unselected) {
                 return (
                   <React.Fragment>
                     <Gutter size="0.15rem" />

@@ -118,7 +118,7 @@ export const AddressItem: FunctionComponent<{
                   alignY="center"
                   backgroundColor={
                     theme.mode === "light"
-                      ? ColorPalette["blue-50"]
+                      ? ColorPalette["purple-50"]
                       : ColorPalette["gray-500"]
                   }
                   borderRadius="0.375rem"
@@ -133,7 +133,7 @@ export const AddressItem: FunctionComponent<{
                     }}
                     color={
                       theme.mode === "light"
-                        ? ColorPalette["blue-400"]
+                        ? ColorPalette["purple-400"]
                         : ColorPalette["gray-200"]
                     }
                   >

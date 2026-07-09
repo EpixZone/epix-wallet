@@ -43,7 +43,7 @@ const Styles = {
 
     background: ${(props) =>
       props.theme.mode === "light"
-        ? ColorPalette["light-gradient"]
+        ? ColorPalette["light-background"]
         : ColorPalette["gray-700"]};
 
     body[data-white-background="true"] && {
@@ -142,7 +142,7 @@ const Styles = {
   BottomButtonMockBackplate: styled.div`
     background: ${(props) =>
       props.theme.mode === "light"
-        ? ColorPalette["light-gradient"]
+        ? ColorPalette["light-background"]
         : ColorPalette["gray-700"]};
 
     body[data-white-background="true"] && {

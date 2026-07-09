@@ -311,8 +311,8 @@ const ClaimAllButton: FunctionComponent<ClaimAllButtonProps> = ({
                 claimAllDisabled
                   ? ColorPalette["gray-300"]
                   : theme.mode === "light"
-                  ? ColorPalette["blue-400"]
-                  : ColorPalette["blue-300"]
+                  ? ColorPalette["purple-400"]
+                  : ColorPalette["purple-300"]
               }
             />
           </Box>
@@ -344,8 +344,8 @@ const ClaimAllButton: FunctionComponent<ClaimAllButtonProps> = ({
               claimAllDisabled
                 ? ColorPalette["gray-300"]
                 : theme.mode === "light"
-                ? ColorPalette["blue-400"]
-                : ColorPalette["blue-300"]
+                ? ColorPalette["purple-400"]
+                : ColorPalette["purple-300"]
             }
           >
             <ClaimTextWrapper $width={labelWidth}>

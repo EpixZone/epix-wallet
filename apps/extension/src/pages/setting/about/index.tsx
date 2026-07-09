@@ -7,6 +7,7 @@ import { PageButton } from "../components";
 import { RightArrowIcon } from "../../../components/icon";
 import { Stack } from "../../../components/stack";
 import { useIntl } from "react-intl";
+import { TermsOfUseUrl } from "../../../config.ui";
 
 export const AboutKeplrPage: FunctionComponent = observer(() => {
   const intl = useIntl();
@@ -25,7 +26,7 @@ export const AboutKeplrPage: FunctionComponent = observer(() => {
             endIcon={<RightArrowIcon />}
             onClick={() => {
               browser.tabs.create({
-                url: "https://keplr.app",
+                url: "https://epix.zone",
               });
             }}
           />
@@ -37,7 +38,7 @@ export const AboutKeplrPage: FunctionComponent = observer(() => {
             endIcon={<RightArrowIcon />}
             onClick={() => {
               browser.tabs.create({
-                url: "https://terms-of-use.keplr.app/",
+                url: TermsOfUseUrl,
               });
             }}
           />
@@ -49,7 +50,7 @@ export const AboutKeplrPage: FunctionComponent = observer(() => {
             endIcon={<RightArrowIcon />}
             onClick={() => {
               browser.tabs.create({
-                url: "https://privacy-policy.keplr.app/",
+                url: TermsOfUseUrl,
               });
             }}
           />

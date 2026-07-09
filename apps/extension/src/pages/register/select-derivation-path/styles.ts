@@ -17,7 +17,7 @@ export const Styles = {
     border: ${(props) =>
       props.theme.mode === "light"
         ? props.isSelected
-          ? `2px solid ${ColorPalette["blue-400"]}`
+          ? `2px solid ${ColorPalette["purple-400"]}`
           : "none"
         : "none"};
 

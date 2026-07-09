@@ -6,16 +6,20 @@ const font = "Inter, -apple-system, sans-serif";
 
 const PRIMITIVE_GROUPS = [
   {
-    title: "Blue",
+    title: "Purple",
     colors: [
-      { name: "blue200", value: DSColor.blue200 },
-      { name: "blue300", value: DSColor.blue300 },
-      { name: "blue400", value: DSColor.blue400 },
-      { name: "blue500", value: DSColor.blue500 },
-      { name: "blue600", value: DSColor.blue600 },
-      { name: "blue700", value: DSColor.blue700 },
-      { name: "blue800", value: DSColor.blue800 },
+      { name: "purple200", value: DSColor.purple200 },
+      { name: "purple300", value: DSColor.purple300 },
+      { name: "purple400", value: DSColor.purple400 },
+      { name: "purple500", value: DSColor.purple500 },
+      { name: "purple600", value: DSColor.purple600 },
+      { name: "purple700", value: DSColor.purple700 },
+      { name: "purple800", value: DSColor.purple800 },
     ],
+  },
+  {
+    title: "Cyan",
+    colors: [{ name: "cyan400", value: DSColor.cyan400 }],
   },
   {
     title: "Gray",
@@ -60,13 +64,6 @@ const PRIMITIVE_GROUPS = [
       { name: "yellow400", value: DSColor.yellow400 },
       { name: "yellow600", value: DSColor.yellow600 },
       { name: "yellow800", value: DSColor.yellow800 },
-    ],
-  },
-  {
-    title: "Purple",
-    colors: [
-      { name: "purple300", value: DSColor.purple300 },
-      { name: "purple400", value: DSColor.purple400 },
     ],
   },
 ];

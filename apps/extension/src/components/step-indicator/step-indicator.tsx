@@ -38,7 +38,7 @@ export const StepIndicator: FunctionComponent<StepIndicatorProps> = ({
   const theme = useTheme();
 
   const defaultActiveColor =
-    theme.mode === "light" ? ColorPalette["blue-400"] : ColorPalette["white"];
+    theme.mode === "light" ? ColorPalette["purple-400"] : ColorPalette["white"];
 
   const color = activeColor ?? defaultActiveColor;
 

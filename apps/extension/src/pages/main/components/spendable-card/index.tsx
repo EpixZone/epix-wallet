@@ -117,8 +117,8 @@ export const SpendableCard: FunctionComponent<{
                     height="0.625rem"
                     color={
                       theme.mode === "light"
-                        ? ColorPalette["blue-400"]
-                        : ColorPalette["blue-300"]
+                        ? ColorPalette["purple-400"]
+                        : ColorPalette["purple-300"]
                     }
                   />
                 }
@@ -138,8 +138,8 @@ export const SpendableCard: FunctionComponent<{
                     height="0.625rem"
                     color={
                       theme.mode === "light"
-                        ? ColorPalette["blue-400"]
-                        : ColorPalette["blue-300"]
+                        ? ColorPalette["purple-400"]
+                        : ColorPalette["purple-300"]
                     }
                   />
                 }
@@ -165,8 +165,8 @@ export const SpendableCard: FunctionComponent<{
                     height="1rem"
                     color={
                       theme.mode === "light"
-                        ? ColorPalette["blue-400"]
-                        : ColorPalette["blue-300"]
+                        ? ColorPalette["purple-400"]
+                        : ColorPalette["purple-300"]
                     }
                   />
                 }
@@ -224,7 +224,7 @@ const EllipseButton: FunctionComponent<{
           alignX="center"
           alignY="center"
           backgroundColor={
-            isLightMode ? ColorPalette["blue-50"] : ColorPalette["blue-800"]
+            isLightMode ? ColorPalette["purple-50"] : ColorPalette["purple-800"]
           }
           minWidth="2.875rem"
           width="100%"

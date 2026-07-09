@@ -6,13 +6,14 @@ import {
   useSceneEvents,
   useSceneTransition,
 } from "../../../components/transition";
-import { Column, Columns } from "../../../components/column";
+import { Columns } from "../../../components/column";
 import { Box } from "../../../components/box";
 import { ColorPalette } from "../../../styles";
 import { XAxis } from "../../../components/axis";
 import { Caption1, Subtitle3 } from "../../../components/typography";
 import { Gutter } from "../../../components/gutter";
 import { useRegisterHeader } from "../components/header";
+import { IntroColumns } from "../components/intro-columns";
 import { RegisterH4 } from "../components/typography";
 import { TextButton } from "../../../components/button-text";
 import { GoogleIcon, KeyIcon } from "../../../components/icon";
@@ -42,8 +43,8 @@ export const RegisterIntroNewUserScene: FunctionComponent = () => {
 
   return (
     <RegisterSceneBox>
-      <Columns sum={2} gutter="2.5rem">
-        <Column weight={1}>
+      <IntroColumns
+        left={
           <Box minHeight="15.625rem">
             <RegisterH4
               color={
@@ -105,16 +106,8 @@ export const RegisterIntroNewUserScene: FunctionComponent = () => {
               </Caption1>
             </Columns>
           </Box>
-        </Column>
-        <Box
-          width="1px"
-          backgroundColor={
-            theme.mode === "light"
-              ? ColorPalette["gray-100"]
-              : ColorPalette["gray-400"]
-          }
-        />
-        <Column weight={1}>
+        }
+        right={
           <Box height="100%">
             <RegisterH4
               color={
@@ -167,8 +160,8 @@ export const RegisterIntroNewUserScene: FunctionComponent = () => {
               </Caption1>
             </Columns>
           </Box>
-        </Column>
-      </Columns>
+        }
+      />
     </RegisterSceneBox>
   );
 };

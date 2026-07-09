@@ -90,8 +90,5 @@ const Container = styled.div<{
   display: flex;
   height: 100vh;
 
-  background: ${({ isLightMode }) =>
-    isLightMode
-      ? "linear-gradient(168deg, #FFE3E3 0%, #FFF 57.63%)"
-      : "linear-gradient(168deg, #381111 0%, #0c0101 44.57%)"};
+  background: ${({ isLightMode }) => (isLightMode ? "#FFF0F0" : "#200909")};
 `;

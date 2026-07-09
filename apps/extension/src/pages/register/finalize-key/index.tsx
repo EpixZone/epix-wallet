@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { RegisterSceneBox } from "../components/register-scene-box";
 import { observer } from "mobx-react-lite";
+import { useNavigate } from "react-router";
 import { useStore } from "../../../stores";
 import { useRegisterHeader } from "../components/header";
 import {
@@ -88,6 +89,7 @@ export const FinalizeKeyScene: FunctionComponent<{
     } = useStore();
 
     const sceneTransition = useSceneTransition();
+    const navigate = useNavigate();
     const theme = useTheme();
 
     const header = useRegisterHeader();
@@ -458,6 +460,34 @@ export const FinalizeKeyScene: FunctionComponent<{
       ) {
         onceRef.current = true;
 
+        // Epix onboarding: for software keys the chain-picking step is
+        // skipped. A new vault starts with EPIX (the first embedded chain)
+        // enabled and nothing else, and EPIX's coin type is finalized at key
+        // creation, so the scene would add nothing but a step. Chains can
+        // still be added later (manage chain visibility reuses the
+        // enable-chains scene). Hardware keys keep the scene because it also
+        // drives the Ledger/Keystone app connection steps.
+        const epixChainId = chainStore.modularChainInfos[0].chainId;
+        if (
+          (mnemonic || privateKey) &&
+          !keyRingStore.needKeyCoinTypeFinalize(vaultId, epixChainId)
+        ) {
+          (async () => {
+            await chainStore.enableChainInfoInUIWithVaultId(
+              vaultId,
+              epixChainId
+            );
+            dispatchGlobalEventExceptSelf(
+              "keplr_enabled_chain_changed",
+              vaultId
+            );
+            navigate("/welcome", {
+              replace: true,
+            });
+          })();
+          return;
+        }
+
         sceneTransition.replace("enable-chains", {
           vaultId,
           candidateAddresses,
@@ -468,8 +498,12 @@ export const FinalizeKeyScene: FunctionComponent<{
       }
     }, [
       candidateAddresses,
+      chainStore,
       isAnimEnded,
-      mnemonic?.isFresh,
+      keyRingStore,
+      mnemonic,
+      navigate,
+      privateKey,
       sceneTransition,
       stepPrevious,
       stepTotal,

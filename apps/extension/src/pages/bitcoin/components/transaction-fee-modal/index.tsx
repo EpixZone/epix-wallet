@@ -202,9 +202,9 @@ const FeeRateSelectorStyle = {
 
     background-color: ${({ selected, theme }) =>
       selected
-        ? ColorPalette["blue-400"]
+        ? ColorPalette["purple-400"]
         : theme.mode === "light"
-        ? ColorPalette["blue-50"]
+        ? ColorPalette["purple-50"]
         : ColorPalette["gray-500"]};
   `,
   Title: styled(H5)<{ selected: boolean }>`
@@ -214,7 +214,7 @@ const FeeRateSelectorStyle = {
           ? ColorPalette["gray-50"]
           : ColorPalette["gray-50"]
         : theme.mode === "light"
-        ? ColorPalette["blue-400"]
+        ? ColorPalette["purple-400"]
         : ColorPalette["gray-50"]};
   `,
   Description: styled(Caption2)<{ selected: boolean }>`
@@ -222,16 +222,16 @@ const FeeRateSelectorStyle = {
     margin-top: 0.25rem;
     color: ${({ selected, theme }) =>
       selected
-        ? ColorPalette["blue-200"]
+        ? ColorPalette["purple-200"]
         : theme.mode === "light"
-        ? ColorPalette["blue-500"]
+        ? ColorPalette["purple-500"]
         : ColorPalette["gray-300"]};
   `,
   FeeRate: styled(Caption1)<{ selected: boolean }>`
     white-space: nowrap;
     margin-top: 0.25rem;
     color: ${({ selected }) =>
-      selected ? ColorPalette["blue-100"] : ColorPalette["gray-200"]};
+      selected ? ColorPalette["purple-100"] : ColorPalette["gray-200"]};
   `,
 };
 

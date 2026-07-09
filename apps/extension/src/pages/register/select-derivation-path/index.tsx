@@ -236,7 +236,7 @@ export const SelectDerivationPathScene: FunctionComponent<{
 
         <Gutter size="3rem" />
 
-        <Box width="22.5rem" marginX="auto">
+        <Box width="100%" maxWidth="22.5rem" marginX="auto">
           <Button
             text={intl.formatMessage({
               id: "pages.register.select-derivation-path.import-button",

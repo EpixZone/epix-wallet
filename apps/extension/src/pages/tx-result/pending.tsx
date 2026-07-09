@@ -21,6 +21,33 @@ export const TxResultPendingPage: FunctionComponent = observer(() => {
   const [searchParams] = useSearchParams();
   const isFromEarnTransfer = searchParams.get("isFromEarnTransfer");
 
+  // Recolor the spinner fills to the brand color of the surrounding ring
+  // (cyan on dark, purple on light).
+  const animationData = React.useMemo(() => {
+    const color = isLightMode
+      ? // purple-400 #8A4BDB
+        [138 / 255, 75 / 255, 219 / 255, 1]
+      : // cyan-400 #69E9F5
+        [105 / 255, 233 / 255, 245 / 255, 1];
+
+    const data = JSON.parse(JSON.stringify(AniPending));
+    const walk = (node: any) => {
+      if (!node || typeof node !== "object") {
+        return;
+      }
+      if (Array.isArray(node)) {
+        node.forEach(walk);
+        return;
+      }
+      if (node.ty === "fl" && node.c && Array.isArray(node.c.k)) {
+        node.c.k = color;
+      }
+      Object.values(node).forEach(walk);
+    };
+    walk(data);
+    return data;
+  }, [isLightMode]);
+
   useEffect(() => {
     if (animDivRef.current) {
       const anim = lottie.loadAnimation({
@@ -28,14 +55,14 @@ export const TxResultPendingPage: FunctionComponent = observer(() => {
         renderer: "svg",
         loop: true,
         autoplay: true,
-        animationData: AniPending,
+        animationData,
       });
 
       return () => {
         anim.destroy();
       };
     }
-  }, []);
+  }, [animationData]);
 
   return (
     <Container isLightMode={isLightMode}>
@@ -47,7 +74,7 @@ export const TxResultPendingPage: FunctionComponent = observer(() => {
           borderRadius="50%"
           borderWidth="5.246px"
           borderColor={
-            isLightMode ? ColorPalette["blue-400"] : ColorPalette["blue-300"]
+            isLightMode ? ColorPalette["purple-400"] : ColorPalette["cyan-400"]
           }
           position="relative"
         >
@@ -96,8 +123,5 @@ const Container = styled.div<{
   display: flex;
   height: 100vh;
 
-  background: ${({ isLightMode }) =>
-    isLightMode
-      ? "linear-gradient(168deg, #CBDFFF 0%, #FFF 57.49%)"
-      : "linear-gradient(168deg, #2b4267 0%, #030e21 45.81%), #09090a"};
+  background: ${({ isLightMode }) => (isLightMode ? "#EFEEFA" : "#12122E")};
 `;

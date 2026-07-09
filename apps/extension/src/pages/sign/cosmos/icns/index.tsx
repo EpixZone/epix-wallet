@@ -55,7 +55,7 @@ export const SignCosmosICNSPage: FunctionComponent = observer(() => {
             <CancelIcon
               color={
                 theme.mode === "light"
-                  ? ColorPalette["blue-400"]
+                  ? ColorPalette["purple-400"]
                   : ColorPalette["gray-200"]
               }
             />
