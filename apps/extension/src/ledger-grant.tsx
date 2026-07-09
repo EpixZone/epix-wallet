@@ -79,7 +79,7 @@ const LedgerGrantPage: FunctionComponent = observer(() => {
           alt="Epix Wallet logo"
           style={{
             width: "10.625rem",
-            aspectRatio: "453 / 153",
+            aspectRatio: "1668 / 512",
           }}
         />
         <Gutter size="2.25rem" />

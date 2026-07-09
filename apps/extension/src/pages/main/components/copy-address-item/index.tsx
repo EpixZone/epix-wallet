@@ -161,10 +161,10 @@ export const CopyAddressItem = observer(
                   if (isBookmarked) {
                     if (!blockInteraction && isBookmarkHover) {
                       return theme.mode === "light"
-                        ? ColorPalette["blue-300"]
-                        : ColorPalette["blue-500"];
+                        ? ColorPalette["purple-300"]
+                        : ColorPalette["purple-500"];
                     }
-                    return ColorPalette["blue-400"];
+                    return ColorPalette["purple-400"];
                   }
 
                   if (!blockInteraction && isBookmarkHover) {
@@ -321,7 +321,7 @@ export const CopyAddressItem = observer(
                         alignY="center"
                         backgroundColor={
                           theme.mode === "light"
-                            ? ColorPalette["blue-50"]
+                            ? ColorPalette["purple-50"]
                             : ColorPalette["gray-500"]
                         }
                         borderRadius="0.375rem"
@@ -338,7 +338,7 @@ export const CopyAddressItem = observer(
                           }}
                           color={
                             theme.mode === "light"
-                              ? ColorPalette["blue-400"]
+                              ? ColorPalette["purple-400"]
                               : ColorPalette["gray-200"]
                           }
                         >

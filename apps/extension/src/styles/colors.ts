@@ -1,14 +1,24 @@
 export const ColorPalette = {
-  "blue-10": "#FAFEFF",
-  "blue-50": "#E5F2FD",
-  "blue-100": "#BEEDFF",
-  "blue-200": "#78D9FF",
-  "blue-300": "#35C6FF",
-  "blue-400": "#14AFEB",
-  "blue-500": "#009FDD",
-  "blue-600": "#0093CC",
-  "blue-700": "#00719C",
-  "blue-800": "#21262D",
+  // Epix brand: purple is the primary action color.
+  "purple-10": "#FCFAFF",
+  "purple-50": "#F1E9FC",
+  "purple-100": "#DBC6F6",
+  "purple-200": "#B78EEB",
+  "purple-300": "#A06CE5",
+  "purple-400": "#8A4BDB",
+  "purple-500": "#7332C8",
+  "purple-600": "#652CAF",
+  "purple-700": "#4E2385",
+  "purple-800": "#262033",
+
+  // Epix brand: cyan is the highlight/accent color.
+  "cyan-50": "#EDFCFD",
+  "cyan-100": "#D1F7FA",
+  "cyan-200": "#A1F0F7",
+  "cyan-300": "#84ECF6",
+  "cyan-400": "#69E9F5",
+  "cyan-500": "#36D4E2",
+  "cyan-600": "#20AAB6",
 
   "platinum-10": "#EFF3F8",
   "platinum-50": "#E9EEF5",
@@ -85,7 +95,7 @@ export const ColorPalette = {
 
   transparent: "rgba(255,255,255,0)",
 
-  "light-gradient": "linear-gradient(90deg, #FCFAFF 2.44%, #FBFBFF 96.83%)",
+  "light-background": "#FCFAFF",
   "skeleton-layer-0": "#ECEBF1",
   "skeleton-layer-1": "#F9F9FC",
 };

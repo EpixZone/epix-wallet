@@ -222,7 +222,7 @@ export const EpixNetworkPanel: FunctionComponent<{
         }}
         alignX="center"
       >
-        <Body2 color={ColorPalette["blue-300"]}>
+        <Body2 color={ColorPalette["purple-300"]}>
           {intl.formatMessage({ id: "page.setting.epix.open-config" })}
         </Body2>
       </Box>

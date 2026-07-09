@@ -223,7 +223,7 @@ export const CopyAddressScene: FunctionComponent<{
             <ArrowRightSolidIcon
               width="1rem"
               height="1rem"
-              color={ColorPalette["blue-400"]}
+              color={ColorPalette["purple-400"]}
             />
           }
           style={{

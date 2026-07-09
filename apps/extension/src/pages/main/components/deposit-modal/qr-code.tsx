@@ -198,7 +198,7 @@ export const QRCodeScene: FunctionComponent<{
                 alignY="center"
                 backgroundColor={
                   theme.mode === "light"
-                    ? ColorPalette["blue-50"]
+                    ? ColorPalette["purple-50"]
                     : ColorPalette["gray-500"]
                 }
                 borderRadius="0.375rem"
@@ -212,7 +212,7 @@ export const QRCodeScene: FunctionComponent<{
                   }}
                   color={
                     theme.mode === "light"
-                      ? ColorPalette["blue-400"]
+                      ? ColorPalette["purple-400"]
                       : ColorPalette["gray-200"]
                   }
                 >
@@ -444,7 +444,7 @@ const AddressDisplay = ({
               style={{
                 color:
                   theme.mode === "light"
-                    ? ColorPalette["blue-500"]
+                    ? ColorPalette["purple-500"]
                     : ColorPalette["gray-100"],
               }}
             >
@@ -464,7 +464,7 @@ const AddressDisplay = ({
               style={{
                 color:
                   theme.mode === "light"
-                    ? ColorPalette["blue-500"]
+                    ? ColorPalette["purple-500"]
                     : ColorPalette["gray-100"],
               }}
             >

@@ -29,6 +29,7 @@ import { Buffer } from "buffer/";
 import { FormattedMessage, useIntl } from "react-intl";
 import { isMnemonicWord } from "@keplr-wallet/common";
 import { checkButtonPositionAndScrollToButton } from "../utils/check-button-position-and-scroll-to-button";
+import { fluidSceneWidth } from "../utils/scene-width";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const bip39 = require("bip39");
 
@@ -116,7 +117,7 @@ export const RecoverMnemonicScene: FunctionComponent = observer(() => {
   const fixedWidthScene = useFixedWidthScene();
   useEffect(() => {
     if (seedType === "24words") {
-      fixedWidthScene.setWidth("41.5rem");
+      fixedWidthScene.setWidth(fluidSceneWidth("41.5rem"));
     } else {
       fixedWidthScene.setWidth(undefined);
     }
@@ -367,7 +368,7 @@ export const RecoverMnemonicScene: FunctionComponent = observer(() => {
 
         {seedType !== "private-key" ? (
           <Box>
-            <Box width="27.25rem" marginX="auto">
+            <Box width="100%" maxWidth="27.25rem" marginX="auto">
               <VerticalCollapseTransition
                 width="100%"
                 collapsed={isBIP44CardOpen}
@@ -403,7 +404,7 @@ export const RecoverMnemonicScene: FunctionComponent = observer(() => {
           </Box>
         ) : null}
 
-        <Box width="22.5rem" marginX="auto">
+        <Box width="100%" maxWidth="22.5rem" marginX="auto">
           <div ref={buttonContainerRef}>
             <Button
               text={intl.formatMessage({

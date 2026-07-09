@@ -479,8 +479,8 @@ const FoundChainView: FunctionComponent<{
                   borderRadius="99999px"
                   backgroundColor={
                     theme.mode === "light"
-                      ? ColorPalette["blue-400"]
-                      : ColorPalette["blue-400"]
+                      ? ColorPalette["purple-400"]
+                      : ColorPalette["purple-400"]
                   }
                 />
               )}
@@ -617,8 +617,8 @@ const FoundTokenView: FunctionComponent<{
               borderRadius="99999px"
               backgroundColor={
                 theme.mode === "light"
-                  ? ColorPalette["blue-400"]
-                  : ColorPalette["blue-400"]
+                  ? ColorPalette["purple-400"]
+                  : ColorPalette["purple-400"]
               }
             />
           )}

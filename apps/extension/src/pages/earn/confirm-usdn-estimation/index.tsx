@@ -16,7 +16,11 @@ import { DescriptionModal } from "../components/description-modal";
 import { useStore } from "../../../stores";
 import { CoinPretty, Dec, DecUtils } from "@keplr-wallet/unit";
 import { Checkbox } from "../../../components/checkbox";
-import { KEPLR_EXTS_MEMO, NOBLE_CHAIN_ID } from "../../../config.ui";
+import {
+  HelpDeskUrl,
+  KEPLR_EXTS_MEMO,
+  NOBLE_CHAIN_ID,
+} from "../../../config.ui";
 import { FeeType, useTxConfigsValidate } from "@keplr-wallet/hooks";
 import { useNobleEarnAmountConfig } from "@keplr-wallet/hooks-internal";
 import { WarningBox } from "../../../components/warning-box";
@@ -371,7 +375,7 @@ export const EarnConfirmUsdnEstimationPage: FunctionComponent = observer(() => {
                       e.preventDefault();
 
                       browser.tabs.create({
-                        url: LEARN_MORE_URL,
+                        url: HelpDeskUrl,
                       });
                     }}
                   >
@@ -386,9 +390,6 @@ export const EarnConfirmUsdnEstimationPage: FunctionComponent = observer(() => {
     </HeaderLayout>
   );
 });
-
-const LEARN_MORE_URL =
-  "https://help.keplr.app/extension/5R3bMyjtr2FwnBvJQuJwJu/earn-more-with-keplr/5R3bMyjtqZ3BsEKHQy2tYf";
 
 const Styles = {
   Link: styled.span`

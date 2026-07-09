@@ -252,12 +252,12 @@ export const EVMFeeSelector: FunctionComponent<{
                 color={(() => {
                   if (feeConfig.type === "custom") {
                     return theme.mode === "light"
-                      ? ColorPalette["blue-50"]
+                      ? ColorPalette["purple-50"]
                       : ColorPalette["gray-10"];
                   }
 
                   return theme.mode === "light"
-                    ? ColorPalette["blue-400"]
+                    ? ColorPalette["purple-400"]
                     : ColorPalette["gray-10"];
                 })()}
               />

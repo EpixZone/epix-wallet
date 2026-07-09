@@ -113,7 +113,7 @@ export const ChainSelector: FunctionComponent<{
                     height="1.25rem"
                     color={
                       theme.mode === "light"
-                        ? ColorPalette["blue-400"]
+                        ? ColorPalette["purple-400"]
                         : ColorPalette["gray-200"]
                     }
                   />

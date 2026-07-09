@@ -2,27 +2,21 @@
 // Last synced: 2026-03-30 05:42:12 UTC
 // Source: Figma "Supernova Design System"
 // Run: yarn workspace @keplr-wallet/design-system sync:tokens
+//
+// Epix brand overrides applied by hand: the Keplr blue brand ramp is replaced
+// by the Epix purple ramp, and cyan400 is added as the highlight color.
+// Re-syncing from Figma would revert these overrides.
 
 /**
  * Unified Design System colors.
- * Primitive: DSColor.blue400, DSColor.gray10
+ * Primitive: DSColor.purple400, DSColor.gray10
  * Semantic:  DSColor.typography.primary, DSColor.fill.neutral.high
  */
 export const DSColor = {
   // ── Primitives ──
   black: "#000000",
 
-  blue200: "#78D9FF",
-  blue300: "#35C6FF",
-  blue400: "#14AFEB",
-  blue400_10: "rgba(20, 175, 235, 0.1)",
-  blue400_15: "rgba(20, 175, 235, 0.15)",
-  blue400_25: "rgba(20, 175, 235, 0.25)",
-  blue400_50: "rgba(20, 175, 235, 0.5)",
-  blue500: "#009FDD",
-  blue600: "#0093CC",
-  blue700: "#00719C",
-  blue800: "#21262D",
+  cyan400: "#69E9F5",
 
   gray10: "#F6F6F9",
   gray10_3: "rgba(246, 246, 249, 0.03)",
@@ -67,8 +61,17 @@ export const DSColor = {
   orange600: "#8F3A0A",
   orange800: "#2D1609",
 
-  purple300: "#A095FF",
-  purple400: "#7B6BFF",
+  purple200: "#B78EEB",
+  purple300: "#A06CE5",
+  purple400: "#8A4BDB",
+  purple400_10: "rgba(138, 75, 219, 0.1)",
+  purple400_15: "rgba(138, 75, 219, 0.15)",
+  purple400_25: "rgba(138, 75, 219, 0.25)",
+  purple400_50: "rgba(138, 75, 219, 0.5)",
+  purple500: "#7332C8",
+  purple600: "#652CAF",
+  purple700: "#4E2385",
+  purple800: "#262033",
 
   white: "#FFFFFF",
 
@@ -197,11 +200,11 @@ export const darkThemeValues: Record<string, string> = {
   "--ds-fill-alert-alpha-medium-50": DSColor.orange400_50,
   "--ds-fill-positive-high": DSColor.green200,
   "--ds-fill-positive-strong": DSColor.green400,
-  "--ds-fill-brand-high": DSColor.blue200,
+  "--ds-fill-brand-high": DSColor.purple200,
   "--ds-fill-positive-medium": DSColor.green500,
-  "--ds-fill-brand-strong": DSColor.blue400,
-  "--ds-fill-brand-medium": DSColor.blue600,
-  "--ds-fill-brand-low": DSColor.blue800,
+  "--ds-fill-brand-strong": DSColor.purple400,
+  "--ds-fill-brand-medium": DSColor.purple600,
+  "--ds-fill-brand-low": DSColor.purple800,
   "--ds-fill-positive-low": DSColor.green800,
   "--ds-background-surface-elevated": DSColor.gray600,
   "--ds-stroke-separator-primary": DSColor.gray10_15,
@@ -209,7 +212,7 @@ export const darkThemeValues: Record<string, string> = {
   "--ds-background-surface-scrim": DSColor.gray700_60,
   "--ds-background-surface-ground": DSColor.gray700,
   "--ds-stroke-separator-transparent-→-secondary": DSColor.gray10_7,
-  "--ds-typography-brand": DSColor.blue300,
+  "--ds-typography-brand": DSColor.purple300,
   "--ds-typography-primary": DSColor.gray10,
   "--ds-typography-inverted": DSColor.gray650,
   "--ds-typography-secondary": DSColor.gray200,
@@ -226,14 +229,14 @@ export const darkThemeValues: Record<string, string> = {
   "--ds-typography-positive-medium": DSColor.green500,
   "--ds-typography-positive-strong": DSColor.green800,
   "--ds-form-input-placeholder": DSColor.gray300,
-  "--ds-button-primary": DSColor.blue400,
+  "--ds-button-primary": DSColor.purple400,
   "--ds-button-alert": DSColor.orange400,
   "--ds-button-warning": DSColor.yellow400,
-  "--ds-button-primary-transparent": DSColor.blue400_15,
+  "--ds-button-primary-transparent": DSColor.purple400_15,
   "--ds-button-secondary": DSColor.gray500,
   "--ds-button-disabled": DSColor.gray550,
-  "--ds-button-primary-disabled": DSColor.blue700,
-  "--ds-button-primary-transparent-disabled": DSColor.blue400_10,
+  "--ds-button-primary-disabled": DSColor.purple700,
+  "--ds-button-primary-transparent-disabled": DSColor.purple400_10,
   "--ds-stroke-input-error": DSColor.yellow400,
   "--ds-stroke-input-default": DSColor.gray10_15,
   "--ds-stroke-input-strong": DSColor.gray10_50,
@@ -257,11 +260,11 @@ export const lightThemeValues: Record<string, string> = {
   "--ds-fill-alert-alpha-medium-50": DSColor.orange400_50,
   "--ds-fill-positive-high": DSColor.green800,
   "--ds-fill-positive-strong": DSColor.green500,
-  "--ds-fill-brand-high": DSColor.blue800,
+  "--ds-fill-brand-high": DSColor.purple800,
   "--ds-fill-positive-medium": DSColor.green400,
-  "--ds-fill-brand-strong": DSColor.blue400,
-  "--ds-fill-brand-medium": DSColor.blue600,
-  "--ds-fill-brand-low": DSColor.blue200,
+  "--ds-fill-brand-strong": DSColor.purple400,
+  "--ds-fill-brand-medium": DSColor.purple600,
+  "--ds-fill-brand-low": DSColor.purple200,
   "--ds-fill-positive-low": DSColor.green200,
   "--ds-background-surface-elevated": DSColor.gray600,
   "--ds-stroke-separator-primary": DSColor.gray10_15,
@@ -269,7 +272,7 @@ export const lightThemeValues: Record<string, string> = {
   "--ds-background-surface-scrim": DSColor.gray700_80,
   "--ds-background-surface-ground": DSColor.gray10,
   "--ds-stroke-separator-transparent-→-secondary": DSColor.gray10_7,
-  "--ds-typography-brand": DSColor.blue300,
+  "--ds-typography-brand": DSColor.purple300,
   "--ds-typography-primary": DSColor.gray600,
   "--ds-typography-inverted": DSColor.gray10,
   "--ds-typography-secondary": DSColor.gray200,
@@ -286,14 +289,14 @@ export const lightThemeValues: Record<string, string> = {
   "--ds-typography-positive-medium": DSColor.green400,
   "--ds-typography-positive-strong": DSColor.green400,
   "--ds-form-input-placeholder": DSColor.gray300,
-  "--ds-button-primary": DSColor.blue400,
+  "--ds-button-primary": DSColor.purple400,
   "--ds-button-alert": DSColor.orange400,
   "--ds-button-warning": DSColor.yellow400,
-  "--ds-button-primary-transparent": DSColor.blue400_15,
+  "--ds-button-primary-transparent": DSColor.purple400_15,
   "--ds-button-secondary": DSColor.gray500,
   "--ds-button-disabled": DSColor.gray550,
-  "--ds-button-primary-disabled": DSColor.blue700,
-  "--ds-button-primary-transparent-disabled": DSColor.blue400_10,
+  "--ds-button-primary-disabled": DSColor.purple700,
+  "--ds-button-primary-transparent-disabled": DSColor.purple400_10,
   "--ds-stroke-input-error": DSColor.yellow400,
   "--ds-stroke-input-default": DSColor.gray10_15,
   "--ds-stroke-input-strong": DSColor.gray10_50,

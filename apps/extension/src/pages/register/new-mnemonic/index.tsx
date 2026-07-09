@@ -32,6 +32,7 @@ import { CopyToClipboard } from "../components/copy-to-clipboard";
 import { useIntl } from "react-intl";
 import { useTheme } from "styled-components";
 import { checkButtonPositionAndScrollToButton } from "../utils/check-button-position-and-scroll-to-button";
+import { fluidSceneWidth } from "../utils/scene-width";
 
 type WordsType = "12words" | "24words";
 
@@ -88,7 +89,7 @@ export const NewMnemonicScene: FunctionComponent = observer(() => {
   const fixedWidthScene = useFixedWidthScene();
   useEffect(() => {
     if (wordsType === "24words") {
-      fixedWidthScene.setWidth("41.5rem");
+      fixedWidthScene.setWidth(fluidSceneWidth("41.5rem"));
     } else {
       fixedWidthScene.setWidth(undefined);
     }
@@ -194,7 +195,7 @@ export const NewMnemonicScene: FunctionComponent = observer(() => {
 
       <Gutter size="1.5rem" />
 
-      <Box width="27.25rem" marginX="auto">
+      <Box width="100%" maxWidth="27.25rem" marginX="auto">
         <VerticalCollapseTransition
           width="100%"
           collapsed={isBIP44CardOpen}
@@ -229,7 +230,7 @@ export const NewMnemonicScene: FunctionComponent = observer(() => {
       </Box>
       <Gutter size="1.25rem" />
 
-      <Box width="22.5rem" marginX="auto">
+      <Box width="100%" maxWidth="22.5rem" marginX="auto">
         {policyVerified ? (
           <div ref={buttonContainerRef}>
             <Button

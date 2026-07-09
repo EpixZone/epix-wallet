@@ -68,11 +68,11 @@ export const ArbitraryMsgWalletDetails: FunctionComponent<
           width="100%"
           height="100%"
           borderRadius="0.75rem"
-          borderColor={theme.mode === "light" ? "#DAE1F1" : "#333F52"}
+          borderColor={theme.mode === "light" ? "#E3DAF4" : "#333F52"}
           borderWidth="0.75px"
           style={{
             backgroundColor:
-              theme.mode === "light" ? "#E5ECFA" : ColorPalette["platinum-500"],
+              theme.mode === "light" ? "#EFEAFB" : ColorPalette["platinum-500"],
           }}
         >
           {theme.mode === "light" ? (
@@ -223,52 +223,9 @@ const SigningBackgroundDM: FunctionComponent = () => {
       viewBox="0 0 250 88"
       fill="none"
     >
-      <circle
-        cx="125"
-        cy="-12"
-        r="125"
-        fill="url(#paint0_linear_14730_33021)"
-      />
-      <circle cx="125" cy="-12" r="93" fill="url(#paint1_linear_14730_33021)" />
-      <circle cx="125" cy="-12" r="57" fill="url(#paint2_linear_14730_33021)" />
-      <defs>
-        <linearGradient
-          id="paint0_linear_14730_33021"
-          x1="125"
-          y1="-6.40299"
-          x2="125"
-          y2="113"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0.24" stopColor="#8B93C2" stopOpacity="0" />
-          <stop offset="0.895" stopColor="#8B93C2" stopOpacity="0.1" />
-          <stop offset="1" stopColor="#ABB0D0" stopOpacity="0.13" />
-        </linearGradient>
-        <linearGradient
-          id="paint1_linear_14730_33021"
-          x1="125"
-          y1="-7.83582"
-          x2="125"
-          y2="81"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0.24" stopColor="#8B93C2" stopOpacity="0" />
-          <stop offset="0.895" stopColor="#8B93C2" stopOpacity="0.1" />
-          <stop offset="1" stopColor="#ABB0D0" stopOpacity="0.13" />
-        </linearGradient>
-        <linearGradient
-          id="paint2_linear_14730_33021"
-          x1="125"
-          y1="-9.44776"
-          x2="125"
-          y2="45"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0.24" stopColor="#8B93C2" stopOpacity="0" />
-          <stop offset="0.895" stopColor="#8B93C2" stopOpacity="0.15" />
-          <stop offset="1" stopColor="#ABB0D0" stopOpacity="0.2" />
-        </linearGradient>
-      </defs>
+      <circle cx="125" cy="-12" r="125" fill="#B78EEB" fillOpacity="0.05" />
+      <circle cx="125" cy="-12" r="93" fill="#B78EEB" fillOpacity="0.07" />
+      <circle cx="125" cy="-12" r="57" fill="#B78EEB" fillOpacity="0.1" />
     </svg>
   );
 };
@@ -282,49 +239,9 @@ const SigningBackgroundLM: FunctionComponent = () => {
       viewBox="0 0 250 88"
       fill="none"
     >
-      <circle
-        cx="125"
-        cy="-12"
-        r="125"
-        fill="url(#paint0_linear_14730_33149)"
-      />
-      <circle cx="125" cy="-12" r="93" fill="url(#paint1_linear_14730_33149)" />
-      <circle cx="125" cy="-12" r="57" fill="url(#paint2_linear_14730_33149)" />
-      <defs>
-        <linearGradient
-          id="paint0_linear_14730_33149"
-          x1="125"
-          y1="-6.40299"
-          x2="125"
-          y2="113"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0.24" stopColor="#E5ECFA" stopOpacity="0" />
-          <stop offset="1" stopColor="#2C4BE2" stopOpacity="0.15" />
-        </linearGradient>
-        <linearGradient
-          id="paint1_linear_14730_33149"
-          x1="125"
-          y1="-7.83582"
-          x2="125"
-          y2="81"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0.24" stopColor="#E5ECFA" stopOpacity="0" />
-          <stop offset="1" stopColor="#2C4BE2" stopOpacity="0.15" />
-        </linearGradient>
-        <linearGradient
-          id="paint2_linear_14730_33149"
-          x1="125"
-          y1="-9.44776"
-          x2="125"
-          y2="45"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0.24" stopColor="#E5ECFA" stopOpacity="0" />
-          <stop offset="1" stopColor="#2C4BE2" stopOpacity="0.15" />
-        </linearGradient>
-      </defs>
+      <circle cx="125" cy="-12" r="125" fill="#8A4BDB" fillOpacity="0.04" />
+      <circle cx="125" cy="-12" r="93" fill="#8A4BDB" fillOpacity="0.06" />
+      <circle cx="125" cy="-12" r="57" fill="#8A4BDB" fillOpacity="0.08" />
     </svg>
   );
 };

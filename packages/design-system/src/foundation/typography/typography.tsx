@@ -17,7 +17,7 @@ export interface DSTypographyProps extends React.HTMLAttributes<HTMLElement> {
   weight?: Weight;
   /** Override token font size (px) */
   fontSize?: number;
-  /** Text color — `DSColor.typography.primary`, `DSColor.blue400`, or any CSS color */
+  /** Text color — `DSColor.typography.primary`, `DSColor.purple400`, or any CSS color */
   color?: string;
   /** HTML element to render as — `"span"`, `"p"`, `"h1"`, `"div"`, `"label"`, etc. */
   as?: React.ElementType;

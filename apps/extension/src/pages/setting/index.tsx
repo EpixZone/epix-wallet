@@ -29,14 +29,11 @@ import { Gutter } from "../../components/gutter";
 import { XAxis, YAxis } from "../../components/axis";
 import { PricePretty } from "@keplr-wallet/unit";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
-import { Image } from "../../components/image";
-import { Tooltip } from "../../components/tooltip";
 import { useTheme } from "styled-components";
 import { version } from "../../../package.json";
 import { useIntl } from "react-intl";
 import { HeaderLayout } from "../../layouts/header";
 import { BackButton } from "../../layouts/header/components";
-import { useGetIcnsName } from "../../hooks/use-get-icns-name";
 
 export const SettingPage: FunctionComponent = observer(() => {
   const navigate = useNavigate();
@@ -437,17 +434,10 @@ const TopSection: FunctionComponent<{
     onClick?: () => void;
   }[];
 }> = observer(({ items }) => {
-  const { accountStore, keyRingStore, uiConfigStore, hugeQueriesStore } =
-    useStore();
+  const { keyRingStore, uiConfigStore, hugeQueriesStore } = useStore();
 
   const navigate = useNavigate();
   const theme = useTheme();
-
-  const icnsPrimaryName = useGetIcnsName(
-    uiConfigStore.icnsInfo?.chainId
-      ? accountStore.getAccount(uiConfigStore.icnsInfo.chainId).bech32Address
-      : undefined
-  );
 
   const disabledViewAssetTokenMap =
     uiConfigStore.manageViewAssetTokenConfig.getViewAssetTokenMapByVaultId(
@@ -558,26 +548,6 @@ const TopSection: FunctionComponent<{
           }}
         >
           <XAxis alignY="center">
-            {icnsPrimaryName ? (
-              <React.Fragment>
-                <Tooltip
-                  content={
-                    <div style={{ whiteSpace: "nowrap" }}>
-                      ICNS : {icnsPrimaryName}
-                    </div>
-                  }
-                >
-                  <Image
-                    alt="icns-icon"
-                    src={require(theme.mode === "light"
-                      ? "../../public/assets/img/icns-icon-light.png"
-                      : "../../public/assets/img/icns-icon.png")}
-                    style={{ width: "1rem", height: "1rem" }}
-                  />
-                </Tooltip>
-                <Gutter size="0.75rem" />
-              </React.Fragment>
-            ) : null}
             <YAxis>
               <Subtitle3
                 color={

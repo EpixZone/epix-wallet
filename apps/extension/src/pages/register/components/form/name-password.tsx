@@ -86,7 +86,7 @@ export const FormNamePassword: FunctionComponent<
             <AddWalletImg
               color={
                 theme.mode === "light"
-                  ? ColorPalette["blue-100"]
+                  ? ColorPalette["purple-100"]
                   : ColorPalette["gray-10"]
               }
             />

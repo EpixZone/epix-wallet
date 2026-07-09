@@ -56,41 +56,43 @@ export const ConnectKeystoneQRScene: FunctionComponent<{
 
   return (
     <RegisterSceneBox style={{ alignItems: "center" }}>
-      <Stack gutter="1.5rem">
-        <Step
-          num="1"
-          text={
-            <span>
-              <FormattedMessage
-                id="pages.register.connect-keystone.step-1"
-                values={{ span }}
-              />
-            </span>
-          }
-        />
-        <Step
-          num="2"
-          text={
-            <span>
-              <FormattedMessage
-                id="pages.register.connect-keystone.step-2"
-                values={{ span }}
-              />
-            </span>
-          }
-        />
-        <Step
-          num="3"
-          text={
-            <span>
-              <FormattedMessage
-                id="pages.register.connect-keystone.step-3"
-                values={{ span }}
-              />
-            </span>
-          }
-        />
-      </Stack>
+      <Box maxWidth="100%">
+        <Stack gutter="1.5rem">
+          <Step
+            num="1"
+            text={
+              <span>
+                <FormattedMessage
+                  id="pages.register.connect-keystone.step-1"
+                  values={{ span }}
+                />
+              </span>
+            }
+          />
+          <Step
+            num="2"
+            text={
+              <span>
+                <FormattedMessage
+                  id="pages.register.connect-keystone.step-2"
+                  values={{ span }}
+                />
+              </span>
+            }
+          />
+          <Step
+            num="3"
+            text={
+              <span>
+                <FormattedMessage
+                  id="pages.register.connect-keystone.step-3"
+                  values={{ span }}
+                />
+              </span>
+            }
+          />
+        </Stack>
+      </Box>
       <a
         href="https://support.keyst.one/3rd-party-wallets/cosmos-wallets/keplr-extension?utm_source=keplr&utm_medium=moredetails&utm_id=20230419"
         target="_blank"
@@ -111,7 +113,7 @@ export const ConnectKeystoneQRScene: FunctionComponent<{
         text={intl.formatMessage({
           id: "pages.register.connect-keystone.sync",
         })}
-        style={{ width: "22rem", marginTop: "3.5rem" }}
+        style={{ width: "100%", maxWidth: "22rem", marginTop: "3.5rem" }}
       />
     </RegisterSceneBox>
   );

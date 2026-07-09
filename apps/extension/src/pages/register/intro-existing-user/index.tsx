@@ -6,12 +6,12 @@ import {
   useSceneEvents,
   useSceneTransition,
 } from "../../../components/transition";
-import { Column, Columns } from "../../../components/column";
 import { Box } from "../../../components/box";
 import { ColorPalette } from "../../../styles";
 import { Subtitle3 } from "../../../components/typography";
 import { Gutter } from "../../../components/gutter";
 import { useRegisterHeader } from "../components/header";
+import { IntroColumns } from "../components/intro-columns";
 import { RegisterH4 } from "../components/typography";
 import { ArrowDownTrayIcon, GoogleIcon } from "../../../components/icon";
 import * as KeplrWalletPrivate from "keplr-wallet-private";
@@ -40,8 +40,8 @@ export const RegisterIntroExistingUserScene: FunctionComponent = () => {
 
   return (
     <RegisterSceneBox>
-      <Columns sum={2} gutter="2.5rem">
-        <Column weight={1}>
+      <IntroColumns
+        left={
           <Box height="100%">
             <RegisterH4
               color={
@@ -69,16 +69,8 @@ export const RegisterIntroExistingUserScene: FunctionComponent = () => {
               }}
             />
           </Box>
-        </Column>
-        <Box
-          width="1px"
-          backgroundColor={
-            theme.mode === "light"
-              ? ColorPalette["gray-100"]
-              : ColorPalette["gray-400"]
-          }
-        />
-        <Column weight={1}>
+        }
+        right={
           <Box height="100%">
             <RegisterH4
               color={
@@ -117,8 +109,8 @@ export const RegisterIntroExistingUserScene: FunctionComponent = () => {
               />
             </Stack>
           </Box>
-        </Column>
-      </Columns>
+        }
+      />
     </RegisterSceneBox>
   );
 };

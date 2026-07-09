@@ -1584,9 +1584,7 @@ export class Keplr implements IKeplr, KeplrCoreTypes {
               keplrLogoWrap.style.marginRight = "1rem";
               const keplrLogo = document.createElement("img");
               const keplrLogoUrl = chrome.runtime.getURL(
-                `/assets/${
-                  isKeplrLocked ? "locked-keplr-logo" : "icon"
-                }-128.png`
+                `/assets/${isKeplrLocked ? "locked-logo" : "icon"}-128.png`
               );
               keplrLogo.src = keplrLogoUrl;
               keplrLogo.style.boxSizing = "border-box";
@@ -1613,8 +1611,8 @@ export class Keplr implements IKeplr, KeplrCoreTypes {
               mainText.style.fontSize = "1rem";
               mainText.style.color = isLightMode ? "#020202" : "#FEFEFE";
               mainText.textContent = isKeplrLocked
-                ? "Unlock Keplr to proceed"
-                : "Open Keplr to approve request(s)";
+                ? "Unlock Epix Wallet to proceed"
+                : "Open Epix Wallet to approve request(s)";
 
               // const arrowLeftOpenWrapper = document.createElement("div");
               // arrowLeftOpenWrapper.style.boxSizing = "border-box";

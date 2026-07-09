@@ -17,7 +17,7 @@ const springConfig = {
   friction: 21,
 };
 
-const gradientSpringConfig = {
+const backgroundSpringConfig = {
   mass: 0.6,
   tension: 220,
   friction: 15,
@@ -29,17 +29,12 @@ const onClickSpringConfig = {
   friction: 10,
 };
 
-const gradient1Pos = "16.15%";
-const gradient1DefaultColor = ColorPalette["blue-400"];
-const gradient1HoverColor = "#00C2FF";
+const defaultBackgroundColor = ColorPalette["purple-400"];
+const hoverBackgroundColor = ColorPalette["purple-300"];
 
-const gradient2Pos = "100%";
-const gradient2DefaultColor = ColorPalette["blue-400"];
-const gradient2HoverColor = "#2DD2B9";
-
-const defaultBoxShadowColor = "#00c2ff80";
-const hoverBoxShadowColor = "#00c2ff80";
-const pressedBoxShadowColor = "#00c2ff80";
+const defaultBoxShadowColor = "#69e9f580";
+const hoverBoxShadowColor = "#69e9f580";
+const pressedBoxShadowColor = "#69e9f580";
 
 const defaultBoxShadowStrength = 0;
 const hoverBoxShadowStrength = 11;
@@ -61,8 +56,7 @@ export const SpecialButton: FunctionComponent<SpecialButtonProps> = ({
   disabled,
   textOverrideIcon,
 }) => {
-  const gradient1 = useSpringValue(gradient1DefaultColor);
-  const gradient2 = useSpringValue(gradient2DefaultColor);
+  const backgroundColor = useSpringValue(defaultBackgroundColor);
 
   const boxShadowColor = useSpringValue(defaultBoxShadowColor);
 
@@ -75,11 +69,8 @@ export const SpecialButton: FunctionComponent<SpecialButtonProps> = ({
 
   const animateToDefault = useCallback(() => {
     return Promise.all([
-      gradient1.start(gradient1DefaultColor, {
-        config: gradientSpringConfig,
-      }),
-      gradient2.start(gradient2DefaultColor, {
-        config: gradientSpringConfig,
+      backgroundColor.start(defaultBackgroundColor, {
+        config: backgroundSpringConfig,
       }),
       scale.start(defaultScale, {
         config: springConfig,
@@ -92,7 +83,7 @@ export const SpecialButton: FunctionComponent<SpecialButtonProps> = ({
       }),
     ]);
     // 이 함수는 lifecycle내에서 constant하고 그게 보장이 되어야함.
-  }, [boxShadowColor, boxShadowStrength, gradient1, gradient2, scale]);
+  }, [backgroundColor, boxShadowColor, boxShadowStrength, scale]);
 
   useLayoutEffect(() => {
     if (disabled) {
@@ -106,11 +97,8 @@ export const SpecialButton: FunctionComponent<SpecialButtonProps> = ({
     }
 
     if (isHover) {
-      gradient1.start(gradient1HoverColor, {
-        config: gradientSpringConfig,
-      });
-      gradient2.start(gradient2HoverColor, {
-        config: gradientSpringConfig,
+      backgroundColor.start(hoverBackgroundColor, {
+        config: backgroundSpringConfig,
       });
 
       scale.start(hoverScale, {
@@ -127,11 +115,10 @@ export const SpecialButton: FunctionComponent<SpecialButtonProps> = ({
     }
   }, [
     animateToDefault,
+    backgroundColor,
     boxShadowColor,
     boxShadowStrength,
     disabled,
-    gradient1,
-    gradient2,
     isHover,
     scale,
   ]);
@@ -142,11 +129,8 @@ export const SpecialButton: FunctionComponent<SpecialButtonProps> = ({
     }
 
     if (isPressed) {
-      gradient1.start(gradient1HoverColor, {
-        config: gradientSpringConfig,
-      });
-      gradient2.start(gradient2HoverColor, {
-        config: gradientSpringConfig,
+      backgroundColor.start(hoverBackgroundColor, {
+        config: backgroundSpringConfig,
       });
 
       scale.start(pressedScale, {
@@ -160,11 +144,10 @@ export const SpecialButton: FunctionComponent<SpecialButtonProps> = ({
       });
     }
   }, [
+    backgroundColor,
     boxShadowColor,
     boxShadowStrength,
     disabled,
-    gradient1,
-    gradient2,
     isPressed,
     scale,
   ]);
@@ -183,11 +166,8 @@ export const SpecialButton: FunctionComponent<SpecialButtonProps> = ({
 
           setIsPressed(false);
 
-          gradient1.start(gradient1DefaultColor, {
-            config: gradientSpringConfig,
-          });
-          gradient2.start(gradient2DefaultColor, {
-            config: gradientSpringConfig,
+          backgroundColor.start(defaultBackgroundColor, {
+            config: backgroundSpringConfig,
           });
 
           scale.start(defaultScale, {
@@ -218,11 +198,7 @@ export const SpecialButton: FunctionComponent<SpecialButtonProps> = ({
           setIsPressed(true);
         }}
         style={{
-          background: to(
-            [gradient1, gradient2],
-            (g1, g2) =>
-              `linear-gradient(90deg, ${g1} ${gradient1Pos}, ${g2} ${gradient2Pos})`
-          ),
+          background: backgroundColor,
           transform: to(scale, (s) => `scale(${s})`),
           boxShadow: to(
             [boxShadowColor, boxShadowStrength],

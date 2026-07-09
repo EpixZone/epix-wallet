@@ -499,7 +499,7 @@ export const SignBitcoinTxView: FunctionComponent<{
             <CancelIcon
               color={
                 theme.mode === "light"
-                  ? ColorPalette["blue-400"]
+                  ? ColorPalette["purple-400"]
                   : ColorPalette["gray-200"]
               }
             />
@@ -532,7 +532,7 @@ export const SignBitcoinTxView: FunctionComponent<{
           <CancelIcon
             color={
               theme.mode === "light"
-                ? ColorPalette["blue-400"]
+                ? ColorPalette["purple-400"]
                 : ColorPalette["gray-200"]
             }
           />
@@ -550,7 +550,7 @@ export const SignBitcoinTxView: FunctionComponent<{
           <LeftArrowIcon
             color={
               theme.mode === "light"
-                ? ColorPalette["blue-400"]
+                ? ColorPalette["purple-400"]
                 : ColorPalette["gray-200"]
             }
           />
@@ -575,7 +575,7 @@ export const SignBitcoinTxView: FunctionComponent<{
           <RightArrowIcon
             color={
               theme.mode === "light"
-                ? ColorPalette["blue-400"]
+                ? ColorPalette["purple-400"]
                 : ColorPalette["gray-10"]
             }
           />
@@ -1297,8 +1297,8 @@ const AddressesWithValuesLabel: FunctionComponent<{
         style={{
           color:
             theme.mode === "light"
-              ? ColorPalette["blue-400"]
-              : ColorPalette["blue-300"],
+              ? ColorPalette["purple-400"]
+              : ColorPalette["purple-300"],
         }}
       >
         {length}

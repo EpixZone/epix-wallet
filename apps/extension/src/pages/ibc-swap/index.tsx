@@ -176,6 +176,10 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
     uiConfigStore.ibcSwapConfig
   );
 
+  // Until a destination is actually picked, the out side is only the store's
+  // fallback: the To box shows "Select token" and swapping stays disabled.
+  const outChosen = uiConfigStore.ibcSwapConfig.isAmountOutChosen;
+
   const inModularChainInfo = chainStore.getModularChain(inChainId);
   const inChainType = inModularChainInfo.type;
   const inChainAccount = accountStore.getAccount(inChainId);
@@ -396,7 +400,8 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
   // Query params management (outChainId/outCurrency sync, tempSwitchAmount, amount reset)
   const { setSearchParams, clearInitialAmount } = useSwapQueryParams(
     swapConfigs.amountConfig,
-    isSwapExecuting
+    isSwapExecuting,
+    outChosen
   );
 
   const [isButtonHolding, setIsButtonHolding] = useState(false);
@@ -466,7 +471,8 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
   const interactionBlocked =
     txConfigsValidate.interactionBlocked ||
     !uiConfigStore.ibcSwapConfig.slippageIsValid ||
-    !outCurrencyFetched;
+    !outCurrencyFetched ||
+    !outChosen;
 
   const [calculatingTxError, setCalculatingTxError] = useState<
     Error | undefined
@@ -1663,6 +1669,7 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
 
         <SwapAssetInfo
           type="to"
+          unselected={!outChosen}
           senderConfig={swapConfigs.senderConfig}
           amountConfig={swapConfigs.amountConfig}
           decorateUpperAmountTextIfTypeIsTo={decorateUpperAmountTextIfTypeIsTo}
@@ -1851,8 +1858,12 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
               (shouldTopUp && !isTopUpAvailable)
             }
             text={
-              inChainType === "evm" &&
-              evmOutcome === EvmGasSimulationOutcome.TX_BUNDLE_SIMULATED
+              !outChosen
+                ? intl.formatMessage({
+                    id: "page.ibc-swap.button.select-token",
+                  })
+                : inChainType === "evm" &&
+                  evmOutcome === EvmGasSimulationOutcome.TX_BUNDLE_SIMULATED
                 ? intl.formatMessage({
                     id: "page.ibc-swap.button.hold-to-approve-and-swap",
                   })
@@ -1882,7 +1893,11 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
               (shouldTopUp && !isTopUpAvailable)
             }
             text={
-              shouldTopUp && remainingText
+              !outChosen
+                ? intl.formatMessage({
+                    id: "page.ibc-swap.button.select-token",
+                  })
+                : shouldTopUp && remainingText
                 ? remainingText
                 : intl.formatMessage({
                     id: "page.ibc-swap.title.swap",

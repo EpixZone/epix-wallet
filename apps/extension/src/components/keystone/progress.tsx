@@ -27,7 +27,7 @@ export const Progress: FunctionComponent<{
           width: `${percent}%`,
           height: "100%",
           borderRadius: height ?? "0.375rem",
-          backgroundColor: ColorPalette["blue-400"],
+          backgroundColor: ColorPalette["purple-400"],
         }}
       />
     </div>

@@ -41,6 +41,7 @@ import {
 } from "./connect-keystone";
 import { ScanKeystoneScene } from "./connect-keystone/scan";
 import { EpixNetworkShield } from "../../components/epix-network";
+import { fluidSceneWidth } from "./utils/scene-width";
 
 // The Tor/I2P shield, pinned to the page corner: the browser's privacy
 // controls are useful before (or without) ever creating a wallet, and the
@@ -281,87 +282,87 @@ const RegisterPageImpl: FunctionComponent = observer(() => {
             {
               name: "intro",
               element: RegisterIntroScene,
-              width: "31rem",
+              width: fluidSceneWidth("31rem"),
             },
             {
               name: "new-user",
               element: RegisterIntroNewUserScene,
-              width: "53.75rem",
+              width: fluidSceneWidth("53.75rem"),
             },
             {
               name: "existing-user",
               element: RegisterIntroExistingUserScene,
-              width: "53.75rem",
+              width: fluidSceneWidth("53.75rem"),
             },
             {
               name: "new-mnemonic",
               element: NewMnemonicScene,
-              width: "33.75rem",
+              width: fluidSceneWidth("33.75rem"),
             },
             {
               name: "verify-mnemonic",
               element: VerifyMnemonicScene,
-              width: "35rem",
+              width: fluidSceneWidth("35rem"),
             },
             {
               name: "recover-mnemonic",
               element: RecoverMnemonicScene,
-              width: "33.75rem",
+              width: fluidSceneWidth("33.75rem"),
             },
             {
               name: "connect-hardware-wallet",
               element: ConnectHardwareWalletScene,
-              width: "31rem",
+              width: fluidSceneWidth("31rem"),
             },
             {
               name: "connect-ledger",
               element: ConnectLedgerScene,
-              width: "40rem",
+              width: fluidSceneWidth("40rem"),
             },
             {
               name: "connect-keystone-qr",
               element: ConnectKeystoneQRScene,
-              width: "40rem",
+              width: fluidSceneWidth("40rem"),
             },
             {
               name: "connect-keystone-usb",
               element: ConnectKeystoneUSBScene,
-              width: "40rem",
+              width: fluidSceneWidth("40rem"),
             },
             {
               name: "scan-keystone",
               element: ScanKeystoneScene,
-              width: "31.25rem",
+              width: fluidSceneWidth("31.25rem"),
             },
             {
               name: "back-up-private-key",
               element: BackUpPrivateKeyScene,
-              width: "28rem",
+              width: fluidSceneWidth("28rem"),
             },
             {
               name: "name-password",
               element: RegisterNamePasswordScene,
-              width: "29rem",
+              width: fluidSceneWidth("29rem"),
             },
             {
               name: "name-password-hardware",
               element: RegisterNamePasswordHardwareScene,
-              width: "29rem",
+              width: fluidSceneWidth("29rem"),
             },
             {
               name: "finalize-key",
               element: FinalizeKeyScene,
-              width: "17.5rem",
+              width: fluidSceneWidth("17.5rem"),
             },
             {
               name: "enable-chains",
               element: EnableChainsScene,
-              width: "34.5rem",
+              width: fluidSceneWidth("34.5rem"),
             },
             {
               name: "select-derivation-path",
               element: SelectDerivationPathScene,
-              width: "40rem",
+              width: fluidSceneWidth("40rem"),
             },
             ...KeplrWalletPrivate.RegisterScenes,
           ]}

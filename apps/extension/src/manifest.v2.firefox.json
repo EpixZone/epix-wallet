@@ -5,6 +5,21 @@
       "strict_min_version": "89.0"
     }
   },
+  "permissions": [
+    "storage",
+    "notifications",
+    "identity",
+    "idle",
+    "alarms",
+    "unlimitedStorage",
+    "activeTab",
+    "scripting",
+    "webNavigation",
+    "nativeMessaging",
+    "webRequest",
+    "webRequestBlocking",
+    "proxy"
+  ],
   "icons": {
     "16": "assets/icon-beta-16.png",
     "48": "assets/icon-beta-48.png",
@@ -15,7 +30,7 @@
     "assets/Inter-SemiBold.ttf",
     "assets/icon-128.png",
     "assets/megaphone.svg",
-    "assets/locked-keplr-logo-128.png",
+    "assets/locked-logo-128.png",
     "assets/icon-click-cursor.png"
   ]
 }

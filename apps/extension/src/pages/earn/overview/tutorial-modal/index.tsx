@@ -98,7 +98,7 @@ const DotIndicator: FunctionComponent<{
     backgroundColor={
       isLightMode
         ? isActive
-          ? ColorPalette["blue-400"]
+          ? ColorPalette["purple-400"]
           : ColorPalette["gray-100"]
         : isActive
         ? ColorPalette["gray-100"]

@@ -3,7 +3,7 @@ import { Stack } from "../../../../components/stack";
 import { Box } from "../../../../components/box";
 import Color from "color";
 import { ColorPalette } from "../../../../styles";
-import { Column, Columns } from "../../../../components/column";
+import { Columns } from "../../../../components/column";
 import { Subtitle2 } from "../../../../components/typography";
 import { XAxis, YAxis } from "../../../../components/axis";
 import { Gutter } from "../../../../components/gutter";
@@ -46,7 +46,9 @@ export const WelcomePage: FunctionComponent = observer(() => {
 
   return (
     <Styles.Container>
-      <PinView />
+      <Styles.DesktopOnly>
+        <PinView />
+      </Styles.DesktopOnly>
 
       <Stack alignX="left">
         {isDesktop ? null : (
@@ -88,11 +90,18 @@ export const WelcomePage: FunctionComponent = observer(() => {
         <Gutter size="0.75rem" />
 
         <Styles.ResponsiveContainer>
-          <Box width="37.5rem">
+          {/* The column and title are clamped to the viewport (minus the
+              narrow-viewport container padding) so the page fits small
+              phone screens; at their design widths nothing changes. */}
+          <Box width="min(37.5rem, 100vw - 2.5rem)">
             <YAxis alignX="left">
               <Box
-                width="31.25rem"
-                style={{ fontWeight: 600, fontSize: "3.5rem" }}
+                width="100%"
+                maxWidth="31.25rem"
+                style={{
+                  fontWeight: 600,
+                  fontSize: "clamp(2.25rem, 8vw, 3.5rem)",
+                }}
               >
                 <FormattedMessage id="pages.register.pages.welcome.title" />
               </Box>
@@ -107,71 +116,38 @@ export const WelcomePage: FunctionComponent = observer(() => {
 
               <Box width="100%">
                 <Stack gutter="0.5rem">
-                  <Columns sum={1} gutter="0.5rem">
-                    <Column weight={1}>
-                      <LinkItem
-                        title={intl.formatMessage({
-                          id: "pages.register.pages.welcome.osmosis-link.title",
-                        })}
-                        paragraph={intl.formatMessage({
-                          id: "pages.register.pages.welcome.osmosis-link.paragraph",
-                        })}
-                        src={osmosisInfo?.chainSymbolImageUrl}
-                        url="https://app.osmosis.zone/"
-                      />
-                    </Column>
-                    <Column weight={1}>
-                      <LinkItem
-                        title={intl.formatMessage({
-                          id: "pages.register.pages.welcome.swapped-link.title",
-                        })}
-                        paragraph={intl.formatMessage({
-                          id: "pages.register.pages.welcome.swapped-link.paragraph",
-                        })}
-                        src={require("../../../../public/assets/img/fiat-on-ramp/swapped.svg")}
-                        url="https://swapped.com/"
-                      />
-                    </Column>
-                    <Column weight={1}>
-                      <LinkItem
-                        title={intl.formatMessage({
-                          id: "pages.register.pages.welcome.stargaze-link.title",
-                        })}
-                        paragraph={intl.formatMessage({
-                          id: "pages.register.pages.welcome.stargaze-link.paragraph",
-                        })}
-                        src={require("../../../../public/assets/img/stargaze-logo.png")}
-                        url="https://www.stargaze.zone/"
-                      />
-                    </Column>
-                  </Columns>
-
-                  <Columns sum={1} gutter="0.5rem">
-                    <Column weight={1}>
-                      <LinkItem
-                        title={intl.formatMessage({
-                          id: "pages.register.pages.welcome.dashboard-link.title",
-                        })}
-                        paragraph={intl.formatMessage({
-                          id: "pages.register.pages.welcome.dashboard-link.paragraph",
-                        })}
-                        src={require("../../../../public/assets/logo-256.png")}
-                        url="https://wallet.keplr.app/?utm_source=keplrextension&utm_medium=button&utm_campaign=permanent&utm_content=welcome_portfolio"
-                      />
-                    </Column>
-                    <Column weight={1}>
-                      <LinkItem
-                        title={intl.formatMessage({
-                          id: "pages.register.pages.welcome.icns-link.title",
-                        })}
-                        paragraph={intl.formatMessage({
-                          id: "pages.register.pages.welcome.icns-link.paragraph",
-                        })}
-                        src={require("../../../../public/assets/icns-logo.png")}
-                        url="https://icns.xyz/"
-                      />
-                    </Column>
-                  </Columns>
+                  <Styles.LinkItemRow>
+                    <LinkItem
+                      title={intl.formatMessage({
+                        id: "pages.register.pages.welcome.osmosis-link.title",
+                      })}
+                      paragraph={intl.formatMessage({
+                        id: "pages.register.pages.welcome.osmosis-link.paragraph",
+                      })}
+                      src={osmosisInfo?.chainSymbolImageUrl}
+                      url="https://app.osmosis.zone/"
+                    />
+                    <LinkItem
+                      title={intl.formatMessage({
+                        id: "pages.register.pages.welcome.swapped-link.title",
+                      })}
+                      paragraph={intl.formatMessage({
+                        id: "pages.register.pages.welcome.swapped-link.paragraph",
+                      })}
+                      src={require("../../../../public/assets/img/fiat-on-ramp/swapped.svg")}
+                      url="https://swapped.com/"
+                    />
+                    <LinkItem
+                      title={intl.formatMessage({
+                        id: "pages.register.pages.welcome.stargaze-link.title",
+                      })}
+                      paragraph={intl.formatMessage({
+                        id: "pages.register.pages.welcome.stargaze-link.paragraph",
+                      })}
+                      src={require("../../../../public/assets/img/stargaze-logo.png")}
+                      url="https://www.stargaze.zone/"
+                    />
+                  </Styles.LinkItemRow>
                 </Stack>
               </Box>
             </YAxis>
@@ -182,7 +158,7 @@ export const WelcomePage: FunctionComponent = observer(() => {
 
         <Gutter size="1.5rem" />
 
-        <XAxis alignY="center">
+        <XAxis alignY="center" wrap="wrap">
           <Button
             text={intl.formatMessage({
               id: "pages.register.pages.welcome.finish-button",

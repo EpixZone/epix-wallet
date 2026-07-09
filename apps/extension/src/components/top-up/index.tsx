@@ -5,6 +5,7 @@ import { ColorPalette } from "../../styles";
 import { useStore } from "../../stores";
 import { useTheme } from "styled-components";
 import { FormattedMessage } from "react-intl";
+import { useNavigate } from "react-router";
 
 export const FeeCoverageDescription: FunctionComponent<{
   isTopUpAvailable: boolean;
@@ -27,7 +28,7 @@ export const FeeCoverageDescription: FunctionComponent<{
         {isTopUpAvailable ? (
           <React.Fragment>
             <br />
-            <span style={{ color: ColorPalette["blue-500"] }}>
+            <span style={{ color: ColorPalette["purple-500"] }}>
               <FormattedMessage id="components.top-up.description.we-cover" />
             </span>
           </React.Fragment>
@@ -43,6 +44,8 @@ export const StakingRequirementDescription: FunctionComponent<{
   stakingChainId: string;
   validatorAddress: string;
 }> = ({ requiredStaking, coinDenom, stakingChainId, validatorAddress }) => {
+  const navigate = useNavigate();
+
   return (
     <div
       style={{
@@ -65,25 +68,27 @@ export const StakingRequirementDescription: FunctionComponent<{
           }}
         />
       </Subtitle4>
-      <a
-        href={`https://wallet.keplr.app/chains/cosmos-hub?modal=staking&chain=${encodeURIComponent(
-          stakingChainId
-        )}&validator_address=${encodeURIComponent(
-          validatorAddress
-        )}&step_id=3&action_id=stake`}
-        target="_blank"
-        rel="noopener noreferrer"
+      <span
+        onClick={(e) => {
+          e.preventDefault();
+          navigate(
+            `/stake/delegate/${encodeURIComponent(
+              stakingChainId
+            )}/${encodeURIComponent(validatorAddress)}`
+          );
+        }}
         style={{
           display: "inline-block",
-          color: ColorPalette["blue-500"],
+          color: ColorPalette["purple-500"],
           fontSize: "0.75rem",
           fontWeight: 600,
           textDecoration: "underline",
           textAlign: "center",
+          cursor: "pointer",
         }}
       >
         <FormattedMessage id="components.top-up.description.stake-now" />
-      </a>
+      </span>
     </div>
   );
 };
@@ -142,7 +147,7 @@ export const FeeCoverageBox = ({ feeConfig }: { feeConfig: IFeeConfig }) => {
           </Subtitle3>
           <Subtitle3
             color={
-              ColorPalette[theme.mode === "light" ? "blue-500" : "blue-400"]
+              ColorPalette[theme.mode === "light" ? "purple-500" : "purple-400"]
             }
           >
             <FormattedMessage id="components.top-up.covered-by-keplr" /> ✨
@@ -202,8 +207,8 @@ export const FeeCoverageBackground = ({ hideIcon }: { hideIcon?: boolean }) => {
         height: "9.75rem",
         background:
           theme.mode === "light"
-            ? "linear-gradient(180deg, rgba(251, 250, 254, 0.00) 35%, #96E2FF 100%)"
-            : "linear-gradient(180deg, rgba(9, 9, 10, 0) 35%, #013E55 100%)",
+            ? "rgba(105, 233, 245, 0.2)"
+            : "rgba(105, 233, 245, 0.08)",
       }}
     >
       <div
@@ -227,7 +232,7 @@ export const FeeCoverageBackground = ({ hideIcon }: { hideIcon?: boolean }) => {
           <path
             opacity={theme.mode === "light" ? "0.25" : "0.45"}
             d="M10 0C10.9828 5.06035 14.9396 9.01717 20 10C14.9396 10.9828 10.9828 14.9396 10 20C9.01717 14.9396 5.06035 10.9828 0 10C5.06035 9.01717 9.01717 5.06035 10 0Z"
-            fill="#009FDD"
+            fill={ColorPalette["cyan-500"]}
           />
         </svg>
       </div>

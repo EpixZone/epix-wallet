@@ -220,7 +220,7 @@ export const FeeControl: FunctionComponent<{
                   }
 
                   return theme.mode === "light"
-                    ? ColorPalette["blue-400"]
+                    ? ColorPalette["purple-400"]
                     : ColorPalette["white"];
                 })()}
                 style={{
@@ -353,7 +353,7 @@ export const FeeControl: FunctionComponent<{
                   }
 
                   return theme.mode === "light"
-                    ? ColorPalette["blue-300"]
+                    ? ColorPalette["purple-300"]
                     : ColorPalette["gray-300"];
                 })()}
               >

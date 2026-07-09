@@ -121,9 +121,7 @@ const SliderButton: FunctionComponent<{
         left: handlePrev ? "0" : "auto",
         border: "none",
         cursor: "pointer",
-        background: `linear-gradient(${handleNext ? "270deg" : "90deg"}, ${
-          isLightMode ? ColorPalette["blue-10"] : ColorPalette["gray-700"]
-        } 0%, rgba(9, 9, 10, 0.00) 100%)`,
+        background: "none",
       }}
       height="100%"
       width="70px"

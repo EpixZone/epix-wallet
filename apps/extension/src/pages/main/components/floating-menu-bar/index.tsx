@@ -130,24 +130,6 @@ export const FloatingMenuBar = ({
             </Body2>
           </Styles.MenuItem>
 
-          <Styles.MenuItem
-            key="go-to-dashboard"
-            onClick={(e: React.MouseEvent<HTMLDivElement>) => {
-              e.preventDefault();
-              analyticsStore.logEvent("click_keplrDashboard", {
-                tabName: "available",
-              });
-              browser.tabs.create({
-                url: "https://wallet.keplr.app/?utm_source=keplrextension&utm_medium=button&utm_campaign=permanent&utm_content=manage_portfolio",
-              });
-            }}
-          >
-            <GoToDashboardIcon />
-            <Body2>
-              <FormattedMessage id="page.main.components.menu-bar.go-to-dashboard" />
-            </Body2>
-          </Styles.MenuItem>
-
           {sidePanelSupported && (
             <Styles.MenuItem
               key="side-panel-mode"
@@ -327,25 +309,6 @@ const ContactsIcon = ({ color }: { color?: string }) => {
   );
 };
 
-const GoToDashboardIcon = ({ color }: { color?: string }) => {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="20"
-      height="20"
-      viewBox="0 0 20 20"
-      fill="none"
-    >
-      <path
-        d="M11.25 5H4.375C3.33947 5 2.5 5.83947 2.5 6.875V15.625C2.5 16.6605 3.33947 17.5 4.375 17.5H13.125C14.1605 17.5 15 16.6605 15 15.625V8.75M6.25 13.75L17.5 2.5M17.5 2.5L13.125 2.5M17.5 2.5V6.875"
-        stroke={color || "currentColor"}
-        strokeWidth="1.45706"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-};
 const LockWalletIcon = ({ color }: { color?: string }) => {
   return (
     <svg

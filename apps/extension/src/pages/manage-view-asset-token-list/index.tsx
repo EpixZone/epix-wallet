@@ -192,7 +192,7 @@ export const ManageViewAssetTokenListPage: FunctionComponent = observer(() => {
                         <span
                           style={{
                             paddingRight: "0.25rem",
-                            color: ColorPalette["blue-300"],
+                            color: ColorPalette["purple-300"],
                           }}
                         >
                           {numFoundToken}
@@ -280,7 +280,7 @@ const UpDownArrowIcon = ({
         fill={
           mode === "light"
             ? sortMode === "asc"
-              ? ColorPalette["blue-400"]
+              ? ColorPalette["purple-400"]
               : ColorPalette["gray-300"]
             : sortMode === "asc"
             ? ColorPalette["white"]
@@ -292,7 +292,7 @@ const UpDownArrowIcon = ({
         fill={
           mode === "light"
             ? sortMode === "desc"
-              ? ColorPalette["blue-400"]
+              ? ColorPalette["purple-400"]
               : ColorPalette["gray-300"]
             : sortMode === "desc"
             ? ColorPalette["white"]

@@ -85,11 +85,11 @@ const Styles = {
     border-radius: 222px;
     background: ${(props) =>
       props.theme.mode === "light"
-        ? ColorPalette["blue-50"]
+        ? ColorPalette["purple-50"]
         : "rgba(255, 255, 255, 0.05)"};
     color: ${(props) =>
       props.theme.mode === "light"
-        ? ColorPalette["blue-500"]
+        ? ColorPalette["purple-500"]
         : ColorPalette.white};
 
     opacity: ${({ disabled }) => (disabled ? 0.7 : 1)};

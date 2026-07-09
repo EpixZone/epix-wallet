@@ -119,7 +119,7 @@ export const VerifyMnemonicScene: FunctionComponent<{
       >
         <VerifyingMnemonicBox ref={verifyingBoxRef} words={verifyingWords} />
         <Gutter size="1.25rem" />
-        <Box width="22.5rem" marginX="auto">
+        <Box width="100%" maxWidth="22.5rem" marginX="auto">
           <FormNamePassword {...form} />
         </Box>
       </form>

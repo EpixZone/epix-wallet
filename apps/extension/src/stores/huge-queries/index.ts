@@ -1021,7 +1021,6 @@ export class HugeQueriesStore {
           price: this.priceStore.calculatePrice(queryDelegation.total),
           isFetching: queryDelegation.isFetching,
           error: queryDelegation.error,
-          stakingUrl: u.cosmos.walletUrlForStaking,
         });
       }
 
@@ -1116,7 +1115,6 @@ export class HugeQueriesStore {
                     entry.creation_height
                   )
                 : entry.completion_time,
-              stakingUrl: u.cosmos.walletUrlForStaking,
             });
           }
         }

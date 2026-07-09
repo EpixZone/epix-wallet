@@ -13,7 +13,11 @@ import { SwapAmountConfig } from "@keplr-wallet/hooks-internal";
  */
 export const useSwapQueryParams = (
   swapAmountConfig: SwapAmountConfig,
-  isSwapExecuting: boolean
+  isSwapExecuting: boolean,
+  // While no destination was ever picked, the config's outChainId is only a
+  // fallback; echoing it into the URL would make the next visit read it back
+  // as if the user had chosen it.
+  outChosen: boolean
 ): {
   setSearchParams: ReturnType<typeof useSearchParams>[1];
   clearInitialAmount: () => void;
@@ -24,12 +28,12 @@ export const useSwapQueryParams = (
   useEffect(() => {
     setSearchParams(
       (prev) => {
-        if (swapAmountConfig.outChainId) {
+        if (outChosen && swapAmountConfig.outChainId) {
           prev.set("outChainId", swapAmountConfig.outChainId);
         } else {
           prev.delete("outChainId");
         }
-        if (swapAmountConfig.outCurrency.coinMinimalDenom) {
+        if (outChosen && swapAmountConfig.outCurrency.coinMinimalDenom) {
           prev.set(
             "outCoinMinimalDenom",
             swapAmountConfig.outCurrency.coinMinimalDenom
@@ -48,6 +52,7 @@ export const useSwapQueryParams = (
     swapAmountConfig.outChainId,
     swapAmountConfig.outCurrency.coinMinimalDenom,
     setSearchParams,
+    outChosen,
   ]);
 
   // Handle tempSwitchAmount (used when switching in/out currencies)

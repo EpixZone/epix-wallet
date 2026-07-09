@@ -86,6 +86,7 @@ import {
 } from "@keplr-wallet/analytics";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { HugeQueriesStore } from "./huge-queries";
+import { AprsStore } from "./aprs";
 import { ClaimRewardsStateStore } from "./claim-rewards-state";
 import { ExtensionAnalyticsClient } from "../analytics";
 import { AmplitudeAnalyticsClient } from "../analytics-amplitude";
@@ -185,6 +186,7 @@ export class RootStore {
   public readonly priceStore: CoinGeckoPriceStore;
   public readonly price24HChangesStore: Price24HChangesStore;
   public readonly hugeQueriesStore: HugeQueriesStore;
+  public readonly aprsStore: AprsStore;
 
   public readonly tokensStore: TokensStore;
 
@@ -601,6 +603,8 @@ export class RootStore {
       this.skipQueriesStore,
       this.tokensStore
     );
+
+    this.aprsStore = new AprsStore(this.chainStore, this.queriesStore);
 
     this.claimRewardsStateStore = new ClaimRewardsStateStore(
       this.chainStore,

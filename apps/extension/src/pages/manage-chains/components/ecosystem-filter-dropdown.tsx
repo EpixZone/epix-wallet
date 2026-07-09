@@ -89,7 +89,7 @@ export const EcosystemFilterDropdown: FunctionComponent<Props> = ({
             id: "pages.manage-chains.ecosystem-filter-dropdown.title",
           })}
         </Subtitle4>
-        <Subtitle4 style={{ color: ColorPalette["blue-300"] }}>
+        <Subtitle4 style={{ color: ColorPalette["purple-300"] }}>
           {selected}
         </Subtitle4>
         <ArrowDownIcon />
@@ -126,7 +126,7 @@ export const EcosystemFilterDropdown: FunctionComponent<Props> = ({
                       cx="2.5"
                       cy="2.5"
                       r="2.5"
-                      fill={ColorPalette["blue-300"]}
+                      fill={ColorPalette["purple-300"]}
                     />
                   </svg>
                 )}
@@ -189,7 +189,7 @@ const Styles = {
 
     color: ${(props) =>
       props.selected
-        ? ColorPalette["blue-300"]
+        ? ColorPalette["purple-300"]
         : props.theme.mode === "light"
         ? ColorPalette["gray-700"]
         : ColorPalette.white};

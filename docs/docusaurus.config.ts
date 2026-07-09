@@ -8,7 +8,7 @@ import "dotenv/config";
 const config: Config = {
   title: "Keplr Docs",
   tagline: "Integrate Keplr into your dApp",
-  favicon: "img/keplr-logo-256.png",
+  favicon: "img/epix-logo-256.png",
 
   url: "https://docs.keplr.app",
   baseUrl: "/",
@@ -73,8 +73,8 @@ const config: Config = {
     navbar: {
       title: "Keplr",
       logo: {
-        alt: "Keplr Logo",
-        src: "img/keplr-logo-256.png",
+        alt: "Epix Wallet Logo",
+        src: "img/epix-logo-256.png",
       },
       items: [
         {

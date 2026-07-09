@@ -77,32 +77,32 @@ const buttonStyleFromColorAndMode: Record<
   blue: {
     light: {
       enabled: css`
-        color: ${ColorPalette["blue-400"]};
-        ${makeTextAndSvgColor(ColorPalette["blue-400"])}
+        color: ${ColorPalette["purple-400"]};
+        ${makeTextAndSvgColor(ColorPalette["purple-400"])}
 
         :hover {
-          color: ${ColorPalette["blue-300"]};
-          ${makeTextAndSvgColor(ColorPalette["blue-300"])}
+          color: ${ColorPalette["purple-300"]};
+          ${makeTextAndSvgColor(ColorPalette["purple-300"])}
         }
       `,
       disabled: css`
-        color: ${ColorPalette["blue-400"]};
-        ${makeTextAndSvgColor(ColorPalette["blue-400"])}
+        color: ${ColorPalette["purple-400"]};
+        ${makeTextAndSvgColor(ColorPalette["purple-400"])}
       `,
     },
     dark: {
       enabled: css`
-        color: ${ColorPalette["blue-400"]};
-        ${makeTextAndSvgColor(ColorPalette["blue-400"])}
+        color: ${ColorPalette["purple-400"]};
+        ${makeTextAndSvgColor(ColorPalette["purple-400"])}
 
         :hover {
-          color: ${ColorPalette["blue-300"]};
-          ${makeTextAndSvgColor(ColorPalette["blue-300"])}
+          color: ${ColorPalette["purple-300"]};
+          ${makeTextAndSvgColor(ColorPalette["purple-300"])}
         }
       `,
       disabled: css`
-        color: ${ColorPalette["blue-400"]};
-        ${makeTextAndSvgColor(ColorPalette["blue-400"])}
+        color: ${ColorPalette["purple-400"]};
+        ${makeTextAndSvgColor(ColorPalette["purple-400"])}
       `,
     },
   },

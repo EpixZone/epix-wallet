@@ -60,7 +60,7 @@
       "matches": ["<all_urls>"]
     },
     {
-      "resources": ["assets/locked-keplr-logo-128.png"],
+      "resources": ["assets/locked-logo-128.png"],
       "matches": ["<all_urls>"]
     },
     {

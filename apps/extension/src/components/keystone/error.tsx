@@ -82,6 +82,6 @@ const Tutorial = styled.a<{ theme?: DefaultTheme }>`
   text-decoration: none;
   font-size: 0.875rem;
   :hover {
-    color: ${ColorPalette["blue-400"]};
+    color: ${ColorPalette["purple-400"]};
   }
 `;

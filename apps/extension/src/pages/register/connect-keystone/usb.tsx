@@ -216,7 +216,7 @@ export const ConnectKeystoneUSBScene: FunctionComponent<{
         />
       </Stack>
       <Gutter size="1.25rem" />
-      <Box width="22.5rem" marginX="auto">
+      <Box width="100%" maxWidth="22.5rem" marginX="auto">
         <Button
           text={intl.formatMessage({
             id: "button.next",

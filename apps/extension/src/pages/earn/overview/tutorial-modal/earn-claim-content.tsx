@@ -99,7 +99,7 @@ const SampleClaimAllRewardCard: FunctionComponent<{
             marginLeft: "auto",
             borderRadius: "0.5rem",
             border: `5px solid ${isLightMode ? "#E1E5FB" : "#23242D"}`,
-            background: ColorPalette["blue-400"],
+            background: ColorPalette["purple-400"],
             boxSizing: "border-box",
             maxHeight: "max-content",
           }}

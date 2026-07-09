@@ -91,9 +91,9 @@ export const ScanKeystoneScene: FunctionComponent<{
             : ColorPalette["gray-500"]
         }
         borderRadius="0.5rem"
-        style={{ overflow: "hidden", position: "relative" }}
-        width="23.5rem"
-        height="23.5rem"
+        style={{ overflow: "hidden", position: "relative", aspectRatio: "1" }}
+        width="100%"
+        maxWidth="23.5rem"
       >
         <Box
           style={{
@@ -115,8 +115,11 @@ export const ScanKeystoneScene: FunctionComponent<{
           handleError={handleError}
           onProgress={handleProcess}
           options={{
-            width: "23.5rem",
-            height: "23.5rem",
+            // Fill the (square) box above; it is 23.5rem at the scene's
+            // design width and shrinks with the viewport. The video is
+            // object-fit: cover, so it stays undistorted either way.
+            width: "100%",
+            height: "100%",
             blur: false,
           }}
         />
@@ -141,7 +144,7 @@ export const ScanKeystoneScene: FunctionComponent<{
           <FormattedMessage id="pages.register.connect-keystone.position-qrcode" />
         </Box>
       ) : (
-        <Box width="23.5rem" marginTop="2rem">
+        <Box width="100%" maxWidth="23.5rem" marginTop="2rem">
           <GuideBox
             color="warning"
             title={intl.formatMessage({

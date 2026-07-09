@@ -58,8 +58,8 @@ export const NativeChainSection: FunctionComponent<{
           borderWidth="1.5px"
           borderColor={
             theme.mode === "light"
-              ? ColorPalette["blue-200"]
-              : ColorPalette["blue-600"]
+              ? ColorPalette["purple-200"]
+              : ColorPalette["purple-600"]
           }
           backgroundColor={
             isSelectAll
@@ -104,7 +104,7 @@ export const NativeChainSection: FunctionComponent<{
               <XAxis alignY="center">
                 <Subtitle2>{title}</Subtitle2>
                 <Gutter size="0.25rem" />
-                <Subtitle3 color={ColorPalette["blue-300"]}>
+                <Subtitle3 color={ColorPalette["purple-300"]}>
                   {enabledNativeChainIdentifierList.length}
                 </Subtitle3>
               </XAxis>

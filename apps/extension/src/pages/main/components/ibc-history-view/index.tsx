@@ -2880,7 +2880,7 @@ const InlineCopyText: FunctionComponent<{
     <span
       style={{
         cursor: "pointer",
-        color: ColorPalette["blue-400"],
+        color: ColorPalette["purple-400"],
       }}
       onClick={async (e) => {
         e.preventDefault();
@@ -2908,7 +2908,7 @@ const InlineCopyText: FunctionComponent<{
             viewBox="0 0 16 16"
           >
             <path
-              stroke={ColorPalette["blue-400"]}
+              stroke={ColorPalette["purple-400"]}
               strokeLinecap="round"
               strokeWidth="1.5"
               d="M10.667 2.668h-6.4a1.6 1.6 0 00-1.6 1.6v6.4"
@@ -2918,7 +2918,7 @@ const InlineCopyText: FunctionComponent<{
               height="7.733"
               x="5.467"
               y="5.468"
-              stroke={ColorPalette["blue-400"]}
+              stroke={ColorPalette["purple-400"]}
               strokeWidth="1.5"
               rx="0.8"
             />
@@ -2932,7 +2932,7 @@ const InlineCopyText: FunctionComponent<{
             viewBox="0 0 24 24"
           >
             <path
-              stroke={ColorPalette["blue-400"]}
+              stroke={ColorPalette["purple-400"]}
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth="2.5"

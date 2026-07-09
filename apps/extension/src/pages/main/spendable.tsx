@@ -111,24 +111,24 @@ const ManageViewAssetTokenPageButton = styled(TextButton)`
   ${Styles.Button} {
     color: ${(props) =>
       props.theme.mode === "light"
-        ? ColorPalette["blue-400"]
+        ? ColorPalette["purple-400"]
         : ColorPalette["white"]};
     ${(props) =>
       makeTextAndSvgColor(
         props.theme.mode === "light"
-          ? ColorPalette["blue-400"]
+          ? ColorPalette["purple-400"]
           : ColorPalette["white"]
       )}
 
     :hover {
       color: ${(props) =>
         props.theme.mode === "light"
-          ? ColorPalette["blue-300"]
+          ? ColorPalette["purple-300"]
           : ColorPalette["gray-200"]};
       ${(props) =>
         makeTextAndSvgColor(
           props.theme.mode === "light"
-            ? ColorPalette["blue-300"]
+            ? ColorPalette["purple-300"]
             : ColorPalette["gray-200"]
         )}
     }
@@ -639,7 +639,7 @@ export const SpendableAssetView: FunctionComponent<{
                     style={{
                       color:
                         theme.mode === "light"
-                          ? ColorPalette["blue-400"]
+                          ? ColorPalette["purple-400"]
                           : ColorPalette["gray-50"],
                     }}
                   >
@@ -731,7 +731,7 @@ export const SpendableAssetView: FunctionComponent<{
                               <span
                                 style={{
                                   paddingRight: "0.25rem",
-                                  color: ColorPalette["blue-300"],
+                                  color: ColorPalette["purple-300"],
                                 }}
                               >
                                 {numFoundToken}
@@ -790,7 +790,7 @@ export const SpendableAssetView: FunctionComponent<{
                           height="1.125rem"
                           color={
                             theme.mode === "light"
-                              ? ColorPalette["blue-400"]
+                              ? ColorPalette["purple-400"]
                               : ColorPalette["white"]
                           }
                         />

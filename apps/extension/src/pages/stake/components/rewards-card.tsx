@@ -167,8 +167,8 @@ export const RewardsCard: FunctionComponent<{
                         height="0.875rem"
                         color={
                           theme.mode === "light"
-                            ? ColorPalette["blue-200"]
-                            : ColorPalette["blue-700"]
+                            ? ColorPalette["purple-200"]
+                            : ColorPalette["purple-700"]
                         }
                       />
                     </Box>

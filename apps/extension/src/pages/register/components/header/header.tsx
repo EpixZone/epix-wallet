@@ -131,7 +131,7 @@ export const RegisterHeader: FunctionComponent<{
   }, []);
 
   return (
-    <Box position="relative" marginX="auto" width="47.75rem">
+    <Box position="relative" marginX="auto" width="100%" maxWidth="47.75rem">
       {header.mode !== "intro" ? <HelpDeskButton /> : null}
       {isBackShown && !currentIsEmpty ? (
         <div
@@ -272,7 +272,7 @@ const HeaderStep: FunctionComponent<{
 
         <RegisterH3>{title}</RegisterH3>
       </YAxis>
-      <Box width="29.5rem" marginX="auto">
+      <Box width="100%" maxWidth="29.5rem" marginX="auto">
         <VerticalResizeTransition>
           {paragraphs && paragraphs.length > 0 ? (
             <Gutter size="1.25rem" />
@@ -331,7 +331,7 @@ const HeaderDirect: FunctionComponent<{
       <YAxis alignX="center">
         <RegisterH3>{title}</RegisterH3>
       </YAxis>
-      <Box width="29.5rem" marginX="auto">
+      <Box width="100%" maxWidth="29.5rem" marginX="auto">
         <VerticalResizeTransition>
           {paragraphs && paragraphs.length > 0 ? (
             <Gutter size="1.25rem" />

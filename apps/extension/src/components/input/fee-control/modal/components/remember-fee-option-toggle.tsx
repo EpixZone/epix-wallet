@@ -21,8 +21,8 @@ export const RememberFeeOptionToggle: FunctionComponent<{
           borderRadius: "99999px",
           backgroundColor:
             theme.mode === "light"
-              ? ColorPalette["blue-400"]
-              : ColorPalette["blue-400"],
+              ? ColorPalette["purple-400"]
+              : ColorPalette["purple-400"],
           marginRight: "0.3rem",
         }}
       />

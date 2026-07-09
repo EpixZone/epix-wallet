@@ -593,7 +593,7 @@ export const CosmosTxView: FunctionComponent<{
             <CancelIcon
               color={
                 theme.mode === "light"
-                  ? ColorPalette["blue-400"]
+                  ? ColorPalette["purple-400"]
                   : ColorPalette["gray-200"]
               }
             />
@@ -718,7 +718,7 @@ export const CosmosTxView: FunctionComponent<{
             <XAxis>
               <H5
                 style={{
-                  color: ColorPalette["blue-400"],
+                  color: ColorPalette["purple-400"],
                   marginRight: "0.25rem",
                 }}
               >

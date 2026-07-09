@@ -32,15 +32,17 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { IconProps } from "../../components/icon/types";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { COMMON_HOVER_OPACITY } from "../../styles/constant";
-import { useKcrStakingUrls } from "../../hooks/use-kcr-staking-urls";
+import { supportsNativeStaking } from "./utils";
 
 const priority = (chainId: string) => {
   const id = ChainIdHelper.parse(chainId).identifier;
-  if (id === "cosmoshub") return 0;
-  if (id === "osmosis") return 1;
-  if (id === "celestia") return 2;
-  if (id === "injective") return 3;
-  return 4;
+  // EPIX is the home chain: always the first stake suggestion.
+  if (id === "epix") return 0;
+  if (id === "cosmoshub") return 1;
+  if (id === "osmosis") return 2;
+  if (id === "celestia") return 3;
+  if (id === "injective") return 4;
+  return 5;
 };
 
 type StakeCurrencyItem = {
@@ -56,7 +58,6 @@ export const StakeExplorePage: FunctionComponent = observer(() => {
   const [searchParams] = useSearchParams();
 
   const { chainStore } = useStore();
-  const { hasKcrStakingUrl } = useKcrStakingUrls();
 
   const [isOpenDepositModal, setIsOpenDepositModal] = React.useState(false);
   const [isOpenBuy, setIsOpenBuy] = React.useState(false);
@@ -76,10 +77,17 @@ export const StakeExplorePage: FunctionComponent = observer(() => {
         if (modularChainInfo.isTestnet || !u.cosmos.stakeCurrency) {
           continue;
         }
-        const hasNativeUrl =
-          !!modularChainInfo.embedded.isBuiltInChain &&
-          !!u.cosmos.walletUrlForStaking;
-        if (!hasNativeUrl && !hasKcrStakingUrl(modularChainInfo.chainId)) {
+        // Only chains the account actually has enabled: a fresh wallet shows
+        // just EPIX here, and more chains appear as the user enables them.
+        if (!chainStore.isEnabledChain(modularChainInfo.chainId)) {
+          continue;
+        }
+        // Staking is native now, so the gate is native staking support
+        // instead of an external staking url.
+        if (
+          !modularChainInfo.embedded.isBuiltInChain ||
+          !supportsNativeStaking(modularChainInfo)
+        ) {
           continue;
         }
         const key = `${modularChainInfo.chainIdentifier}/${u.cosmos.stakeCurrency.coinMinimalDenom}`;
@@ -120,7 +128,7 @@ export const StakeExplorePage: FunctionComponent = observer(() => {
       }
       return a.currency.coinDenom.localeCompare(b.currency.coinDenom);
     });
-  }, [chainStore, hasKcrStakingUrl]);
+  }, [chainStore]);
 
   return (
     <MainHeaderLayout>
@@ -148,7 +156,7 @@ export const StakeExplorePage: FunctionComponent = observer(() => {
             color={
               theme.mode === "light"
                 ? ColorPalette["gray-300"]
-                : ColorPalette["blue-400"]
+                : ColorPalette["purple-400"]
             }
           >
             {intl.formatMessage({ id: "page.stake.explore.subtitle" })}
@@ -309,7 +317,7 @@ const AssetCard: FunctionComponent<{
         <Subtitle3
           color={
             theme.mode === "light"
-              ? ColorPalette["blue-400"]
+              ? ColorPalette["purple-400"]
               : ColorPalette["gray-400"]
           }
         >

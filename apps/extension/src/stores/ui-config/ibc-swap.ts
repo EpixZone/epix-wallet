@@ -203,6 +203,17 @@ export class IBCSwapConfig {
     this._lastAmountOutChainId = chainId;
   }
 
+  // Whether a destination was ever actually picked (by the user or a deep
+  // link). Before that, getAmountOutChainInfo() has to invent a fallback
+  // chain, and the UI shows a "Select token" placeholder instead of
+  // presenting that fallback as a real choice.
+  get isAmountOutChosen(): boolean {
+    return (
+      !!this._lastAmountOutChainId &&
+      this.chainStore.hasModularChain(this._lastAmountOutChainId)
+    );
+  }
+
   getAmountOutCurrency = computedFn((): AppCurrency => {
     const modularChainInfo = this.getAmountOutChainInfo();
     if (this._lastAmountOutMinimalDenom) {

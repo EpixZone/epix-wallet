@@ -1,8 +1,12 @@
 // Seperate shared config from UI config to prevent code mixup between UI and background process code.
 import { FiatCurrency } from "@keplr-wallet/types";
 
-export const HelpDeskUrl = "https://help.keplr.app";
-export const TermsOfUseUrl = "https://terms-of-use.keplr.app";
+export const HelpDeskUrl = "https://github.com/EpixZone/epix-wallet/issues";
+export const TermsOfUseUrl = "https://discord.gg/bF2GKHgrfv";
+
+// The EPIX chain id. Use ChainIdHelper.parse(EpixChainId).identifier when
+// logic depends on the chain identifier rather than the full chain id.
+export const EpixChainId = "epix_1916-1";
 
 export const CoinGeckoAPIEndPoint =
   process.env["KEPLR_EXT_COINGECKO_ENDPOINT"] ||

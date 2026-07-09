@@ -32,14 +32,17 @@ import { useGetStakingApr } from "../../hooks/use-get-staking-apr";
 import styled from "styled-components";
 import { COMMON_HOVER_OPACITY } from "../../styles/constant";
 import debounce from "lodash.debounce";
+import { StakeDashboardPage } from "./dashboard";
+import { supportsNativeStaking } from "./utils";
 
 export const StakePage: FunctionComponent = observer(() => {
   const intl = useIntl();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const initialExpand = params.get("initialExpand") === "true";
+  const stakeChainId = params.get("chainId");
 
-  const { uiConfigStore, analyticsAmplitudeStore } = useStore();
+  const { chainStore, uiConfigStore, analyticsAmplitudeStore } = useStore();
   const isNotReady = useIsNotReady();
 
   const animatedPrivacyModeHover = useSpringValue(0, {
@@ -114,6 +117,12 @@ export const StakePage: FunctionComponent = observer(() => {
       hideApr: true,
     },
   ];
+
+  // With a chainId, /stake renders the per-chain staking dashboard
+  // (validators, delegations, unbondings of that chain).
+  if (stakeChainId && chainStore.hasModularChain(stakeChainId)) {
+    return <StakeDashboardPage chainId={stakeChainId} />;
+  }
 
   if (delegations.length === 0 && unbondings.length === 0) {
     if (stakableTokens.length === 0) {
@@ -195,14 +204,12 @@ export const StakePage: FunctionComponent = observer(() => {
               id: "page.stake.stake-more-button",
             })}
             color="blue"
-            onClick={async () => {
-              await browser.tabs.create({
-                url: "https://wallet.keplr.app/?modal=staking&utm_source=keplrextension&utm_medium=button&utm_campaign=permanent&utm_content=manage_stake",
-              });
+            onClick={() => {
+              navigate("/stake/explore?showBackButton=true");
             }}
             right={<ChevronRightIcon width="1rem" height="1rem" />}
             style={{
-              color: ColorPalette["blue-400"],
+              color: ColorPalette["purple-400"],
             }}
             buttonStyle={{
               height: "1.3125rem",
@@ -251,49 +258,22 @@ export const StakePage: FunctionComponent = observer(() => {
                   lenAlwaysShown={lenAlwaysShown}
                   hideNumInTitle={uiConfigStore.isPrivacyMode}
                   items={balance.map((viewToken) => {
-                    const chainId =
-                      "chainInfo" in viewToken
-                        ? viewToken.chainInfo.chainId
-                        : viewToken.unbonding.chainInfo.chainId;
-                    const stakingAprDec = useGetStakingApr(chainId);
-
-                    const stakingApr =
-                      !hideApr && stakingAprDec
-                        ? `APR ${stakingAprDec.toString(2)}%`
-                        : undefined;
-
                     if ("altSentence" in viewToken) {
                       return (
-                        <TokenItem
+                        <StakingTokenItem
                           viewToken={viewToken.unbonding}
                           key={`${viewToken.unbonding.chainInfo.chainId}-${viewToken.unbonding.token.currency.coinMinimalDenom}`}
-                          disabled={!viewToken.unbonding.stakingUrl}
-                          onClick={() => {
-                            if (viewToken.unbonding.stakingUrl) {
-                              browser.tabs.create({
-                                url: viewToken.unbonding.stakingUrl,
-                              });
-                            }
-                          }}
+                          hideApr={hideApr}
                           altSentence={viewToken.altSentence}
-                          stakingApr={stakingApr}
                         />
                       );
                     }
 
                     return (
-                      <TokenItem
+                      <StakingTokenItem
                         viewToken={viewToken}
                         key={`${viewToken.chainInfo.chainId}-${viewToken.token.currency.coinMinimalDenom}`}
-                        disabled={!viewToken.stakingUrl}
-                        onClick={() => {
-                          if (viewToken.stakingUrl) {
-                            browser.tabs.create({
-                              url: viewToken.stakingUrl,
-                            });
-                          }
-                        }}
-                        stakingApr={stakingApr}
+                        hideApr={hideApr}
                       />
                     );
                   })}
@@ -306,6 +286,44 @@ export const StakePage: FunctionComponent = observer(() => {
         <Gutter size="1.25rem" />
       </Box>
     </MainHeaderLayout>
+  );
+});
+
+const StakingTokenItem: FunctionComponent<{
+  viewToken: ViewStakedToken;
+  hideApr?: boolean;
+  altSentence?: string;
+}> = observer(({ viewToken, hideApr, altSentence }) => {
+  const navigate = useNavigate();
+
+  const chainId = viewToken.chainInfo.chainId;
+  const stakingAprDec = useGetStakingApr(chainId);
+  const stakingApr =
+    !hideApr && stakingAprDec ? `APR ${stakingAprDec.toString(2)}%` : undefined;
+
+  // Cosmos chains stake natively inside the wallet. The external staking
+  // url is only left for the chains without a native flow (e.g. starknet).
+  const isNativeStaking = supportsNativeStaking(viewToken.chainInfo);
+
+  return (
+    <TokenItem
+      viewToken={viewToken}
+      disabled={!isNativeStaking && !viewToken.stakingUrl}
+      onClick={() => {
+        if (isNativeStaking) {
+          navigate(`/stake?chainId=${chainId}`);
+          return;
+        }
+
+        if (viewToken.stakingUrl) {
+          browser.tabs.create({
+            url: viewToken.stakingUrl,
+          });
+        }
+      }}
+      altSentence={altSentence}
+      stakingApr={stakingApr}
+    />
   );
 });
 

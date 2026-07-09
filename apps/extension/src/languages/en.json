@@ -22,14 +22,12 @@
   "error.claimable-reward-is-smaller-than-the-required-fee": "Your claimable reward is smaller than the required fee.",
   "error.outdated-cosmos-sdk": "Not supported: outdated version of cosmos-sdk",
   "error.can-not-find-fee-for-claim-all": "Can't find fee currency to pay",
-
   "bottom-tabs.home": "Home",
   "bottom-tabs.swap": "Swap",
   "bottom-tabs.stake": "Stake",
   "bottom-tabs.history": "History",
   "bottom-tabs.settings": "Settings",
   "bottom-tabs.swap.disabled": "Swap only works with Cosmos or Ethereum-based chains. Please add one to use it.",
-
   "pages.register.components.header.intro-title": "Your Multichain Gateway",
   "pages.register.components.header.header-step.title": "Step",
   "pages.register.components.help-desk-button.title": "Get Support",
@@ -51,11 +49,9 @@
   "pages.register.components.form.name-password.confirm-password-placeholder": "At least 8 characters in length",
   "pages.register.components.form.name-password.short-password-error": "Too short password",
   "pages.register.components.form.name-password.password-not-match-error": "Password should match",
-
   "pages.register.intro.create-wallet-button": "Create a new wallet",
   "pages.register.intro.import-wallet-button": "Import an existing wallet",
   "pages.register.intro.connect-hardware-wallet-button": "Connect Hardware Wallet",
-
   "pages.register.intro-new-user.title": "Welcome to Epix Wallet",
   "pages.register.intro-new-user.paragraph": "Select the way you want to create your wallet",
   "pages.register.intro-new-user.recovery-path-title": "Use Recovery Phrase",
@@ -68,7 +64,6 @@
   "pages.register.intro-new-user.sign-up-google-button": "Connect with Google",
   "pages.register.intro-new-user.sign-up-apple-button": "Connect with Apple ID",
   "pages.register.intro-new-user.more-convenience-text": "More Convenience",
-
   "pages.register.intro-existing-user.title": "Welcome Back to Epix Wallet",
   "pages.register.intro-existing-user.paragraph": "Glad you’re back! 🫶",
   "pages.register.intro-existing-user.recovery-title": "Recovery Phrase or Private Key",
@@ -77,13 +72,11 @@
   "pages.register.intro-existing-user.social-recovery-title": "Use Google",
   "pages.register.intro-existing-user.social-recovery-paragraph": "Log in with the same email address to import an existing account to Epix Wallet.",
   "pages.register.intro-existing-user.social-recovery-google-button": "Connect with Google",
-
   "pages.register.connect-hardware.header.title": "Connect Hardware Wallet",
   "pages.register.connect-hardware.header.paragraph": "Want even more security? 😎",
   "pages.register.connect-hardware.content.title": "Select a hardware wallet that you would like to use with Epix Wallet",
   "pages.register.connect-hardware.connect-ledger-button": "Connect Ledger",
   "pages.register.connect-hardware.connect-keystone-button": "Connect Keystone",
-
   "pages.register.new-mnemonic.title": "New Recovery Phrase",
   "pages.register.new-mnemonic.12-words-tab": "12 words",
   "pages.register.new-mnemonic.24-words-tab": "24 words",
@@ -92,27 +85,22 @@
   "pages.register.new-mnemonic.back-up-warning-box-title": "Back up the phrase safely.",
   "pages.register.new-mnemonic.back-up-warning-box-paragraph": "You will never be able to restore your account without your recovery phrase.",
   "pages.register.new-mnemonic.agree-button": "I understood. Show my phrase.",
-
   "pages.register.verify-mnemonic.title": "Verify Your Recovery Phrase",
   "pages.register.verify-mnemonic.paragraph": "Fill out the words according to their numbers to verify that you have stored your phrase safely.",
   "pages.register.verify-mnemonic.no-mnemonic-provider-error": "Recovery Phrase and bip44Path should be provided",
   "pages.register.verify-mnemonic.mnemonic-empty-error": "Empty Recovery Phrase",
   "pages.register.verify-mnemonic.verify-box-ref-error": "Ref of verify box is null",
   "pages.register.verify-mnemonic.verifying-box.word": "Word #{index}",
-
   "pages.register.name-password.title": "Set Up Your Wallet",
-
   "pages.register.name-password-hardware.title": "Set Up Your Wallet",
   "pages.register.name-password-hardware.connect-to": "Connect to",
   "pages.register.name-password-hardware.connect-to-cosmos": "Cosmos app (Recommended)",
   "pages.register.name-password-hardware.connect-to-terra": "Terra app",
   "pages.register.name-password-hardware.connect-to-secret": "Secret app",
   "pages.register.name-password-hardware.connect-to-thor": "THORChain app",
-
   "pages.register.name-password-hardware.connect-keystone-way": "Connect Keystone via",
   "pages.register.name-password-hardware.connect-to-keystone-USB": "USB",
   "pages.register.name-password-hardware.connect-to-keystone-QR": "QR",
-
   "pages.register.recover-mnemonic.title": "Import Existing Wallet",
   "pages.register.recover-mnemonic.paragraph-1": "Enter your recovery phrase here to restore your wallet. Or click on any blank and paste the entire phrase.",
   "pages.register.recover-mnemonic.paragraph-2": "Enter the phrase in the right order without capitalization, punctuation symbols, or spaces.",
@@ -120,13 +108,11 @@
   "pages.register.recover-mnemonic.24-words-tab": "24 words",
   "pages.register.recover-mnemonic.private-key-tab": "Private key",
   "pages.register.recover-mnemonic.import-button": "Import",
-
   "pages.register.back-up-private-key.title": "Back up private key",
   "pages.register.back-up-private-key.blur-text": "Click here to see private key",
   "pages.register.back-up-private-key.warning-title": "Backup your private key securely.",
   "pages.register.back-up-private-key.warning-paragraph": "Anyone with your private key can have access to your assets.{br}{br}If you lose access to your Gmail Account, the only way to recover your wallet is using your private key. Keep this in a safe place.",
   "pages.register.back-up-private-key.import-button": "Got it",
-
   "pages.register.connect-ledger.title": "Please connect your Hardware wallet",
   "pages.register.connect-ledger.direct.title": "Connect Epix Wallet to {app} on Ledger",
   "pages.register.connect-ledger.paragraph": "Epix Wallet supports Cosmos-based chains, all EVM-compatible chains (including Ethereum, Injective, and Evmos), Starknet, and Bitcoin. Ledger connection will guide you through Cosmos, EVM, Starknet, and Bitcoin in order.",
@@ -138,7 +124,6 @@
   "pages.register.connect-ledger.use-hid-text": "Use alternative USB connection method(HID)",
   "pages.register.connect-ledger.use-hid-confirm-title": "Unable to use Web HID",
   "pages.register.connect-ledger.use-hid-confirm-paragraph": "Please enable ‘experimental web platform features’ to use Web HID",
-
   "pages.register.connect-keystone.paragraph": "Please unlock your Keystone device and connect it to your computer via USB.",
   "pages.register.connect-keystone.step-text": "Step {num}",
   "pages.register.connect-keystone.step-1": "Tap “<span>Connect Software Wallet</span>” at the bottom left corner on the Keystone device.",
@@ -155,11 +140,9 @@
   "pages.register.connect-keystone.select-valid-qrcode": "Please ensure you have selected a valid QR code from your Keystone device.",
   "pages.register.connect-keystone.tutorial": "Tutorial",
   "pages.register.connect-keystone.unsupported": "Unsupported",
-
   "pages.register.connect-keystone.usb.title": "Please Connect Your Hardware Wallet",
   "pages.register.connect-keystone.usb.step-1": "Connect and unlock your Keystone.",
   "pages.register.connect-keystone.usb.step-2": "Ensure your Keystone 3 Pro is on the homepage.",
-
   "pages.register.enable-chains.title": "Select Chains",
   "pages.register.enable-chains.paragraph": "We recommend enabling chains natively supported by Epix Wallet for the best experience. Once a chain is enabled, you can view the assets available on it.",
   "pages.register.enable-chains.search-input-placeholder": "Search networks",
@@ -175,7 +158,6 @@
   "pages.register.enable-chains.native-chain-view.title": "All Native Chains",
   "pages.register.enable-chains.native-chain-view.paragraph": "Cosmos, Ethereum, Bitcoin..",
   "pages.register.enable-chains.chain-item-token-count": "{count} {count, plural, one {Token} other {Tokens}}",
-
   "pages.register.enable-chains.native-chain-view.ledger-cosmos-title": "All Native Cosmos Chains",
   "pages.register.enable-chains.native-chain-view.ledger-cosmos-paragraph": "Cosmos, Osmosis, Celestia...",
   "pages.register.enable-chains.native-chain-view.ledger-evm-title": "All Native EVM Chains",
@@ -184,7 +166,6 @@
   "pages.register.enable-chains.native-chain-view.ledger-starknet-paragraph": "Starknet, Starknet Sepolia",
   "pages.register.enable-chains.native-chain-view.ledger-bitcoin-title": "All Native Bitcoin Chains",
   "pages.register.enable-chains.native-chain-view.ledger-bitcoin-paragraph": "Bitcoin, Bitcoin Signet, Bitcoin Testnet",
-
   "pages.manage-chains.title": "Add/Remove Chains",
   "pages.manage-chains.search-input-placeholder": "Search networks",
   "pages.manage-chains.ecosystem-filter-dropdown.title": "Filter",
@@ -197,14 +178,12 @@
   "pages.manage-chains.connect-ledger-modal.title": "Connect Ledger",
   "pages.manage-chains.connect-ledger-modal.paragraph": "Get your Ledger device ready and {br} click the button below to begin.",
   "pages.manage-chains.connect-ledger-modal.button": "Go to Connect",
-
   "pages.register.select-derivation-path.title": "Select Account Derivation Path",
   "pages.register.select-derivation-path.paragraph": "To use both paths, you need to go through the import process twice.",
   "pages.register.select-derivation-path.chain-step": "Chains {currentStep}/{totalStep}",
   "pages.register.select-derivation-path.path-item.balance": "Balance",
   "pages.register.select-derivation-path.path-item.previous-txs": "Previous txs",
   "pages.register.select-derivation-path.import-button": "Import",
-
   "pages.register.pages.welcome.title": "Account Created!",
   "pages.register.pages.welcome.sub-title": "You may close this page",
   "pages.register.pages.welcome.paragraph": "Ready to explore the Multichain?",
@@ -214,8 +193,6 @@
   "pages.register.pages.welcome.swapped-link.paragraph": "Buy Crypto",
   "pages.register.pages.welcome.stargaze-link.title": "Stargaze",
   "pages.register.pages.welcome.stargaze-link.paragraph": "Buy & Mint NFTs",
-  "pages.register.pages.welcome.dashboard-link.title": "Epix Wallet Dashboard",
-  "pages.register.pages.welcome.dashboard-link.paragraph": "Manage Portfolio and Stake Assets",
   "pages.register.pages.welcome.icns-link.title": "Interchain Name Service (ICNS)",
   "pages.register.pages.welcome.icns-link.paragraph": "Simplify Your Crypto Address",
   "pages.register.pages.welcome.finish-button": "Finish",
@@ -224,17 +201,13 @@
   "pages.register.pages.welcome.pin-view.title": "Pin Epix Wallet for easy access",
   "pages.register.pages.welcome.pin-view.paragraph-1": "<p>Click the ‘Extensions’</p>{icon}<p>button</p>",
   "pages.register.pages.welcome.pin-view.paragraph-2": "<p>Locate Epix Wallet then click the ‘Pin’</p>{icon}<p>button</p>",
-
   "page.register.google.title": "Sign in with Google",
   "page.register.google.paragraph": "Create a wallet linked to your Google account.",
-
   "page.setting.list.chains-and-assets": "Chains and Assets",
   "page.setting.list.general": "General",
   "page.setting.list.security-privacy": "Security & Privacy",
   "page.setting.list.more": "More",
-
   "page.setting.helpdesk.title": "Support",
-
   "page.setting.title": "Settings",
   "page.setting.general-title": "General",
   "page.setting.general-paragraph": "Language, Currency, Contacts...",
@@ -245,7 +218,6 @@
   "page.setting.manage-token-list-title": "Add / Remove Custom Tokens",
   "page.setting.manage-token-list-paragraph": "Only for the tokens that can be added manually via contract addresses",
   "page.setting.search-placeholder": "Search in settings...",
-
   "page.setting.epix.title": "Epix Network",
   "page.setting.epix.unavailable": "The Epix node is not reachable. Open EpixNet through the Epix browser to manage Tor and I2P.",
   "page.setting.epix.tor": "Tor",
@@ -268,18 +240,15 @@
   "page.setting.about.website": "Official Website",
   "page.setting.about.terms-of-use": "Terms of Use",
   "page.setting.about.privacy-policy": "Privacy Policy",
-
   "page.setting.advanced.developer-mode-title": "Manual IBC Transfer",
   "page.setting.advanced.endpoints": "Endpoints",
   "page.setting.advanced.change-endpoints-title": "Change Endpoints",
-
   "page.setting.advanced.endpoint.confirm-title": "Set endpoints",
   "page.setting.advanced.endpoint.confirm-paragraph": "You need to restart Epix Wallet to apply changes",
   "page.setting.advanced.endpoint.reset-button": "Reset",
   "page.setting.advanced.endpoint.guide-title": "Experimental Feature",
   "page.setting.advanced.endpoint.guide-paragraph": "Please get in touch with the endpoint providers to address any issues that may arise from changes to the endpoint(s).{br}{br}Restart Epix Wallet to apply changes.",
   "page.setting.advanced.endpoint.lava-link-button": "Let's fall in Lava 🌋🧡",
-
   "page.setting.general.language-title": "Language",
   "page.setting.general.currency-title": "Currency",
   "page.setting.general.contacts-title": "Contacts",
@@ -294,64 +263,51 @@
   "page.setting.advanced.manage-non-native-chains-paragraph": "Non-native chains should be first added to Epix Wallet to manage their visibility.",
   "page.setting.general.manage-chain-visibility-title": "Add / Remove Chains",
   "page.setting.general.manage-chain-visibility-paragraph": "Select chains (and their assets) to be displayed on your current account",
-
   "page.setting.general.manage-asset-list-title": "Manage Asset List",
   "page.setting.general.manage-asset-list.search.placeholder": " ",
   "page.setting.general.manage-asset-list.sort-button": "Balance",
-
   "page.setting.general.language.automatic-title": "Automatic (Browser default)",
-
   "page.setting.general.theme.dark-mode": "Dark Mode",
   "page.setting.general.theme.short.dark": "Dark",
   "page.setting.general.theme.light-mode": "Light Mode",
   "page.setting.general.theme.short.light": "Light",
   "page.setting.general.theme.auto": "Automatic (System)",
   "page.setting.general.theme.short.auto": "Auto",
-
   "page.setting.general.authz.empty-subject": "Authz",
   "page.setting.general.authz.grant-view.grantee-authorized": "You authorized {grantee}",
   "page.setting.general.authz.grant-view.expiration-date": "Expiration Date: ",
   "page.setting.general.authz.grant-view.expired": "Expired",
   "page.setting.general.authz.grant-view.no-expiration": "No expiration",
-
   "page.setting.general.authz.revoke.title": "Authz Details",
   "page.setting.general.authz.revoke.grantee-address": "Grantee Address",
   "page.setting.general.authz.revoke.expiration-dates": "Expiration Date",
   "page.setting.general.authz.revoke.revoke-button": "Revoke",
-
   "page.setting.general.link-keplr-mobile.confirm-title": "Export Failed",
   "page.setting.general.link-keplr-mobile.confirm-paragraph": "You cannot export Ledger-based accounts to Epix Wallet Mobile. These must be imported to your mobile device directly from the Ledger.{br}Accounts that are created via social logins that are not supported by Epix Wallet Mobile cannot be exported.",
   "page.setting.general.link-keplr-mobile.enter-password-view.guide-title": "Scan on Epix Wallet Mobile Only",
   "page.setting.general.link-keplr-mobile.enter-password-view.guide-paragraph": "Scanning the QR code outside of Epix Wallet Mobile can lead to loss of funds",
   "page.setting.general.link-keplr-mobile.enter-password-view.paragraph": "Scan QR code to export accounts to Epix Wallet Mobile. The process may take several minutes.",
-
   "page.setting.general.link-keplr-mobile.qr-code-view.session-expired": "Session expired",
   "page.setting.general.link-keplr-mobile.qr-code-view.paragraph": "Scan the QR code to sync with Epix Wallet Mobile. The process may take several minutes.",
   "page.setting.general.link-keplr-mobile.qr-code-view.expired": "Expired",
-
   "page.setting.general.delete-suggest-chain.empty-text": "Hmm.. Nothing Here!",
   "page.setting.general.delete-suggest-chain.chain-item.tooltip-text": "The infrastructure and setting of this chain is not configured by Epix Wallet team. Please reach out to the chain or website team for technical support.",
-
   "page.setting.security.connected-websites-title": "Connected Websites",
   "page.setting.security.connected-websites-paragraph": "Websites that can view your address and make requests for signing",
   "page.setting.security.auto-lock-title": "Auto-Lock Timer",
   "page.setting.security.change-password-title": "Change Password",
   "page.setting.security.analytics-title": "Share Anonymous Data",
   "page.setting.security.analytics-paragraph": "Help us improve the performance and quality of Epix Wallet",
-
   "page.setting.security.permission.search-placeholder": "Search",
   "page.setting.security.permission.disconnect-all-button": "Disconnect All",
   "page.setting.security.permission.origin-view.all-text": "All",
-
   "page.setting.security.auto-lock.paragraph": "You can set how long it takes Epix Wallet to automatically lock.",
   "page.setting.security.auto-lock.timer-input-label": "Set Timer (unit: minutes)",
   "page.setting.security.auto-lock.sleep-mode-title": "Lock Epix Wallet on Sleep Mode",
   "page.setting.security.auto-lock.sleep-mode-paragraph": "Lock Epix Wallet when the device is{br}in sleep mode",
-
   "page.setting.security.change-password.current-password-label": "Current Epix Wallet Password",
   "page.setting.security.change-password.new-password-label": "New Epix Wallet Password",
   "page.setting.security.change-password.confirm-password-label": "Confirm New Epix Wallet Password",
-
   "page.setting.token.manage.paragraph": "Only for the tokens that can be added manually via contract addresses",
   "page.setting.token.manage.add-token-button": "Add Token",
   "page.setting.token.manage.empty-subject": "Token",
@@ -361,7 +317,6 @@
   "page.setting.token.manage.token-view.contract-address-copied": "Contract address copied",
   "page.setting.token.manage.token-view.disable-token-tooltip": "Disable Token",
   "page.setting.token.manage.token-view.disable-token-confirm": "Are you sure you’d like to disable this token? You will not be able to see your balance or transfer until you add it again.",
-
   "page.setting.token.add.title": "Add Custom Token",
   "page.setting.token.add.confirm-button": "Confirm",
   "page.setting.token.add.contract-address-label": "Contract Address",
@@ -376,21 +331,18 @@
   "page.setting.token.add.contract-address-book-modal.no-search-data": "No Search Result",
   "page.setting.token.add.contract-address-book-modal.link": "Retrieved from this <link>repo</link>",
   "page.setting.token.add.contract-item.select-button": "Select",
-
   "page.setting.contacts.list.add-new-button": "Add New",
   "page.setting.contacts.list.dropdown.edit-contact-label": "Edit Contact",
   "page.setting.contacts.list.dropdown.delete-contact-label": "Delete Contact",
   "page.setting.contacts.list.dropdown.delete-contact-confirm-title": "Delete Contact",
   "page.setting.contacts.list.dropdown.delete-contact-confirm-paragraph": "Are you sure you want to delete this contact?",
   "page.setting.contacts.list.empty-view-subject": "Contacts",
-
   "page.setting.contacts.add.add-title": "Add Contact",
   "page.setting.contacts.add.edit-title": "Edit Contact",
   "page.setting.contacts.add.label-label": "Label",
   "page.setting.contacts.add.label-placeholder": "A short nickname to identify the contact",
   "page.setting.contacts.add.memo-label": "Memo (Optional)",
   "page.setting.contacts.add.memo-placeholder": "Required for sending to centralized exchange",
-
   "page.suggest-chain.title": "Add {chainName} to Epix Wallet",
   "page.suggest-chain.community-info-view.community-driven-chip": "Community driven",
   "page.suggest-chain.community-info-view.paragraph": "<b>{origin}</b> would like to add blockchain <b>{chainId}</b> to Epix Wallet.",
@@ -400,19 +352,16 @@
   "page.suggest-chain.raw-info-view.chain-registry-link-text": "Click here to update chain info on Github",
   "page.suggest-chain.origin-info-view.guide-title": "Before You Approve",
   "page.suggest-chain.origin-info-view.guide-paragraph": "Adding this chain requires information from a web page that is not managed by Epix Wallet.",
-
   "page.unlock.star-migration-button": "Start Migration",
   "page.unlock.upgrade-in-progress": "Upgrade in progress",
   "page.unlock.unlock-button": "Unlock",
   "page.unlock.forgot-password-button": "Forgot Password?",
-
   "page.unlock.paragraph-section.keplr-here": "💫 Epix Wallet 2.0 is here!",
   "page.unlock.paragraph-section.enter-password-to-upgrade": "Enter your password to upgrade.",
   "page.unlock.paragraph-section.welcome-back": "Welcome Back",
   "page.unlock.bottom-section.capslock-tooltip": "CapsLock is on",
   "page.unlock.bottom-section.guide-title": "Don’t close your browser during update",
   "page.unlock.bottom-section.guide-paragraph": "Migration for users with many accounts can take up to several minutes.",
-
   "page.wallet.title": "Select Wallet",
   "page.wallet.input.search.placeholder": "Search wallet name or address",
   "page.wallet.search-empty-view-title": "Oops!",
@@ -430,37 +379,31 @@
   "page.wallet.keyring-item.dropdown.delete-wallet-title": "Delete Wallet",
   "page.wallet.keyring-item.dropdown.view-recovery-path-title": "View Recovery Phrase",
   "page.wallet.keyring-item.dropdown.view-private-key-title": "View Private key",
-
   "page.wallet.change-name.previous-name-input-label": "Previous Wallet Name",
   "page.wallet.change-name.new-name-input-label": "New Wallet Name",
   "page.wallet.change-name.min-length-error": "Wallet name must be at least 4 characters",
-
   "page.wallet.delete.warning-title": "Alert",
   "page.wallet.delete.warning-paragraph": "Make sure that you’ve backed up your recovery phrase and private key.",
   "page.wallet.delete.warning-link-text": "Back Up My Wallet",
   "page.wallet.delete.paragraph": "After deletion, you will be required to import your wallet to restore\n  your access to it.",
-
   "page.wallet.show-sensitive.paragraph": "Please type in your password to proceed",
-
   "page.ibc-transfer.title": "Advanced IBC Transfer",
-
   "page.ibc-transfer.select-channel.asset-title": "Asset",
   "page.ibc-transfer.select-channel.destination-chain-label": "Destination Chain",
   "page.ibc-transfer.select-channel.destination-chain-placeholder": "Select Chain",
   "page.ibc-transfer.select-channel.new-ibc-channel-item": " New IBC Transfer Channel",
   "page.ibc-transfer.select-channel.warning-title": "Most of the centralized exchanges do not support IBC transfers",
   "page.ibc-transfer.select-channel.warning-paragraph": "We advise you not to perform IBC transfers to these exchanges, as your assets may be lost. Please check with the exchange's policies before initiating any IBC transfers.",
-
   "page.ibc-transfer.add-channel-modal.title": "Add IBC channel",
   "page.ibc-transfer.add-channel-modal.destination-chain-label": "Destination Chain",
   "page.ibc-transfer.add-channel-modal.destination-chain-placeholder": "Select Chain",
   "page.ibc-transfer.add-channel-modal.channel-id-label": "Source Channel Id",
   "page.ibc-transfer.add-channel-modal.channel-id-placeholder": "Source Channel ID",
-
   "page.ibc-swap.title.swap": "Swap",
   "page.ibc-swap.info.required-approvals": "{total} approvals required",
   "page.ibc-swap.button.next": "Swap",
   "page.ibc-swap.button.hold-to-swap": "Hold to Swap",
+  "page.ibc-swap.button.select-token": "Select a token",
   "page.ibc-swap.button.hold-to-approve-and-swap": "Hold to Approve & Swap",
   "page.ibc-swap.button.keep-holding": "Keep holding...",
   "page.ibc-swap.error.no-route-found": "No routes found for this swap",
@@ -469,6 +412,7 @@
   "page.ibc-swap.warning.high-price-impact": "Big drop in USD value detected due to low liquidity. Review your trade, or click \"Swap\" to continue.",
   "page.ibc-swap.components.swap-asset-info.from": "From",
   "page.ibc-swap.components.swap-asset-info.to": "To",
+  "page.ibc-swap.components.swap-asset-info.select-token": "Select token",
   "page.ibc-swap.components.swap-asset-info.max-asset": "Max: {asset}",
   "page.ibc-swap.components.swap-asset-info.on-chain-name": "On {chainName}",
   "page.ibc-swap.components.swap-asset-info.modal.select-destination-chain.title": "Select Destination Chain",
@@ -486,25 +430,19 @@
   "page.ibc-swap.button.terms-of-use.title": "Terms of Use",
   "page.ibc-swap.loading.first": "Finding the best route…",
   "page.ibc-swap.loading.second": "Checking a few more routes…",
-
   "page.history.title": "History",
-
   "page.switch-account.title": "Switch Wallet",
   "page.switch-account.from": "From",
   "page.switch-account.to": "To",
-
   "page.permission.unknown-permission": "Unknown permission",
   "page.permission.requesting-connection-title": "Requesting Connection",
   "page.permission.paragraph": "By approving this request, the website will:{br}• Get the list of all chains from your Epix Wallet Wallet",
   "page.permission.get-all-keyring-infos.paragraph": "By approving this request, the website will:{br}• Get the list of all wallets from your Epix Wallet Wallet",
-
   "page.permission.basic-access.select-chain-title": "Connect",
   "page.permission.basic-access-for-bitcoin.select-chain-paragraph": "Select a Bitcoin chain to connect.",
   "page.permission.basic-access-for-bitcoin.address-type-guide-title": "Connecting with your {addressType} address",
   "page.permission.basic-access-for-bitcoin.address-type-guide-paragraph": "You can switch the network and address type later in Epix Wallet Extension.",
-
   "page.permission.basic-access-for-evm.select-chain-paragraph": "Select an EVM-compatible chain to connect.",
-
   "page.sign.cosmos.tx.title": "Confirm Transaction",
   "page.sign.cosmos.tx.messages": "Messages",
   "page.sign.cosmos.tx.authz-send-grant.warning-title": "You are allowing another account to transfer assets from your wallet for the specified period of time. Beware of scammers and approve with caution.",
@@ -517,7 +455,6 @@
   "page.sign.cosmos.icns.title": "Request Registration",
   "page.sign.cosmos.lava.guide.title": "🌋 Using Lava Endpoints",
   "page.sign.cosmos.lava.guide.paragraph": "You are currently using endpoints provided Lava.",
-
   "page.sign.adr36.title": "Signature Request",
   "page.sign.adr36.title.from-keplr": "Sign in with Epix Wallet",
   "page.sign.adr36.warning-origin": "Only approve if you trust this website",
@@ -527,10 +464,8 @@
   "page.sign.adr36.raw-message": "Advanced",
   "page.sign.adr36.show-more-detail": "Show more",
   "page.sign.adr36.show-less-detail": "Show less",
-
   "page.sign.adr36.warning-title": "Incompatible Signing Requested",
   "page.sign.adr36.warning-paragraph": "Error: SIGN_MODE_DIRECT can’t be signed on Ledger. Contact the web app provider to fix this issue.",
-
   "page.sign.ethereum.title": "Sign Ethereum",
   "page.sign.ethereum.requested-network": "on {network}",
   "page.sign.ethereum.transaction.title": "Confirm Transaction",
@@ -543,9 +478,7 @@
   "page.sign.ethereum.message": "Signing Message",
   "page.sign.ethereum.message.title": "Sign Message",
   "page.sign.ethereum.eip-712.title": "Sign Typed Data",
-
   "page.sign.starknet.tx.calls": "Calls",
-
   "page.sign.bitcoin.transaction.data": "Transaction Data",
   "page.sign.bitcoin.transaction.input": "Input(s)",
   "page.sign.bitcoin.transaction.output": "Output(s)",
@@ -553,9 +486,7 @@
   "page.sign.bitcoin.transaction.total-spend": "Total Spend",
   "page.sign.bitcoin.transaction.utxo-warning": "UTXOs may include assets other than {coinDenom} (e.g. inscriptions, runes).",
   "page.sign.bitcoin.transaction.review-progress": "{index}/{total} Review Transaction",
-
   "page.sign.components.fee-summary.fee": "Tx Fee",
-
   "page.sign.components.messages.agoric.provision.title": "Provision Smart Wallet",
   "page.sign.components.messages.agoric.provision.message": "Provision a smart wallet for address <b>{address}</b>",
   "page.sign.components.messages.agoric.wallet-spend-action.execute-offer": "Execute an offer with the following parameters:",
@@ -602,7 +533,6 @@
   "page.sign.components.messages.claim-btc-delegation-reward.paragraph": "Claim {amount}",
   "page.sign.components.messages.atomone-mint-photon.title": "Mint PHOTON",
   "page.sign.components.messages.atomone-mint-photon.paragraph": "Burn ATONE and mint PHOTON",
-
   "page.sign.components.ledger-guide.box.error-title": "Error",
   "page.sign.components.ledger-guide.box.connect-and-unlock-ledger-paragraph": "Connect and unlock your Ledger device.",
   "page.sign.components.ledger-guide.box.usb-permission-unknown-paragraph-1": "Epix Wallet may have lost its USB permission by an unknown reason. Visit ",
@@ -616,7 +546,6 @@
   "page.sign.components.ledger-guide.box.unknown-error-title": "Unknown error",
   "page.sign.components.ledger-guide.box.sign-on-ledger-title": "Sign on Ledger",
   "page.sign.components.ledger-guide.box.sign-on-ledger-paragraph": "To proceed, please review and approve the transaction on your Ledger device.",
-
   "page.sign.keystone.title": "Scan the QR Code",
   "page.sign.keystone.scan-qrcode": "Scan the QR code via your Keystone device",
   "page.sign.keystone.click-get-signature": "Click on the 'Get Signature' button after signing the transaction with your Keystone device.",
@@ -627,11 +556,9 @@
   "page.sign.keystone.enable-camera": "Please enable your camera permission via [Settings]",
   "page.sign.keystone.invalid-qrcode": "Invalid QR code",
   "page.sign.keystone.select-valid-qrcode": "Please ensure you have selected a valid QR code from your Keystone device.",
-
   "page.sign.keystone.usb.box.unknown-error-title": "Unknown error",
   "page.sign.keystone.usb.box.sign-on-keystone-title": "Sign on Keystone",
   "page.sign.keystone.usb.box.sign-on-keystone-paragraph": "To proceed, please review and approve the transaction on your Keystone device.",
-
   "page.send.select-asset.title": "Select Asset",
   "page.send.select-asset.search-placeholder": "Search for asset or chain",
   "page.send.select-asset.hide-ibc-token": "Hide IBC token",
@@ -655,7 +582,6 @@
   "page.send.amount.bridge-fee-info.expected-amount": "You will receive",
   "page.send.bitcoin.amount.unfiltered-assets-warning.title": "Some assets like inscriptions, BRC20, Runes, or NFTs may not be filtered properly right now.",
   "page.send.bitcoin.amount.unfiltered-assets-warning.consent": "I understand and wish to proceed.",
-
   "page.main.search-placeholder": "Search for asset or chain (i.e. ATOM, Cosmos)",
   "page.main.spendable.spendable-balance-title": "Spendable Assets",
   "page.main.spendable.spendable-balance-tooltip": "The amount of your assets that are available for use or transfer immediately, except for those that are currently staked or locked in LP pools.",
@@ -665,13 +591,11 @@
   "page.main.spendable.search-show-check-manage-asset-view-guide-paragraph": "Check if 'Hide Low Balance' is enabled or if it's hidden in 'Manage Asset List'.",
   "page.main.balance.staked-balance-title-1": "with",
   "page.main.balance.staked-balance-title-2": "staked",
-
   "page.main.spendable.empty-view-title": "Ready to Explore the Multichain?",
   "page.main.spendable.empty-view-paragraph": "Gear up yourself by topping up your wallet!",
   "page.main.spendable.get-started-button": "Get Started",
   "page.main.spendable.new-token-found": "{numFoundToken} new token(s) found",
   "page.main.spendable.manage-asset-list-button": "Manage Asset List",
-
   "page.stake.staked-balance-title": "Staked Assets",
   "page.stake.unstaking-balance-title": "Unstaking Balance",
   "page.stake.total-staked-title": "Total Staked",
@@ -687,7 +611,45 @@
   "page.stake.components.rewards-card.show-all-button": "Show All",
   "page.stake.components.rewards-card.hide-all-button": "Hide All",
   "page.stake.back-to-home-button": "View Total Balance",
-
+  "page.stake.dashboard.title": "Staking on {chainName}",
+  "page.stake.dashboard.staking-button": "Stake",
+  "page.stake.dashboard.staking-button.label": "Available for Staking",
+  "page.stake.validator-list.title": "All Active Validators",
+  "page.stake.validator-list.search-input-placeholder": "Search for a validator",
+  "page.stake.validator-list.option.voting-power": "Voting Power",
+  "page.stake.validator-list.option.commission": "Commission",
+  "page.stake.validator-list.empty-title": "No Results Found",
+  "page.stake.validator-list.empty-text": "Please check the spelling of the validator name or verify if it is in an active set.",
+  "page.stake.validator-detail.title": "Validator Details",
+  "page.stake.validator-detail.jailed-guide-box.title": "This validator is currently jailed.",
+  "page.stake.validator-detail.jailed-guide-box.paragraph": "If you are staking to this validator, consider switching to another validator or unstaking.",
+  "page.stake.validator-detail.commission-guide-box.title": "Commission {rate}",
+  "page.stake.validator-detail.commission-guide-box.paragraph-1": "This validator is currently charging",
+  "page.stake.validator-detail.commission-guide-box.paragraph-2": " very high ",
+  "page.stake.validator-detail.commission-guide-box.paragraph-3": "commissions. Consider staking to other validators with lower commissions to increase your rewards.",
+  "page.stake.validator-detail.top-10-guide-box.title": "You are staking to a top 10 validator",
+  "page.stake.validator-detail.top-10-guide-box.paragraph": "To improve decentralization, please consider staking to other validators",
+  "page.stake.validator-detail.validator-card.commission": "Commission",
+  "page.stake.validator-detail.validator-card.voting-power": "Voting power",
+  "page.stake.validator-detail.validator-card.description": "Description",
+  "page.stake.validator-detail.stake-button": "Stake",
+  "page.stake.validator-detail.jailed-button": "This validator is currently jailed",
+  "page.stake.validator-detail.delegated-card.label": "My Staking",
+  "page.stake.validator-detail.delegated-card.staked-label": "Staked",
+  "page.stake.validator-detail.delegated-card.reward-label": "Rewards",
+  "page.stake.validator-detail.delegated-card.redelegate-button": "Switch Validator",
+  "page.stake.validator-detail.delegated-card.undelegate-button": "Unstake",
+  "page.stake.validator-detail.unbonding-card.label": "My Unstaking",
+  "page.stake.delegate.title": "Stake",
+  "page.stake.delegate.guide-box.title": "Staking will lock your funds for {unbondingPeriodDay} days",
+  "page.stake.delegate.guide-box.paragraph": "You will need to unstake in order for your staked assets to be liquid again. This process will take {unbondingPeriodDay} days to complete.",
+  "page.stake.undelegate.title": "Unstake",
+  "page.stake.undelegate.guide-box.title": "Once the unstaking period begins you will:",
+  "page.stake.undelegate.guide-box.paragraph-1": "not receive staking rewards",
+  "page.stake.undelegate.guide-box.paragraph-2": "need to wait {unbondingPeriodDay} days for the amount to be liquid",
+  "page.stake.redelegate.title": "Switch Validator",
+  "page.stake.redelegate.select-validator-card.label": "Switch to",
+  "page.stake.redelegate.select-validator-card.placeholder": "Select Validator",
   "page.main.components.ibc-history-view.item.pending": "IBC Transfer in Progress",
   "page.main.components.ibc-history-view.item.succeed": "IBC Transfer Successful",
   "page.main.components.ibc-history-view.ibc-swap.item.pending": "Swap in Progress",
@@ -736,7 +698,6 @@
   "page.main.components.rewards-card.claim-all-button": "Claim All",
   "page.main.components.rewards-card.view-button": "View Details",
   "page.main.components.rewards-card.review-claim-button": "Review",
-
   "page.main.components.context-menu.title": "View Options",
   "page.main.components.context-menu.tooltip-title": "New",
   "page.main.components.context-menu.tooltip-paragraph": "Tired of cluttered asset lists?{br}Try Smart Grouping!",
@@ -747,11 +708,9 @@
   "page.main.components.menu-bar.manage-chain-visibility-title": "Add/Remove Chains",
   "page.main.components.menu-bar.manage-asset-list-title": "Manage Asset List",
   "page.main.components.menu-bar.my-contacts-title": "Contacts",
-  "page.main.components.menu-bar.go-to-dashboard": "Go to Dashboard",
   "page.main.components.menu-bar.side-panel-mode": "Side Panel Mode",
   "page.main.components.menu-bar.lock-wallet-title": "Lock Wallet",
   "page.main.components.menu-bar.go-to-setting-page": "Settings",
-
   "page.main.components.deposit-modal.title": "Deposit",
   "page.main.components.deposit-modal.search-placeholder": "Search by chain or asset name",
   "page.main.components.deposit-modal.look-for-chains": "Looking for a chain?",
@@ -769,21 +728,16 @@
   "page.main.components.token-item.copy-address.copied": "Copied",
   "page.main.components.token-item.earn-nudge-button": "Earn {apy} APY with USDC",
   "page.main.components.token-item.earn-savings-button": "{balance} in Savings",
-
   "page.main.layouts.header.new-chain.title": "✨ {chains} Now Integrated!",
   "page.main.layouts.header.new-chain.paragraph": "To show the {count, plural, one {chain} other {chains}} and {count, plural, one {its} other {their}} assets on this account, visit \"Add/Remove Chains\".",
   "page.main.layouts.header.new-chain.button": "Got it!",
-
   "page.ledger-grant.title": "Allow Browser to Connect to Ledger",
   "page.ledger-grant.paragraph": "You need to reapprove connection to your Ledger. Select the appropriate app, and after successfully connecting with your Ledger device, close this page and retry your previous transaction (signing).",
-
   "page.starknet.components.account-activation-modal.title": "Activate Your Account",
   "page.starknet.components.account-activation-modal.description": "Activate your account to access various features of Starknet!{br}A small fee applies for account activation.",
-
   "page.token-detail.earn-apy-banner.title": "Earn rewards",
   "page.token-detail.earn-apy-banner.start-earn-button": "Start Earning",
   "page.token-detail.manage-earn-button": "Manage Earn",
-
   "page.earn.title": "Earn",
   "page.earn.intro.title": "Earn real-time rewards{br}with <image></image> USDC",
   "page.earn.intro.paragraph": "Put your stable asset to work and earn {apy} APY—effortless and simple.",
@@ -818,12 +772,10 @@
   "page.earn.transfer.intro.paragraph.first.sub-paragraph": "~ 10 sec",
   "page.earn.transfer.intro.paragraph.second": "Enter the amount to deposit",
   "page.earn.transfer.amount.title": "Enter the amount{br}to transfer.",
-
   "page.earn.transfer.amount.tx.paragraph": "Keep this window open{br}to proceed with the next steps!",
   "page.send.select-asset.earn.title": "Select asset{br}to transfer to Noble",
   "page.send.select-asset.earn.no-token-found": "Oh, no!{br}You have no USDC on other chains.",
   "page.send.select-asset.earn.go-back-button": "Go Back",
-
   "page.tx-result.pending.title": "Transaction pending",
   "page.tx-result.pending.paragraph": "Transaction has been broadcasted to the blockchain and pending confirmation.",
   "page.tx-result.success.title": "Transaction successful",
@@ -832,11 +784,9 @@
   "page.tx-result.failed.title": "Transaction failed",
   "page.tx-result.failed.paragraph": "Transaction unsuccessful. Please check the block explorer for more information.",
   "page.tx-result.failed.go-to-home": "Go to Home",
-
   "page.tx-result.earn-deposit.success.title": "Earn Activated!",
   "page.tx-result.earn-deposit.success.paragraph": "Now, your real-time rewards will be automatically accrued to your account.",
   "page.tx-result.earn-deposit.success.go-to-earn-overview-button": "Go to Earn Overview",
-
   "page.earn.overview.title": "Earn Overview",
   "page.earn.overview.claim-section.claimable-reward": "Claimable Reward",
   "page.earn.overview.claim-section.total-claimed": "Total Claimed",
@@ -850,12 +800,10 @@
   "page.earn.overview.tutorial-modal.claim.pending-reward": "Pending Reward",
   "page.earn.overview.tutorial-modal.claim.claim-all-button-in-card": "Claim All",
   "page.earn.overview.tutorial-modal.claim.open-earn-overview-button": "Open Earn Overview",
-
   "page.earn.withdraw.amount.title": "Enter the amount{br}to withdraw.",
   "page.earn.withdraw.amount.confirm.title": "Swap {from} for{br}{to}.",
   "page.earn.withdraw.amount.confirm.description": "You will receive {to} on {chain}.",
   "page.earn.withdraw.amount.confirm.norewards": "No rewards",
-
   "components.empty-view.text": "No {subject} Yet",
   "components.input.recipient-input.wallet-address-only-label": "Wallet Address",
   "components.input.recipient-input.wallet-address-label": "Wallet Address or ICNS",
@@ -899,7 +847,6 @@
   "components.input.fee-control.modal.max-fee": "Max Fee",
   "components.input.password-text-input.label": "Password",
   "components.input.password-text-input.placeholder": "Type Your Password",
-
   "components.address-book-modal.title": "Address Book",
   "components.address-book-modal.recent-tab": "Recent",
   "components.address-book-modal.contacts-tab": "Contacts",
@@ -911,11 +858,9 @@
   "components.address-item.sent-on-date": "Sent on {date}",
   "components.address-item.empty-memo": "(Empty Memo)",
   "components.address-book-modal.my-account-tab.input.search.placeholder": "Search wallet name or address",
-
   "components.collapsible-list.view-more-tokens": "View {remain} more tokens",
   "components.collapsible-list.collapse": "Collapse",
   "components.collapsible-list.view-more": "View {remain} more",
-
   "components.bitcoin-guide-box.title.critical-validation-error": "Unable to sign the transaction",
   "components.bitcoin-guide-box.title.unable-to-get-utxos": "Unable to get UTXOs",
   "components.bitcoin-guide-box.paragraph.unable-to-get-utxos": "UTXOs are temporarily unavailable. Please try again later.",
@@ -925,10 +870,8 @@
   "components.bitcoin-guide-box.paragraph.partial-signing": "You are signing part of the transaction. Only the inputs from this wallet will be signed.",
   "components.bitcoin-guide-box.title.none-of-the-inputs-belong-to-this-wallet": "None of the inputs belong to this wallet",
   "components.bitcoin-guide-box.paragraph.none-of-the-inputs-belong-to-this-wallet": "For security reasons, signing is allowed only if an input belongs to this wallet.",
-
   "components.fee-info.bridge-fee": "Bridge Fee",
   "components.fee-info.swap-provider": "Provider",
-
   "components.top-up.description.we-cover-upper": "Thanks for staking with us",
   "components.top-up.description.we-cover": "We'll cover the fees 😉",
   "components.top-up.tx-fee": "Tx Fee",
@@ -937,7 +880,6 @@
   "components.top-up.wait-time": "Next free tx in {time}",
   "components.top-up.description.staking-required": "Free tx when you stake {amount} {coinDenom} with Epix Wallet",
   "components.top-up.description.stake-now": "Stake Now",
-
   "button.confirm": "Confirm",
   "button.ok": "OK",
   "button.next": "Next",
@@ -960,10 +902,8 @@
   "text-button.select-all": "Select All",
   "button.receive": "Receive",
   "button.buy": "Buy",
-
   "notification.transaction-success": "Transaction Success",
   "notification.transaction-sent": "Transaction Sent",
-
   "hooks.confirm.cancel-button": "Cancel",
   "hooks.confirm.yes-button": "Yes"
 }
