@@ -38,7 +38,7 @@ router.addGuard(ExtensionGuards.checkMessageIsInternal);
 
 const blocklistPageURL = "https://blocklist.keplr.app";
 
-const { initFn, keyRingService, analyticsService, phishingListService } = init(
+const { initFn, analyticsService, phishingListService } = init(
   router,
   (prefix: string) => new ExtensionKVStore(prefix),
   new ContentScriptMessageRequester(),
@@ -172,23 +172,10 @@ const { initFn, keyRingService, analyticsService, phishingListService } = init(
 );
 
 router.listen(BACKGROUND_PORT, initFn).then(() => {
-  // Open register popup on installed
+  // No auto-opened register page: on every platform the first launch belongs
+  // to the app/xite, and onboarding starts when the user opens the wallet
+  // with an empty keyring (see src/index.tsx, which opens /register.html#).
   const kvStore = new ExtensionKVStore("__background_open_register_once");
-  // "register_opened" state ensures that the register popup is opened only once.
-  kvStore.get("register_opened").then((v) => {
-    if (!v) {
-      kvStore.set("register_opened", true);
-
-      // We should open popup only if the keyring is empty.
-      // (If user already registered, and extension is updated, this case can be happened.)
-      // With waiting router is initialized, it ensures that background service is initialized.
-      if (keyRingService.keyRingStatus === "empty") {
-        browser.tabs.create({
-          url: "/register.html#",
-        });
-      }
-    }
-  });
 
   kvStore.get("installed_analytics").then((v) => {
     if (!v) {
