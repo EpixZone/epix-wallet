@@ -40,4 +40,15 @@ export class SettingsService {
   setThemeOption(themeOption: string): void {
     this.settingsMap.set("theme-option", themeOption);
   }
+
+  getSidePanelOverlayDisabled(): boolean {
+    return this.settingsMap.get("side-panel-overlay-disabled") === "true";
+  }
+
+  setSidePanelOverlayDisabled(disabled: boolean): void {
+    this.settingsMap.set(
+      "side-panel-overlay-disabled",
+      disabled ? "true" : "false"
+    );
+  }
 }
