@@ -269,6 +269,8 @@
   "page.setting.general.link-kpelr-mobile-title": "케플러 모바일과 연결하기",
   "page.setting.general.side-panel-title": "사이드 패널",
   "page.setting.general.side-panel-paragraph": "케플러 지갑을 브라우저의 사이드 패널에서 사용할 수 있습니다.",
+  "page.setting.general.side-panel-overlay-title": "웹사이트에 '케플러 열기' 배너 표시",
+  "page.setting.general.side-panel-overlay-paragraph": "끄면 잠금 해제나 요청 승인 시 케플러 아이콘을 직접 눌러야 합니다.",
   "page.setting.general.show-24h-price-changes-title": "24시간 가격변동률 표시",
   "page.setting.general.show-24h-price-changes-paragraph": "각 토큰의 24시간 가격변동률을 표시하는 기능입니다.",
   "page.setting.advanced.manage-non-native-chains-title": "커스텀 체인 삭제",

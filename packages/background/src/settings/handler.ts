@@ -6,7 +6,12 @@ import {
   Message,
 } from "@keplr-wallet/router";
 import { SettingsService } from "./service";
-import { GetThemeOptionMsg, SetThemeOptionMsg } from "./messages";
+import {
+  GetSidePanelOverlayDisabledMsg,
+  GetThemeOptionMsg,
+  SetSidePanelOverlayDisabledMsg,
+  SetThemeOptionMsg,
+} from "./messages";
 
 export const getHandler: (service: SettingsService) => Handler = (service) => {
   return (env: Env, msg: Message<unknown>) => {
@@ -15,6 +20,16 @@ export const getHandler: (service: SettingsService) => Handler = (service) => {
         return handleGetThemeOptionMsg(service)(env, msg as GetThemeOptionMsg);
       case SetThemeOptionMsg:
         return handleSetThemeOptionMsg(service)(env, msg as SetThemeOptionMsg);
+      case GetSidePanelOverlayDisabledMsg:
+        return handleGetSidePanelOverlayDisabledMsg(service)(
+          env,
+          msg as GetSidePanelOverlayDisabledMsg
+        );
+      case SetSidePanelOverlayDisabledMsg:
+        return handleSetSidePanelOverlayDisabledMsg(service)(
+          env,
+          msg as SetSidePanelOverlayDisabledMsg
+        );
       default:
         throw new KeplrError("settings", 110, "Unknown msg type");
     }
@@ -34,5 +49,21 @@ const handleSetThemeOptionMsg: (
 ) => InternalHandler<SetThemeOptionMsg> = (service) => {
   return (_, msg) => {
     return service.setThemeOption(msg.themeOption);
+  };
+};
+
+const handleGetSidePanelOverlayDisabledMsg: (
+  service: SettingsService
+) => InternalHandler<GetSidePanelOverlayDisabledMsg> = (service) => {
+  return () => {
+    return service.getSidePanelOverlayDisabled();
+  };
+};
+
+const handleSetSidePanelOverlayDisabledMsg: (
+  service: SettingsService
+) => InternalHandler<SetSidePanelOverlayDisabledMsg> = (service) => {
+  return (_, msg) => {
+    return service.setSidePanelOverlayDisabled(msg.disabled);
   };
 };
