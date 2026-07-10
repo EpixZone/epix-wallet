@@ -1,6 +1,6 @@
 {
   "name": "@keplr-wallet/topup-client",
-  "version": "0.13.39",
+  "version": "0.13.40",
   "main": "build/index.js",
   "types": "build/index.d.ts",
   "author": "chainapsis",
@@ -22,7 +22,7 @@
     "typecheck": "npx tsc -p tsconfig.check.json"
   },
   "dependencies": {
-    "@keplr-wallet/simple-fetch": "0.13.39",
-    "@keplr-wallet/types": "0.13.39"
+    "@keplr-wallet/simple-fetch": "0.13.40",
+    "@keplr-wallet/types": "0.13.40"
   }
 }
