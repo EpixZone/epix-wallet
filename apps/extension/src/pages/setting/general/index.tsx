@@ -136,7 +136,7 @@ export const SettingGeneralPage: FunctionComponent = observer(() => {
               }
             />
           ) : null}
-          {sidePanelSupported && sidePanelEnabled ? (
+          {sidePanelSupported ? (
             <PageButton
               title={intl.formatMessage({
                 id: "page.setting.general.side-panel-overlay-title",

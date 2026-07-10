@@ -18,7 +18,9 @@ import { isRunningInSidePanel, toggleSidePanelMode } from "../../utils";
 import {
   GetSidePanelEnabledMsg,
   GetSidePanelIsSupportedMsg,
+  GetSidePanelOverlayDisabledMsg,
   SetDisableAnalyticsMsg,
+  SetSidePanelOverlayDisabledMsg,
 } from "@keplr-wallet/background";
 import { InExtensionMessageRequester } from "@keplr-wallet/router-extension";
 import { BACKGROUND_PORT } from "@keplr-wallet/router";
@@ -66,6 +68,17 @@ export const SettingPage: FunctionComponent = observer(() => {
           .then((res) => {
             setSidePanelEnabled(res.enabled);
           });
+      });
+  }, []);
+
+  const [sidePanelOverlayDisabled, setSidePanelOverlayDisabled] =
+    useState(false);
+  useEffect(() => {
+    const msg = new GetSidePanelOverlayDisabledMsg();
+    new InExtensionMessageRequester()
+      .sendMessage(BACKGROUND_PORT, msg)
+      .then((res) => {
+        setSidePanelOverlayDisabled(res);
       });
   }, []);
 
@@ -252,6 +265,26 @@ export const SettingPage: FunctionComponent = observer(() => {
                             toggleSidePanelMode(!sidePanelEnabled, (res) => {
                               setSidePanelEnabled(res);
                             });
+                          },
+                        },
+                      },
+                      {
+                        key: "side-panel-overlay",
+                        icon: IconSidePanel,
+                        title: intl.formatMessage({
+                          id: "page.setting.general.side-panel-overlay-title",
+                        }),
+                        right: Toggle,
+                        rightProps: {
+                          size: "smaller",
+                          isOpen: !sidePanelOverlayDisabled,
+                          setIsOpen: () => {
+                            const disabled = !sidePanelOverlayDisabled;
+                            setSidePanelOverlayDisabled(disabled);
+                            new InExtensionMessageRequester().sendMessage(
+                              BACKGROUND_PORT,
+                              new SetSidePanelOverlayDisabledMsg(disabled)
+                            );
                           },
                         },
                       },
