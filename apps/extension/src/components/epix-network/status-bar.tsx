@@ -101,6 +101,10 @@ export const EpixNetworkStatusBar: FunctionComponent<{
           e.preventDefault();
           toggle();
         }
+        if (e.key === "Escape" && isOpen) {
+          e.preventDefault();
+          setOpen(false);
+        }
       }}
     >
       <Styles.Inner centered={centered}>
@@ -146,8 +150,10 @@ export const EpixNetworkStatusBar: FunctionComponent<{
 
         {mode === "inline" && isOpen ? (
           <React.Fragment>
-            {/* Tap-away backdrop to close the popover. */}
+            {/* Tap-away backdrop to close the popover. Presentational: the
+                keyboard path is the bar itself (Escape / Enter close). */}
             <div
+              role="presentation"
               onClick={(e) => {
                 e.stopPropagation();
                 setOpen(false);
@@ -159,7 +165,10 @@ export const EpixNetworkStatusBar: FunctionComponent<{
                 cursor: "default",
               }}
             />
+            {/* Propagation shield only, so clicks inside the panel don't
+                bubble to the bar's toggle; not itself interactive. */}
             <div
+              role="presentation"
               onClick={(e) => e.stopPropagation()}
               style={{
                 position: "absolute",
