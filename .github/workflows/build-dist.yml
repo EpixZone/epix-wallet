@@ -1,9 +1,11 @@
 name: Build wallet dist
 
-# Builds the Firefox extension and publishes it to the rolling "wallet-dist"
-# release. The Epix repo's epix-browser build.rs downloads that artifact when
-# shells/wallet-ext is not populated locally, so consumers of the Epix repo
-# never need a local wallet build.
+# Builds the Firefox extension and publishes it as an immutable per-commit
+# "wallet-<rev>" release (rev = the 12-char commit SHA). EpixNet pins a specific
+# rev in shells/wallet-ext.rev; its epix-browser build.rs and Android build
+# download that exact release, so an EpixNet build is reproducible and adopting
+# a new wallet is a deliberate pin bump. The semver in package.json tracks
+# upstream Keplr and is not unique per fork build, so the commit is the pin.
 
 on:
   push:
@@ -49,12 +51,20 @@ jobs:
           cd apps/extension/build/firefox
           zip -qr "$GITHUB_WORKSPACE/epix-wallet-firefox.zip" .
 
-      - name: Publish to rolling release
+      - name: Publish immutable per-commit release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create wallet-dist \
-            --title "Wallet extension build" \
-            --notes "Rolling build of the epix branch. Updated automatically on every push." \
-            --prerelease || true
-          gh release upload wallet-dist epix-wallet-firefox.zip --clobber
+          REV="${GITHUB_SHA:0:12}"
+          TAG="wallet-$REV"
+          VERSION=$(node -p "require('./apps/extension/package.json').version")
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "$TAG already published; wallet builds are immutable per commit."
+          else
+            gh release create "$TAG" \
+              --title "Epix Wallet $VERSION ($REV)" \
+              --notes "Immutable Firefox extension build for epix-wallet commit $GITHUB_SHA.
+          Pin it in EpixNet: set shells/wallet-ext.rev to $REV." \
+              --prerelease
+            gh release upload "$TAG" epix-wallet-firefox.zip
+          fi
