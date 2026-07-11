@@ -91,28 +91,28 @@ const DOT_CY = 12.6;
 const DOT_R = 3.2;
 const DOT_GAP = 1.2;
 
-// 16 covers 1x toolbars, 32 covers 2x, 48 covers 3x.
-const ICON_SIZES = [16, 32, 48];
+// 16 fills the 1x slot; 48 serves the 2x slot downscaled (Firefox picks the
+// smallest size above 32), exactly like the manifest icons did before the dot.
+// Do not add a 32: it would win the 2x pick and get UPscaled into the
+// epix-browser shell's 20-css-px button (40 device px), coming out soft - see
+// shells/browser-theme/epix-managed.css in EpixNet.
+const ICON_SIZES = [16, 48];
 
 type DotState = "off" | "boot" | "ready" | "routed";
 
-// Per-theme dot palettes. Dark matches the in-wallet status colors
-// (components/epix-network/use-epix-status.ts, kept in sync by hand); light
-// goes one step deeper on the same hues so the dot doesn't wash out on light
-// toolbars.
-const DOT_COLORS: Record<"dark" | "light", Record<DotState, string>> = {
-  dark: {
-    off: "#64748b",
-    boot: "#f5c450",
-    ready: "#a78bfa",
-    routed: "#4ade80",
-  },
-  light: {
-    off: "#64748b",
-    boot: "#d97706",
-    ready: "#7c3aed",
-    routed: "#16a34a",
-  },
+// Dot palette, matching the in-wallet status colors
+// (components/epix-network/use-epix-status.ts, kept in sync by hand). One
+// palette on purpose: the dot is only painted when the native host answers,
+// which in practice means the epix-browser shell, and its toolbar is always
+// near-black (EpixNet's shells/browser-theme/userChrome.css paints #nav-bar
+// #0b0e14 regardless of the OS appearance). Keying colors off
+// prefers-color-scheme would follow the OS, not the toolbar, and wash the dot
+// out for light-OS users.
+const DOT_COLORS: Record<DotState, string> = {
+  off: "#64748b",
+  boot: "#f5c450",
+  ready: "#a78bfa",
+  routed: "#4ade80",
 };
 
 // The overall privacy posture for a status reply, same decision as the status
@@ -204,17 +204,8 @@ function initStatusIcon(browser: any): void {
   let bases: Map<number, ImageBitmap> | null = null;
   let painted = "";
 
-  const isLightToolbar = (): boolean => {
-    const g: any = globalThis as any;
-    return (
-      typeof g.matchMedia === "function" &&
-      g.matchMedia("(prefers-color-scheme: light)").matches
-    );
-  };
-
   const paint = async (state: DotState | null) => {
-    const theme = isLightToolbar() ? "light" : "dark";
-    const key = `${theme}/${state ?? "none"}`;
+    const key = state ?? "none";
     if (key === painted) {
       return;
     }
@@ -222,7 +213,7 @@ function initStatusIcon(browser: any): void {
       if (!bases) {
         bases = await loadToolbarBases(browser);
       }
-      const color = state ? DOT_COLORS[theme][state] : null;
+      const color = state ? DOT_COLORS[state] : null;
       const imageData: Record<number, ImageData> = {};
       for (const size of ICON_SIZES) {
         const base = bases.get(size);
@@ -254,18 +245,6 @@ function initStatusIcon(browser: any): void {
   };
   tick();
   setInterval(tick, 5000);
-
-  // Repaint with the other palette when the browser theme flips.
-  try {
-    (globalThis as any)
-      .matchMedia("(prefers-color-scheme: light)")
-      .addEventListener("change", () => {
-        painted = "";
-        tick();
-      });
-  } catch {
-    // No matchMedia here (some shells); the dark palette stays.
-  }
 }
 
 async function nativeSend(msg: object): Promise<any> {

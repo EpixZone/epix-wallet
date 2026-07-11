@@ -11,7 +11,6 @@
   "action": {
     "default_icon": {
       "16": "assets/toolbar-16.png",
-      "32": "assets/toolbar-32.png",
       "48": "assets/toolbar-48.png"
     },
     "default_popup": "popup.html",
