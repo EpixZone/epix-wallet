@@ -1,4 +1,4 @@
-import React, { FunctionComponent, useState } from "react";
+import React, { FunctionComponent, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useIntl } from "react-intl";
 import styled, { useTheme } from "styled-components";
@@ -72,6 +72,9 @@ export const EpixNetworkStatusBar: FunctionComponent<{
 
   const { available, status, torClearnet } = useEpixStatus();
   const [isOpen, setIsOpen] = useState(false);
+  // The inline popover renders inside the bar, so the bar's own click handler
+  // must ignore clicks landing in it (they operate the panel, not the bar).
+  const popoverRef = useRef<HTMLDivElement | null>(null);
 
   if (!available) {
     return null;
@@ -95,11 +98,20 @@ export const EpixNetworkStatusBar: FunctionComponent<{
     <Styles.Bar
       role="button"
       tabIndex={0}
-      onClick={toggle}
+      onClick={(e) => {
+        if (popoverRef.current?.contains(e.target as Node)) {
+          return;
+        }
+        toggle();
+      }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           toggle();
+        }
+        if (e.key === "Escape" && isOpen) {
+          e.preventDefault();
+          setOpen(false);
         }
       }}
     >
@@ -146,8 +158,11 @@ export const EpixNetworkStatusBar: FunctionComponent<{
 
         {mode === "inline" && isOpen ? (
           <React.Fragment>
-            {/* Tap-away backdrop to close the popover. */}
+            {/* Tap-away backdrop to close the popover; empty and hidden from
+                assistive tech, the keyboard path is the bar itself
+                (Escape / Enter close). */}
             <div
+              aria-hidden="true"
               onClick={(e) => {
                 e.stopPropagation();
                 setOpen(false);
@@ -160,7 +175,7 @@ export const EpixNetworkStatusBar: FunctionComponent<{
               }}
             />
             <div
-              onClick={(e) => e.stopPropagation()}
+              ref={popoverRef}
               style={{
                 position: "absolute",
                 top: `calc(${EpixStatusBarHeight} + 0.5rem)`,

@@ -1,6 +1,5 @@
 {
   "manifest_version": 3,
-
   "name": "Epix Wallet",
   "description": "Epix Wallet is a browser extension wallet for the EPIX chain and the wider interchain ecosystem.",
   "version": "0.13.40",
@@ -9,8 +8,11 @@
     "48": "assets/icon-48.png",
     "128": "assets/icon-128.png"
   },
-
   "action": {
+    "default_icon": {
+      "16": "assets/toolbar-16.png",
+      "48": "assets/toolbar-48.png"
+    },
     "default_popup": "popup.html",
     "default_title": "Epix Wallet"
   },

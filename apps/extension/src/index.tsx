@@ -11,6 +11,10 @@ require("./public/assets/logo-beta-256.png");
 require("./public/assets/icon/icon-beta-16.png");
 require("./public/assets/icon/icon-beta-48.png");
 require("./public/assets/icon/icon-beta-128.png");
+// Toolbar button art: the bare mark, repainted at runtime with a status dot
+// (see background/epix-native.ts).
+require("./public/assets/icon/toolbar-16.png");
+require("./public/assets/icon/toolbar-48.png");
 require("./public/assets/svg/megaphone.svg");
 require("./public/assets/img/locked-logo-128.png");
 require("./public/assets/icon-click-cursor.png");
