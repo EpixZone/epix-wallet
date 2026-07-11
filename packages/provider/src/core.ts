@@ -1446,6 +1446,19 @@ export class Keplr implements IKeplr, KeplrCoreTypes {
                 return;
               }
 
+              // 유저가 설정에서 오버레이를 끈 경우에는 버튼을 그리지 않는다.
+              const sidePanelOverlayDisabled = await sendSimpleMessage<boolean>(
+                this.requester,
+                BACKGROUND_PORT,
+                "settings",
+                "GetSidePanelOverlayDisabledMsg",
+                {}
+              );
+
+              if (sidePanelOverlayDisabled) {
+                return;
+              }
+
               const isKeplrLocked = await sendSimpleMessage<boolean>(
                 this.requester,
                 BACKGROUND_PORT,

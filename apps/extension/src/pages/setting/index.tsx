@@ -18,7 +18,9 @@ import { isRunningInSidePanel, toggleSidePanelMode } from "../../utils";
 import {
   GetSidePanelEnabledMsg,
   GetSidePanelIsSupportedMsg,
+  GetSidePanelOverlayDisabledMsg,
   SetDisableAnalyticsMsg,
+  SetSidePanelOverlayDisabledMsg,
 } from "@keplr-wallet/background";
 import { InExtensionMessageRequester } from "@keplr-wallet/router-extension";
 import { BACKGROUND_PORT } from "@keplr-wallet/router";
@@ -63,6 +65,17 @@ export const SettingPage: FunctionComponent = observer(() => {
           .then((res) => {
             setSidePanelEnabled(res.enabled);
           });
+      });
+  }, []);
+
+  const [sidePanelOverlayDisabled, setSidePanelOverlayDisabled] =
+    useState(false);
+  useEffect(() => {
+    const msg = new GetSidePanelOverlayDisabledMsg();
+    new InExtensionMessageRequester()
+      .sendMessage(BACKGROUND_PORT, msg)
+      .then((res) => {
+        setSidePanelOverlayDisabled(res);
       });
   }, []);
 
@@ -249,6 +262,26 @@ export const SettingPage: FunctionComponent = observer(() => {
                             toggleSidePanelMode(!sidePanelEnabled, (res) => {
                               setSidePanelEnabled(res);
                             });
+                          },
+                        },
+                      },
+                      {
+                        key: "side-panel-overlay",
+                        icon: IconSidePanelOverlay,
+                        title: intl.formatMessage({
+                          id: "page.setting.general.side-panel-overlay-title",
+                        }),
+                        right: Toggle,
+                        rightProps: {
+                          size: "smaller",
+                          isOpen: !sidePanelOverlayDisabled,
+                          setIsOpen: () => {
+                            const disabled = !sidePanelOverlayDisabled;
+                            setSidePanelOverlayDisabled(disabled);
+                            new InExtensionMessageRequester().sendMessage(
+                              BACKGROUND_PORT,
+                              new SetSidePanelOverlayDisabledMsg(disabled)
+                            );
                           },
                         },
                       },
@@ -944,6 +977,25 @@ const IconSidePanel: FunctionComponent = () => {
       <path
         fill="currentColor"
         d="M13.067 13.456 11.16 11.55q-.194-.195-.428-.097-.233.097-.233.37v4.355q0 .271.233.37.233.096.428-.098l1.906-1.906A.75.75 0 0 0 13.3 14a.75.75 0 0 0-.233-.544M7 8.556q0-.642.457-1.099A1.5 1.5 0 0 1 8.556 7h10.888q.642 0 1.099.457T21 8.556v10.888q0 .642-.457 1.1a1.5 1.5 0 0 1-1.099.456H8.556a1.5 1.5 0 0 1-1.1-.457A1.5 1.5 0 0 1 7 19.444zm8.556 0h-7v10.888h7z"
+      />
+    </svg>
+  );
+};
+
+const IconSidePanelOverlay: FunctionComponent = () => {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="28"
+      height="28"
+      fill="none"
+      stroke="none"
+      viewBox="0 0 28 28"
+    >
+      <path
+        fill="currentColor"
+        transform="translate(2 2)"
+        d="M5 19q-.425 0-.712-.288Q4 18.425 4 18t.288-.713Q4.575 17 5 17h1v-7q0-2.075 1.25-3.688Q8.5 4.7 10.5 4.2v-.7q0-.625.438-1.063Q11.375 2 12 2t1.062.437q.438.438.438 1.063v.7q2 .5 3.25 2.112Q18 7.925 18 10v7h1q.425 0 .713.287.287.288.287.713t-.287.712Q19.425 19 19 19Zm7 3q-.825 0-1.412-.587Q10 20.825 10 20h4q0 .825-.587 1.413Q12.825 22 12 22Z"
       />
     </svg>
   );

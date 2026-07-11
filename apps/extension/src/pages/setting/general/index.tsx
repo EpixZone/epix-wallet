@@ -14,6 +14,8 @@ import { Toggle } from "../../../components/toggle";
 import {
   GetSidePanelEnabledMsg,
   GetSidePanelIsSupportedMsg,
+  GetSidePanelOverlayDisabledMsg,
+  SetSidePanelOverlayDisabledMsg,
 } from "@keplr-wallet/background";
 import { InExtensionMessageRequester } from "@keplr-wallet/router-extension";
 import { BACKGROUND_PORT } from "@keplr-wallet/router";
@@ -43,6 +45,17 @@ export const SettingGeneralPage: FunctionComponent = observer(() => {
           .then((res) => {
             setSidePanelEnabled(res.enabled);
           });
+      });
+  }, []);
+
+  const [sidePanelOverlayDisabled, setSidePanelOverlayDisabled] =
+    useState(false);
+  useEffect(() => {
+    const msg = new GetSidePanelOverlayDisabledMsg();
+    new InExtensionMessageRequester()
+      .sendMessage(BACKGROUND_PORT, msg)
+      .then((res) => {
+        setSidePanelOverlayDisabled(res);
       });
   }, []);
 
@@ -118,6 +131,29 @@ export const SettingGeneralPage: FunctionComponent = observer(() => {
                     toggleSidePanelMode(!sidePanelEnabled, (res) => {
                       setSidePanelEnabled(res);
                     });
+                  }}
+                />
+              }
+            />
+          ) : null}
+          {sidePanelSupported ? (
+            <PageButton
+              title={intl.formatMessage({
+                id: "page.setting.general.side-panel-overlay-title",
+              })}
+              paragraph={intl.formatMessage({
+                id: "page.setting.general.side-panel-overlay-paragraph",
+              })}
+              endIcon={
+                <Toggle
+                  isOpen={!sidePanelOverlayDisabled}
+                  setIsOpen={() => {
+                    const disabled = !sidePanelOverlayDisabled;
+                    setSidePanelOverlayDisabled(disabled);
+                    new InExtensionMessageRequester().sendMessage(
+                      BACKGROUND_PORT,
+                      new SetSidePanelOverlayDisabledMsg(disabled)
+                    );
                   }}
                 />
               }
