@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import React, { FunctionComponent, useMemo, useState } from "react";
+import React, { FunctionComponent } from "react";
 import { MainHeaderLayout } from "../main/layouts/header";
 import styled, { useTheme } from "styled-components";
 import { ColorPalette } from "../../styles";
@@ -7,15 +7,8 @@ import { Box } from "../../components/box";
 import { MainH1 } from "../../components/typography/main-h1";
 import { useIntl } from "react-intl";
 import { Gutter } from "../../components/gutter";
-import {
-  Subtitle3,
-  Button2,
-  Subtitle2,
-  Body3,
-} from "../../components/typography";
+import { Subtitle3 } from "../../components/typography";
 import { XAxis } from "../../components/axis";
-import { VerticalCollapseTransition } from "../../components/transition/vertical-collapse";
-import { ArrowDownIcon, ArrowUpIcon } from "../../components/icon";
 import {
   BuyButtonWhenFirstTime,
   BuyCryptoModal,
@@ -24,32 +17,9 @@ import {
 import { Modal } from "../../components/modal";
 import { DepositModal } from "../main/components/deposit-modal";
 import { useBuySupportServiceInfos } from "../../hooks/use-buy-support-service-infos";
-import { useStore } from "../../stores";
-import { ViewToken } from "../main";
-import { CurrencyImageFallback } from "../../components/image";
-import { useGetStakingApr } from "../../hooks/use-get-staking-apr";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { IconProps } from "../../components/icon/types";
-import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { COMMON_HOVER_OPACITY } from "../../styles/constant";
-import { supportsNativeStaking } from "./utils";
-
-const priority = (chainId: string) => {
-  const id = ChainIdHelper.parse(chainId).identifier;
-  // EPIX is the home chain: always the first stake suggestion.
-  if (id === "epix") return 0;
-  if (id === "cosmoshub") return 1;
-  if (id === "osmosis") return 2;
-  if (id === "celestia") return 3;
-  if (id === "injective") return 4;
-  return 5;
-};
-
-type StakeCurrencyItem = {
-  key: string;
-  chainInfo: ViewToken["chainInfo"];
-  currency: ViewToken["token"]["currency"];
-};
 
 export const StakeExplorePage: FunctionComponent = observer(() => {
   const theme = useTheme();
@@ -57,78 +27,12 @@ export const StakeExplorePage: FunctionComponent = observer(() => {
 
   const [searchParams] = useSearchParams();
 
-  const { chainStore } = useStore();
-
   const [isOpenDepositModal, setIsOpenDepositModal] = React.useState(false);
   const [isOpenBuy, setIsOpenBuy] = React.useState(false);
-  const [depositInitialSearch, setDepositInitialSearch] = React.useState<
-    string | undefined
-  >(undefined);
 
   const buySupportServiceInfos = useBuySupportServiceInfos();
 
   const showBackButton = searchParams.get("showBackButton") === "true";
-
-  const stakeCurrencyItems = useMemo<StakeCurrencyItem[]>(() => {
-    const items: StakeCurrencyItem[] = [];
-    for (const modularChainInfo of chainStore.modularChainInfos) {
-      const u = modularChainInfo.unwrapped;
-      if (u.type === "cosmos" || u.type === "ethermint") {
-        if (modularChainInfo.isTestnet || !u.cosmos.stakeCurrency) {
-          continue;
-        }
-        // Only chains the account actually has enabled: a fresh wallet shows
-        // just EPIX here, and more chains appear as the user enables them.
-        if (!chainStore.isEnabledChain(modularChainInfo.chainId)) {
-          continue;
-        }
-        // Staking is native now, so the gate is native staking support
-        // instead of an external staking url.
-        if (
-          !modularChainInfo.embedded.isBuiltInChain ||
-          !supportsNativeStaking(modularChainInfo)
-        ) {
-          continue;
-        }
-        const key = `${modularChainInfo.chainIdentifier}/${u.cosmos.stakeCurrency.coinMinimalDenom}`;
-        items.push({
-          key,
-          chainInfo: modularChainInfo,
-          currency: u.cosmos.stakeCurrency,
-        });
-      } else if (u.type === "starknet") {
-        if (modularChainInfo.isTestnet) {
-          continue;
-        }
-
-        const chainIdentifier = ChainIdHelper.parse(
-          modularChainInfo.chainId
-        ).identifier;
-
-        const strkContractAddress = u.starknet.strkContractAddress;
-        const strkDenom = `erc20:${strkContractAddress.toLowerCase()}`;
-        const strkCurrency = modularChainInfo.findCurrency(strkDenom);
-        if (!strkCurrency) {
-          continue;
-        }
-        const strkKey = `${chainIdentifier}/${strkDenom}`;
-        items.push({
-          key: strkKey,
-          chainInfo: modularChainInfo,
-          currency: strkCurrency,
-        });
-      }
-    }
-
-    return items.sort((a, b) => {
-      const diff =
-        priority(a.chainInfo.chainId) - priority(b.chainInfo.chainId);
-      if (diff !== 0) {
-        return diff;
-      }
-      return a.currency.coinDenom.localeCompare(b.currency.coinDenom);
-    });
-  }, [chainStore]);
 
   return (
     <MainHeaderLayout>
@@ -170,25 +74,10 @@ export const StakeExplorePage: FunctionComponent = observer(() => {
             onClick={() => setIsOpenDepositModal(true)}
           />
           <Gutter size="0.75rem" />
-          <BuyButtonWhenFirstTime onClick={() => setIsOpenBuy(true)} />
+          {/* Buying is not wired up for EPIX yet: the button stays visible
+              but disabled until a buy provider is available. */}
+          <BuyButtonWhenFirstTime onClick={() => setIsOpenBuy(true)} disabled />
         </XAxis>
-
-        <Gutter size="1.25rem" />
-
-        <CollapsibleGrid
-          items={stakeCurrencyItems.map((item) => (
-            <AssetCard
-              key={item.key}
-              chainId={item.chainInfo.chainId}
-              chainInfo={item.chainInfo}
-              currency={item.currency}
-              onClick={() => {
-                setDepositInitialSearch(item.chainInfo.chainName);
-                setIsOpenDepositModal(true);
-              }}
-            />
-          ))}
-        />
       </Box>
 
       <Modal
@@ -196,7 +85,6 @@ export const StakeExplorePage: FunctionComponent = observer(() => {
         align="bottom"
         close={() => {
           setIsOpenDepositModal(false);
-          setDepositInitialSearch(undefined);
         }}
         /* Simplebar를 사용하면 트랜지션이 덜덜 떨리는 문제가 있다... */
         forceNotUseSimplebar={true}
@@ -204,9 +92,7 @@ export const StakeExplorePage: FunctionComponent = observer(() => {
         <DepositModal
           close={() => {
             setIsOpenDepositModal(false);
-            setDepositInitialSearch(undefined);
           }}
-          initialSearch={depositInitialSearch}
         />
       </Modal>
 
@@ -221,112 +107,6 @@ export const StakeExplorePage: FunctionComponent = observer(() => {
         />
       </Modal>
     </MainHeaderLayout>
-  );
-});
-
-const CollapsibleGrid: FunctionComponent<{
-  items: React.ReactNode[];
-  lenAlwaysShown?: number;
-}> = ({ items, lenAlwaysShown }) => {
-  if (!lenAlwaysShown || lenAlwaysShown < 0) {
-    lenAlwaysShown = 4;
-  }
-
-  const intl = useIntl();
-
-  const [isCollapsed, setIsCollapsed] = useState(true);
-
-  const alwaysShown = items.slice(0, lenAlwaysShown);
-  const hidden = items.slice(lenAlwaysShown);
-
-  return (
-    <Box>
-      <Styles.AssetCardsGrid>{alwaysShown}</Styles.AssetCardsGrid>
-
-      <VerticalCollapseTransition collapsed={isCollapsed}>
-        <React.Fragment>
-          <Gutter size="0.75rem" />
-          <Styles.AssetCardsGrid>{hidden}</Styles.AssetCardsGrid>
-        </React.Fragment>
-      </VerticalCollapseTransition>
-
-      {hidden.length > 0 ? (
-        <Styles.MoreViewContainer
-          onClick={(e) => {
-            e.preventDefault();
-            setIsCollapsed(!isCollapsed);
-          }}
-        >
-          <Gutter size="1.25rem" />
-          <XAxis alignY="center">
-            <Button2>
-              {isCollapsed
-                ? intl.formatMessage(
-                    {
-                      id: "components.collapsible-list.view-more-tokens",
-                    },
-                    { remain: hidden.length }
-                  )
-                : intl.formatMessage({
-                    id: "components.collapsible-list.collapse",
-                  })}
-            </Button2>
-
-            <Gutter size="0.25rem" />
-
-            {isCollapsed ? (
-              <ArrowDownIcon width="1rem" height="1rem" />
-            ) : (
-              <ArrowUpIcon width="1rem" height="1rem" />
-            )}
-          </XAxis>
-        </Styles.MoreViewContainer>
-      ) : null}
-    </Box>
-  );
-};
-
-const AssetCard: FunctionComponent<{
-  chainId: string;
-  chainInfo: ViewToken["chainInfo"];
-  currency: ViewToken["token"]["currency"];
-  onClick: () => void;
-}> = observer(({ chainId, chainInfo, currency, onClick }) => {
-  const stakingAprDec = useGetStakingApr(chainId);
-  const theme = useTheme();
-
-  return (
-    <Styles.AssetCard onClick={onClick}>
-      <CurrencyImageFallback
-        chainInfo={chainInfo}
-        currency={currency}
-        size="2rem"
-      />
-      <Gutter size="0.75rem" />
-      <XAxis alignY="bottom">
-        <Subtitle2
-          color={
-            theme.mode === "light"
-              ? ColorPalette["gray-700"]
-              : ColorPalette["gray-10"]
-          }
-        >
-          {currency.coinDenom}
-        </Subtitle2>
-        <Gutter size="0.25rem" />
-        <Subtitle3
-          color={
-            theme.mode === "light"
-              ? ColorPalette["purple-400"]
-              : ColorPalette["gray-400"]
-          }
-        >
-          {stakingAprDec ? `APR ${stakingAprDec.toString(0)}%` : undefined}
-        </Subtitle3>
-      </XAxis>
-      <Gutter size="0.25rem" />
-      <Body3 color={ColorPalette["gray-300"]}>{chainInfo.chainName}</Body3>
-    </Styles.AssetCard>
   );
 });
 
@@ -349,50 +129,6 @@ function BackButton() {
 }
 
 const Styles = {
-  AssetCardsGrid: styled.div`
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.75rem;
-  `,
-
-  AssetCard: styled.div`
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    height: 8rem;
-    padding: 0.75rem 1rem;
-    align-items: flex-start;
-    justify-content: center;
-    border-radius: 1.25rem;
-    border: 1px solid
-      ${(props) =>
-        props.theme.mode === "light"
-          ? ColorPalette["gray-100"]
-          : ColorPalette["gray-550"]};
-    cursor: pointer;
-
-    :hover {
-      opacity: ${COMMON_HOVER_OPACITY};
-    }
-  `,
-
-  MoreViewContainer: styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-
-    cursor: pointer;
-
-    color: ${ColorPalette["gray-300"]};
-
-    :hover {
-      color: ${(props) =>
-        props.theme.mode === "light"
-          ? ColorPalette["gray-200"]
-          : ColorPalette["gray-400"]};
-    }
-  `,
-
   BackButtonContainer: styled.div`
     cursor: pointer;
     &:hover {

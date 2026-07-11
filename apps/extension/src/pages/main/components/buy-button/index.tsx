@@ -34,17 +34,28 @@ const StyledButton = styled.button`
   &:hover {
     opacity: ${COMMON_HOVER_OPACITY};
   }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+
+    &:hover {
+      opacity: 0.4;
+    }
+  }
 `;
 interface BuyButtonWhenFirstTimeProps {
   onClick: () => void;
+  disabled?: boolean;
 }
 export const BuyButtonWhenFirstTime = ({
   onClick,
+  disabled,
 }: BuyButtonWhenFirstTimeProps) => {
   const theme = useTheme();
   const intl = useIntl();
   return (
-    <StyledButton onClick={onClick}>
+    <StyledButton onClick={onClick} disabled={disabled}>
       <Box width="2rem" height="2rem" alignX="center" alignY="center">
         <CreditCardIcon
           width="1.25rem"
