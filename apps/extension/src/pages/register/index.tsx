@@ -40,17 +40,25 @@ import {
   ConnectKeystoneUSBScene,
 } from "./connect-keystone";
 import { ScanKeystoneScene } from "./connect-keystone/scan";
-import { EpixNetworkShield } from "../../components/epix-network";
+import {
+  EpixNetworkStatusBar,
+  EpixStatusBarHeight,
+  useEpixStatus,
+} from "../../components/epix-network";
 import { fluidSceneWidth } from "./utils/scene-width";
 
-// The Tor/I2P shield, pinned to the page corner: the browser's privacy
+// The Tor/I2P strip spans the top of the register tab: the browser's privacy
 // controls are useful before (or without) ever creating a wallet, and the
-// register page is the first thing a new install shows.
-const ShieldCorner = styled.div`
+// register page is the first thing a new install shows. Fixed so it stays
+// readable while the (vertically centered) scenes scroll or grow.
+const StatusBarTop = styled.div`
   position: fixed;
-  top: 1.25rem;
-  right: 1.25rem;
-  z-index: 1000;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* Above the HelpDesk/back buttons (1000) so the strip's popover and its
+     tap-away backdrop are not painted under them. */
+  z-index: 1001;
 `;
 
 const Container = styled.div`
@@ -63,6 +71,7 @@ const Container = styled.div`
 
 export const RegisterPage: FunctionComponent = observer(() => {
   const { chainStore, keyRingStore } = useStore();
+  const { available: hasEpixStatusBar } = useEpixStatus();
 
   const isReady = useMemo(() => {
     // state 변화를 다 다루기 힘들기 때문에 미리 초기화 되어있어야만 하는 store들이 있다.
@@ -106,10 +115,15 @@ export const RegisterPage: FunctionComponent = observer(() => {
   }, [isReady, keyRingStore]);
 
   return (
-    <Container>
-      <ShieldCorner>
-        <EpixNetworkShield size="2rem" panelMode="inline" />
-      </ShieldCorner>
+    // The strip is fixed, so give the container matching top padding: on a
+    // short window the vertically-centered content would otherwise start
+    // underneath it.
+    <Container
+      style={{ paddingTop: hasEpixStatusBar ? EpixStatusBarHeight : undefined }}
+    >
+      <StatusBarTop>
+        <EpixNetworkStatusBar panelMode="inline" centered />
+      </StatusBarTop>
       {isReady ? <RegisterPageImpl /> : null}
     </Container>
   );

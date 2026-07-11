@@ -11,7 +11,7 @@ import { observer } from "mobx-react-lite";
 import { useStore } from "../../stores";
 import { Button } from "../../components/button";
 import { Gutter } from "../../components/gutter";
-import { EpixNetworkShield } from "../../components/epix-network";
+import { EpixNetworkStatusBar } from "../../components/epix-network";
 import { Box } from "../../components/box";
 import { TextButton } from "../../components/button-text";
 import { ColorPalette, PopupWidth, SidePanelMaxWidth } from "../../styles";
@@ -255,12 +255,11 @@ export const UnlockPage: FunctionComponent = observer(() => {
             : `${PopupWidth}px`,
       }}
     >
-      {/* Tor / I2P privacy status, visible and toggleable before unlock. */}
-      <Box
-        position="absolute"
-        style={{ top: "0.75rem", right: "1rem", zIndex: 1000 }}
-      >
-        <EpixNetworkShield size="1.75rem" />
+      {/* Tor / I2P status, always readable before unlock. Fixed over the top
+          of the hero art so the page layout below stays untouched and the
+          strip survives scrolling (e.g. the taller migration flow). */}
+      <Box position="fixed" style={{ top: 0, left: 0, right: 0, zIndex: 1000 }}>
+        <EpixNetworkStatusBar />
       </Box>
 
       <form
