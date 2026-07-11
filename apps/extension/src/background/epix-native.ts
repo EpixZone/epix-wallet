@@ -67,9 +67,69 @@ export interface EpixStatus {
   tor_status?: string;
   onion_address?: string | null;
   i2p_enabled?: boolean;
+  i2p_mode?: string;
   i2p_status?: string;
   i2p_address?: string | null;
   tor_clearnet?: boolean;
+}
+
+// The status-dot palette, matching the in-wallet shield
+// (components/epix-network/use-epix-status.ts). Kept in sync by hand: gray off,
+// amber connecting, purple ready-but-direct, green routed.
+const DOT_OFF = "#64748b";
+const DOT_BOOT = "#f5c450";
+const DOT_READY = "#a78bfa";
+const DOT_ROUTED = "#4ade80";
+
+// The overall privacy-posture color for a status reply, same decision as the
+// shield's shieldColor(): green when Tor + I2P are up and clearnet is routed,
+// amber while anything is still connecting, purple when at least one network is
+// ready but clearnet is direct, gray when nothing is on.
+function statusDotColor(s: EpixStatus | undefined): string {
+  if (!s) return DOT_OFF;
+  const torReady = !!s.tor_enabled;
+  const i2pReady = !!s.i2p_enabled || (s.i2p_status || "").startsWith("Ready");
+  const i2pOn =
+    (!!s.i2p_mode && s.i2p_mode !== "disable") ||
+    i2pReady ||
+    s.i2p_status === "Starting…";
+  const connecting =
+    (!torReady && s.tor_status === "Bootstrapping") || (i2pOn && !i2pReady);
+  const anyOn = torReady || i2pOn || s.tor_status === "Bootstrapping";
+  if (torReady && i2pReady && torClearnet !== false) return DOT_ROUTED;
+  if (torReady || i2pReady) return DOT_READY;
+  if (connecting) return DOT_BOOT;
+  return anyOn ? DOT_BOOT : DOT_OFF;
+}
+
+// Mirror the Tor/I2P posture onto the toolbar button as a colored badge dot, so
+// it is visible without opening the wallet - the desktop equivalent of the
+// mobile shells' status dot. Desktop Firefox only (mobile shells expose no
+// browserAction); the native host must be reachable, else the badge is cleared.
+function initStatusBadge(browser: any): void {
+  const action = browser.browserAction || browser.action;
+  if (!action?.setBadgeText) {
+    return;
+  }
+  // A solid colored pill reads as a status dot: fill the badge with a bullet
+  // and paint the text the same color as the background.
+  const paint = (color: string) => {
+    action.setBadgeText({ text: "●" });
+    action.setBadgeBackgroundColor({ color });
+    action.setBadgeTextColor?.({ color });
+  };
+  const tick = async () => {
+    try {
+      const status: EpixStatus = await nativeSend({ cmd: "status" });
+      mirrorRoutingState(status);
+      paint(statusDotColor(status));
+    } catch {
+      // Native host gone (or not up yet): no dot, like the shield hiding.
+      action.setBadgeText({ text: "" });
+    }
+  };
+  tick();
+  setInterval(tick, 5000);
 }
 
 async function nativeSend(msg: object): Promise<any> {
@@ -187,6 +247,9 @@ export function initEpixNative(): void {
       }
     );
   }
+
+  // 1c. Toolbar status dot: reflect the Tor/I2P posture on the button itself.
+  initStatusBadge(browser);
 
   // 2. UI bridge: the Epix settings page talks to this over runtime messaging.
   //
