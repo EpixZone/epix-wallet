@@ -17,7 +17,12 @@ import { XAxis, YAxis } from "../../../components/axis";
 import { Body2, Subtitle3, Subtitle4 } from "../../../components/typography";
 import { Gutter } from "../../../components/gutter";
 import { ConnectedEcosystems } from "../components/connected-ecosystems";
-import { EpixNetworkShield } from "../../../components/epix-network";
+import {
+  EpixNetworkStatusBar,
+  EpixStatusBarHeight,
+  useEpixStatus,
+} from "../../../components/epix-network";
+import { HeaderHeight } from "../../../layouts/header/header";
 import { COMMON_HOVER_OPACITY } from "../../../styles/constant";
 import { IconButton } from "../../../components/icon-button";
 import { FloatingMenuBar } from "../components/floating-menu-bar";
@@ -178,7 +183,7 @@ export const MainHeaderLayout = observer<
   }
 >(
   (props) => {
-    const { children, ...otherProps } = props;
+    const { children, headerContainerStyle, ...otherProps } = props;
 
     const { uiConfigStore, keyRingStore, chainStore } = useStore();
     const [isOpenAccountSwitchModal, setIsOpenAccountSwitchModal] =
@@ -209,6 +214,9 @@ export const MainHeaderLayout = observer<
       whileElementsMounted: autoUpdate,
     });
     const { totalPrice } = useTotalPrices();
+    // The Tor/I2P strip pins under the fixed header; when it shows, the
+    // scrollable content needs the extra top padding to not start beneath it.
+    const { available: hasEpixStatusBar } = useEpixStatus();
 
     const theme = useTheme();
     const name = useMemo(() => {
@@ -350,7 +358,6 @@ export const MainHeaderLayout = observer<
           }
           right={
             <Columns sum={1} alignY="center" gutter="0.875rem">
-              <EpixNetworkShield />
               <ConnectedEcosystems />
               <Tooltip
                 hideArrow={true}
@@ -444,9 +451,31 @@ export const MainHeaderLayout = observer<
             </Columns>
           }
           {...otherProps}
+          // With the strip pinned right under the header, the header's
+          // scroll-triggered bottom border would draw a stray line between
+          // two identical chrome rows; the strip's own hairline takes over
+          // as the chrome/content separator.
+          headerContainerStyle={
+            hasEpixStatusBar
+              ? { ...headerContainerStyle, borderBottomColor: "transparent" }
+              : headerContainerStyle
+          }
+          contentContainerStyle={
+            hasEpixStatusBar
+              ? { paddingTop: `calc(${HeaderHeight} + ${EpixStatusBarHeight})` }
+              : undefined
+          }
         >
           {children}
         </HeaderLayout>
+        {hasEpixStatusBar ? (
+          <Box
+            position="fixed"
+            style={{ top: HeaderHeight, left: 0, right: 0, zIndex: 100 }}
+          >
+            <EpixNetworkStatusBar />
+          </Box>
+        ) : null}
         <AccountSwitchFloatModal
           isOpen={isOpenAccountSwitchModal}
           closeModal={() => setIsOpenAccountSwitchModal(false)}

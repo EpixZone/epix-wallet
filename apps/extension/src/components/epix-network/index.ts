@@ -1,3 +1,3 @@
 export * from "./use-epix-status";
 export * from "./panel";
-export * from "./shield";
+export * from "./status-bar";

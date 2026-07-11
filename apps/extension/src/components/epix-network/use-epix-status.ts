@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useReducer } from "react";
 
 // The native-host status shape (crates/epix-nmh + the node's
 // /EpixNet-Internal/Status endpoint), surfaced to the wallet UI over the
@@ -37,57 +37,117 @@ export interface UseEpixStatus {
   refresh: () => Promise<void>;
 }
 
-/**
- * Poll the Epix node's Tor/I2P status over the background bridge. Works before
- * the keyring is unlocked (the bridge talks to the native host, not the
- * keyring), so it drives both the pre-login screen and the in-wallet shield.
- */
-export function useEpixStatus(pollMs = 5000): UseEpixStatus {
-  const [status, setStatus] = useState<EpixStatus | null>(null);
-  const [available, setAvailable] = useState(false);
-  const [torClearnet, setTorClearnetState] = useState(true);
-  const [allowedSites, setAllowedSites] = useState<string[]>([]);
+// ---------------------------------------------------------------------------
+// One shared poller for the whole page. The status bar, the layout that pads
+// content for it, and the panel all consume this hook at once; a module-level
+// store with a refcounted interval keeps that at one native-host round trip
+// per tick and every subscriber agreeing on the same snapshot.
 
-  const refresh = useCallback(async () => {
-    try {
-      const res = await sendToBackground({ type: "epix-status" });
-      if (res?.ok) {
-        setStatus(res.status);
-        setTorClearnetState(res.status?.tor_clearnet !== false);
-        setAvailable(true);
-      } else {
-        setAvailable(false);
-      }
-    } catch {
+// Last observed host availability, so the strip renders in its final place on
+// the very first frame of the next popup open instead of popping in (and
+// shifting the page 2rem) after the first round trip.
+const AVAILABLE_CACHE_KEY = "epix-network/available";
+
+function readCachedAvailable(): boolean {
+  try {
+    return localStorage.getItem(AVAILABLE_CACHE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+const shared = {
+  status: null as EpixStatus | null,
+  available: readCachedAvailable(),
+  torClearnet: true,
+  allowedSites: [] as string[],
+};
+
+const listeners = new Set<() => void>();
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let subscriberCount = 0;
+
+function notify(): void {
+  listeners.forEach((l) => l());
+}
+
+function setAvailable(on: boolean): void {
+  shared.available = on;
+  try {
+    localStorage.setItem(AVAILABLE_CACHE_KEY, on ? "1" : "0");
+  } catch {
+    // ignore; the cache only smooths first paint
+  }
+}
+
+async function refreshShared(): Promise<void> {
+  try {
+    const res = await sendToBackground({ type: "epix-status" });
+    if (res?.ok) {
+      shared.status = res.status;
+      shared.torClearnet = res.status?.tor_clearnet !== false;
+      setAvailable(true);
+    } else {
       setAvailable(false);
     }
-    try {
-      const list = await sendToBackground({ type: "epix-list-clearnet-allow" });
-      if (list?.ok) {
-        setAllowedSites(list.sites || []);
-      }
-    } catch {
-      // ignore
+  } catch {
+    setAvailable(false);
+  }
+  try {
+    const list = await sendToBackground({ type: "epix-list-clearnet-allow" });
+    if (list?.ok) {
+      shared.allowedSites = list.sites || [];
     }
-  }, []);
+  } catch {
+    // ignore
+  }
+  notify();
+}
+
+/**
+ * Subscribe to the Epix node's Tor/I2P status over the background bridge.
+ * Works before the keyring is unlocked (the bridge talks to the native host,
+ * not the keyring), so it drives both the pre-login screens and the in-wallet
+ * status bar. All instances share one poll interval; the first subscriber's
+ * `pollMs` wins.
+ */
+export function useEpixStatus(pollMs = 5000): UseEpixStatus {
+  const [, forceRender] = useReducer((x: number) => x + 1, 0);
 
   useEffect(() => {
-    refresh();
-    const id = setInterval(refresh, pollMs);
-    return () => clearInterval(id);
-  }, [refresh, pollMs]);
+    listeners.add(forceRender);
+    subscriberCount++;
+    if (subscriberCount === 1) {
+      refreshShared();
+      pollTimer = setInterval(refreshShared, pollMs);
+    } else {
+      // A later subscriber may mount between ticks; sync it immediately.
+      forceRender();
+    }
+    return () => {
+      listeners.delete(forceRender);
+      subscriberCount--;
+      if (subscriberCount === 0 && pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    };
+  }, [pollMs]);
 
   const setTorClearnet = useCallback(async (on: boolean) => {
-    setTorClearnetState(on);
+    shared.torClearnet = on;
+    notify();
     try {
       await sendToBackground({ type: "epix-set-tor-clearnet", on });
     } catch {
-      setTorClearnetState(!on); // revert on failure
+      shared.torClearnet = !on; // revert on failure
+      notify();
     }
   }, []);
 
   const revokeSite = useCallback(async (site: string) => {
-    setAllowedSites((s) => s.filter((x) => x !== site));
+    shared.allowedSites = shared.allowedSites.filter((x) => x !== site);
+    notify();
     try {
       await sendToBackground({
         type: "epix-set-clearnet-allow",
@@ -100,13 +160,13 @@ export function useEpixStatus(pollMs = 5000): UseEpixStatus {
   }, []);
 
   return {
-    available,
-    status,
-    torClearnet,
-    allowedSites,
+    available: shared.available,
+    status: shared.status,
+    torClearnet: shared.torClearnet,
+    allowedSites: shared.allowedSites,
     setTorClearnet,
     revokeSite,
-    refresh,
+    refresh: refreshShared,
   };
 }
 
@@ -141,29 +201,4 @@ export function i2pColor(status: EpixStatus | null): string {
     return EPIX_DOT_READY;
   // Enabled but still connecting (Starting…) or failed: amber "attention".
   return EPIX_DOT_BOOT;
-}
-
-/**
- * The single shield's color: the overall privacy posture across both networks.
- * Green when both are up (and clearnet is routed through Tor), amber while
- * anything is still connecting, purple when at least one is ready but clearnet
- * is direct, gray when nothing is on.
- */
-export function shieldColor(
-  status: EpixStatus | null,
-  torClearnet: boolean
-): string {
-  if (!status) return EPIX_DOT_OFF;
-  const torReady = !!status.tor_enabled;
-  const i2pReady =
-    !!status.i2p_enabled || (status.i2p_status || "").startsWith("Ready");
-  const anyOn =
-    torReady || i2pOn(status) || status.tor_status === "Bootstrapping";
-  const connecting =
-    (!torReady && status.tor_status === "Bootstrapping") ||
-    (i2pOn(status) && !i2pReady);
-  if (torReady && i2pReady && torClearnet) return EPIX_DOT_ROUTED;
-  if (torReady || i2pReady) return EPIX_DOT_READY;
-  if (connecting) return EPIX_DOT_BOOT;
-  return anyOn ? EPIX_DOT_BOOT : EPIX_DOT_OFF;
 }

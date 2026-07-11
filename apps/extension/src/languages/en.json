@@ -226,6 +226,7 @@
   "page.setting.epix.tor.connecting": "Connecting…",
   "page.setting.epix.tor.ready": "Ready",
   "page.setting.epix.tor.routed": "Clearnet routed through Tor",
+  "page.setting.epix.bar.routed": "Routed",
   "page.setting.epix.i2p": "I2P",
   "page.setting.epix.i2p.unknown": "Unknown",
   "page.setting.epix.i2p.off": "Off",
