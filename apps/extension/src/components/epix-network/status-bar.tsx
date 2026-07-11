@@ -62,7 +62,10 @@ export const EpixNetworkStatusBar: FunctionComponent<{
   // spans a full browser tab (register): without it the two networks hug the
   // far left and the chevron the far right of a wide window.
   centered?: boolean;
-}> = observer(({ panelMode, centered }) => {
+  // Fires when the inline popover opens/closes, so a host layout can lift the
+  // strip's stacking context above sibling fixed chrome only while open.
+  onOpenChange?: (open: boolean) => void;
+}> = observer(({ panelMode, centered, onOpenChange }) => {
   const intl = useIntl();
   const theme = useTheme();
   const isLight = theme.mode === "light";
@@ -75,7 +78,11 @@ export const EpixNetworkStatusBar: FunctionComponent<{
   }
 
   const mode = panelMode ?? (isMobileShell() ? "inline" : "bottom");
-  const toggle = () => setIsOpen((v) => (mode === "inline" ? !v : true));
+  const setOpen = (v: boolean) => {
+    setIsOpen(v);
+    onOpenChange?.(v);
+  };
+  const toggle = () => setOpen(mode === "inline" ? !isOpen : true);
 
   const labelColor = isLight
     ? ColorPalette["gray-500"]
@@ -143,7 +150,7 @@ export const EpixNetworkStatusBar: FunctionComponent<{
             <div
               onClick={(e) => {
                 e.stopPropagation();
-                setIsOpen(false);
+                setOpen(false);
               }}
               style={{
                 position: "fixed",
@@ -168,15 +175,15 @@ export const EpixNetworkStatusBar: FunctionComponent<{
                 cursor: "default",
               }}
             >
-              <EpixNetworkPanel onClose={() => setIsOpen(false)} rounded />
+              <EpixNetworkPanel onClose={() => setOpen(false)} rounded />
             </div>
           </React.Fragment>
         ) : null}
       </Styles.Inner>
 
       {mode === "bottom" ? (
-        <Modal isOpen={isOpen} align="bottom" close={() => setIsOpen(false)}>
-          <EpixNetworkPanel onClose={() => setIsOpen(false)} />
+        <Modal isOpen={isOpen} align="bottom" close={() => setOpen(false)}>
+          <EpixNetworkPanel onClose={() => setOpen(false)} />
         </Modal>
       ) : null}
     </Styles.Bar>

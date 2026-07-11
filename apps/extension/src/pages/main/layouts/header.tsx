@@ -217,6 +217,11 @@ export const MainHeaderLayout = observer<
     // The Tor/I2P strip pins under the fixed header; when it shows, the
     // scrollable content needs the extra top padding to not start beneath it.
     const { available: hasEpixStatusBar } = useEpixStatus();
+    // On the mobile shells the strip opens an inline popover whose tap-away
+    // backdrop must cover the header row; lift the strip's stacking context
+    // above the header (z 100) only while it is open, so the header's own
+    // inline tooltips are never painted under the strip otherwise.
+    const [isEpixPopoverOpen, setIsEpixPopoverOpen] = useState(false);
 
     const theme = useTheme();
     const name = useMemo(() => {
@@ -471,9 +476,14 @@ export const MainHeaderLayout = observer<
         {hasEpixStatusBar ? (
           <Box
             position="fixed"
-            style={{ top: HeaderHeight, left: 0, right: 0, zIndex: 100 }}
+            style={{
+              top: HeaderHeight,
+              left: 0,
+              right: 0,
+              zIndex: isEpixPopoverOpen ? 101 : 99,
+            }}
           >
-            <EpixNetworkStatusBar />
+            <EpixNetworkStatusBar onOpenChange={setIsEpixPopoverOpen} />
           </Box>
         ) : null}
         <AccountSwitchFloatModal
