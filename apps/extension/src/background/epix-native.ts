@@ -73,20 +73,54 @@ export interface EpixStatus {
   tor_clearnet?: boolean;
 }
 
-// The status-dot palette, matching the in-wallet shield
-// (components/epix-network/use-epix-status.ts). Kept in sync by hand: gray off,
-// amber connecting, purple ready-but-direct, green routed.
-const DOT_OFF = "#64748b";
-const DOT_BOOT = "#f5c450";
-const DOT_READY = "#a78bfa";
-const DOT_ROUTED = "#4ade80";
+// ---------------------------------------------------------------------------
+// Toolbar status icon.
+//
+// The toolbar button doubles as the network status indicator: the bare Epix
+// mark (assets/toolbar-*.png, from the shared assets repo) with a round status
+// dot punched into its bottom-right corner, presence-indicator style. The icon
+// is redrawn on a canvas and applied with setIcon(); the badge API can't do
+// this - it only renders a filled rectangle.
+// ---------------------------------------------------------------------------
 
-// The overall privacy-posture color for a status reply, same decision as the
-// shield's shieldColor(): green when Tor + I2P are up and clearnet is routed,
-// amber while anything is still connecting, purple when at least one network is
-// ready but clearnet is direct, gray when nothing is on.
-function statusDotColor(s: EpixStatus | undefined): string {
-  if (!s) return DOT_OFF;
+// Dot geometry in 16-unit space, scaled linearly to each icon size. The punch
+// erases a slightly larger circle first so a transparent notch separates the
+// dot from the mark on any toolbar color.
+const DOT_CX = 12.6;
+const DOT_CY = 12.6;
+const DOT_R = 3.2;
+const DOT_GAP = 1.2;
+
+// 16 covers 1x toolbars, 32 covers 2x, 48 covers 3x.
+const ICON_SIZES = [16, 32, 48];
+
+type DotState = "off" | "boot" | "ready" | "routed";
+
+// Per-theme dot palettes. Dark matches the in-wallet status colors
+// (components/epix-network/use-epix-status.ts, kept in sync by hand); light
+// goes one step deeper on the same hues so the dot doesn't wash out on light
+// toolbars.
+const DOT_COLORS: Record<"dark" | "light", Record<DotState, string>> = {
+  dark: {
+    off: "#64748b",
+    boot: "#f5c450",
+    ready: "#a78bfa",
+    routed: "#4ade80",
+  },
+  light: {
+    off: "#64748b",
+    boot: "#d97706",
+    ready: "#7c3aed",
+    routed: "#16a34a",
+  },
+};
+
+// The overall privacy posture for a status reply, same decision as the status
+// bar's colors: routed when Tor + I2P are up and clearnet goes through Tor,
+// boot while anything is still connecting, ready when at least one network is
+// up but clearnet is direct, off when nothing is on.
+function statusDotState(s: EpixStatus | undefined): DotState {
+  if (!s) return "off";
   const torReady = !!s.tor_enabled;
   const i2pReady = !!s.i2p_enabled || (s.i2p_status || "").startsWith("Ready");
   const i2pOn =
@@ -96,40 +130,142 @@ function statusDotColor(s: EpixStatus | undefined): string {
   const connecting =
     (!torReady && s.tor_status === "Bootstrapping") || (i2pOn && !i2pReady);
   const anyOn = torReady || i2pOn || s.tor_status === "Bootstrapping";
-  if (torReady && i2pReady && torClearnet !== false) return DOT_ROUTED;
-  if (torReady || i2pReady) return DOT_READY;
-  if (connecting) return DOT_BOOT;
-  return anyOn ? DOT_BOOT : DOT_OFF;
+  if (torReady && i2pReady && torClearnet !== false) return "routed";
+  if (torReady || i2pReady) return "ready";
+  if (connecting) return "boot";
+  return anyOn ? "boot" : "off";
 }
 
-// Mirror the Tor/I2P posture onto the toolbar button as a colored badge dot, so
-// it is visible without opening the wallet - the desktop equivalent of the
-// mobile shells' status dot. Desktop Firefox only (mobile shells expose no
-// browserAction); the native host must be reachable, else the badge is cleared.
-function initStatusBadge(browser: any): void {
+// A 2d canvas that works in both a background page (document) and a service
+// worker (OffscreenCanvas). Returns null where neither exists.
+function make2dContext(size: number): any {
+  const g: any = globalThis as any;
+  if (typeof g.OffscreenCanvas !== "undefined") {
+    return new g.OffscreenCanvas(size, size).getContext("2d");
+  }
+  if (typeof g.document !== "undefined") {
+    const canvas = g.document.createElement("canvas");
+    canvas.width = canvas.height = size;
+    return canvas.getContext("2d");
+  }
+  return null;
+}
+
+// Base mark + punched dot, as ImageData for setIcon. color null = plain mark.
+function drawStatusIcon(
+  base: ImageBitmap,
+  size: number,
+  color: string | null
+): ImageData | null {
+  const ctx = make2dContext(size);
+  if (!ctx) return null;
+  ctx.drawImage(base, 0, 0, size, size);
+  if (color) {
+    const s = size / 16;
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.beginPath();
+    ctx.arc(DOT_CX * s, DOT_CY * s, (DOT_R + DOT_GAP) * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(DOT_CX * s, DOT_CY * s, DOT_R * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  return ctx.getImageData(0, 0, size, size);
+}
+
+async function loadToolbarBases(
+  browser: any
+): Promise<Map<number, ImageBitmap>> {
+  const bases = new Map<number, ImageBitmap>();
+  await Promise.all(
+    ICON_SIZES.map(async (size) => {
+      const url = browser.runtime.getURL(`assets/toolbar-${size}.png`);
+      const blob = await (await fetch(url)).blob();
+      bases.set(size, await createImageBitmap(blob));
+    })
+  );
+  return bases;
+}
+
+// Mirror the Tor/I2P posture onto the toolbar button, so it is visible without
+// opening the wallet - the desktop equivalent of the mobile shells' status
+// dot. Desktop Firefox only in practice (mobile shells expose no
+// browserAction); without a reachable native host the plain mark is shown.
+function initStatusIcon(browser: any): void {
   const action = browser.browserAction || browser.action;
-  if (!action?.setBadgeText) {
+  if (!action?.setIcon) {
     return;
   }
-  // A solid colored pill reads as a status dot: fill the badge with a bullet
-  // and paint the text the same color as the background.
-  const paint = (color: string) => {
-    action.setBadgeText({ text: "●" });
-    action.setBadgeBackgroundColor({ color });
-    action.setBadgeTextColor?.({ color });
+  // Pre-dot builds used the badge API; clear any leftover badge.
+  action.setBadgeText?.({ text: "" });
+
+  let bases: Map<number, ImageBitmap> | null = null;
+  let painted = "";
+
+  const isLightToolbar = (): boolean => {
+    const g: any = globalThis as any;
+    return (
+      typeof g.matchMedia === "function" &&
+      g.matchMedia("(prefers-color-scheme: light)").matches
+    );
   };
+
+  const paint = async (state: DotState | null) => {
+    const theme = isLightToolbar() ? "light" : "dark";
+    const key = `${theme}/${state ?? "none"}`;
+    if (key === painted) {
+      return;
+    }
+    try {
+      if (!bases) {
+        bases = await loadToolbarBases(browser);
+      }
+      const color = state ? DOT_COLORS[theme][state] : null;
+      const imageData: Record<number, ImageData> = {};
+      for (const size of ICON_SIZES) {
+        const base = bases.get(size);
+        const img = base ? drawStatusIcon(base, size, color) : null;
+        if (img) {
+          imageData[size] = img;
+        }
+      }
+      if (Object.keys(imageData).length !== ICON_SIZES.length) {
+        return;
+      }
+      await action.setIcon({ imageData });
+      painted = key;
+    } catch {
+      // Canvas/fetch/setIcon unavailable on this shell: keep the manifest's
+      // default icon, which is the same mark without a dot.
+    }
+  };
+
   const tick = async () => {
     try {
       const status: EpixStatus = await nativeSend({ cmd: "status" });
       mirrorRoutingState(status);
-      paint(statusDotColor(status));
+      paint(statusDotState(status));
     } catch {
-      // Native host gone (or not up yet): no dot, like the shield hiding.
-      action.setBadgeText({ text: "" });
+      // Native host gone (or not up yet): plain mark, no dot.
+      paint(null);
     }
   };
   tick();
   setInterval(tick, 5000);
+
+  // Repaint with the other palette when the browser theme flips.
+  try {
+    (globalThis as any)
+      .matchMedia("(prefers-color-scheme: light)")
+      .addEventListener("change", () => {
+        painted = "";
+        tick();
+      });
+  } catch {
+    // No matchMedia here (some shells); the dark palette stays.
+  }
 }
 
 async function nativeSend(msg: object): Promise<any> {
@@ -248,8 +384,8 @@ export function initEpixNative(): void {
     );
   }
 
-  // 1c. Toolbar status dot: reflect the Tor/I2P posture on the button itself.
-  initStatusBadge(browser);
+  // 1c. Toolbar status icon: reflect the Tor/I2P posture on the button itself.
+  initStatusIcon(browser);
 
   // 2. UI bridge: the Epix settings page talks to this over runtime messaging.
   //
