@@ -140,10 +140,10 @@ function statusDotState(s: EpixStatus | undefined): DotState {
 // worker (OffscreenCanvas). Returns null where neither exists.
 function make2dContext(size: number): any {
   const g: any = globalThis as any;
-  if (typeof g.OffscreenCanvas !== "undefined") {
+  if (g.OffscreenCanvas !== undefined) {
     return new g.OffscreenCanvas(size, size).getContext("2d");
   }
-  if (typeof g.document !== "undefined") {
+  if (g.document !== undefined) {
     const canvas = g.document.createElement("canvas");
     canvas.width = canvas.height = size;
     return canvas.getContext("2d");
@@ -210,9 +210,7 @@ function initStatusIcon(browser: any): void {
       return;
     }
     try {
-      if (!bases) {
-        bases = await loadToolbarBases(browser);
-      }
+      bases ??= await loadToolbarBases(browser);
       const color = state ? DOT_COLORS[state] : null;
       const imageData: Record<number, ImageData> = {};
       for (const size of ICON_SIZES) {
