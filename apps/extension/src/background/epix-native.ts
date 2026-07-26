@@ -62,6 +62,12 @@ const isLocal = (h: string) =>
 // wallet's essential backend - reachable from every `.epix` page and never
 // subject to the clearnet block, matching the PAC's dedicated DIRECT rule.
 const isEpixZone = (h: string) => h === "epix.zone" || h.endsWith(".epix.zone");
+// Passive media a page only displays (never reads back): images, video/audio,
+// fonts. Allowed through the clearnet block even to clearnet - it routes over
+// Tor, so no IP leaks, and blocking it breaks ordinary posted content (e.g.
+// EpixTalk gifs/images). Active clearnet that could exfiltrate - scripts,
+// fetch/XHR, sub-frames, beacons - stays blocked.
+const PASSIVE_MEDIA_TYPES = new Set(["image", "imageset", "media", "font"]);
 
 // A typed-ish view of the native host's `status` reply.
 export interface EpixStatus {
@@ -300,6 +306,9 @@ export function initEpixNative(): void {
           details.originUrl || details.documentUrl || ""
         );
         if (!isEpix(originHost)) return {};
+        // Passive media a page merely displays is allowed anywhere (over Tor,
+        // so no IP leak); only active clearnet is blocked.
+        if (PASSIVE_MEDIA_TYPES.has(details.type)) return {};
         const url: string = details.url || "";
         if (
           url.startsWith("data:") ||
