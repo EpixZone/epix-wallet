@@ -62,12 +62,29 @@ const isLocal = (h: string) =>
 // wallet's essential backend - reachable from every `.epix` page and never
 // subject to the clearnet block, matching the PAC's dedicated DIRECT rule.
 const isEpixZone = (h: string) => h === "epix.zone" || h.endsWith(".epix.zone");
-// Passive media a page only displays (never reads back): images, video/audio,
-// fonts. Allowed through the clearnet block even to clearnet - it routes over
-// Tor, so no IP leaks, and blocking it breaks ordinary posted content (e.g.
-// EpixTalk gifs/images). Active clearnet that could exfiltrate - scripts,
-// fetch/XHR, sub-frames, beacons - stays blocked.
-const PASSIVE_MEDIA_TYPES = new Set(["image", "imageset", "media", "font"]);
+// Request types that can execute code in the page or carry arbitrary data
+// out of it: scripts, fetch/XHR, websockets, beacons/pings, frames, plugin
+// objects, navigations. Only these are subject to the clearnet block.
+// Everything else (images, video/audio, fonts, stylesheets, manifests, and
+// any passive type added in the future) is display-only content the page
+// cannot read back; it routes over Tor, so no IP leaks, and blocking it just
+// breaks ordinary sites (posted images, CDN stylesheets). A block-list of
+// active types instead of an allow-list of passive ones means new resource
+// types fail open to "renders fine" rather than "site looks broken".
+const ACTIVE_CLEARNET_TYPES = new Set([
+  "main_frame",
+  "sub_frame",
+  "script",
+  "xmlhttprequest",
+  "websocket",
+  "beacon",
+  "ping",
+  "csp_report",
+  "object",
+  "object_subrequest",
+  "xslt",
+  "other",
+]);
 
 // A typed-ish view of the native host's `status` reply.
 export interface EpixStatus {
@@ -306,9 +323,9 @@ export function initEpixNative(): void {
           details.originUrl || details.documentUrl || ""
         );
         if (!isEpix(originHost)) return {};
-        // Passive media a page merely displays is allowed anywhere (over Tor,
-        // so no IP leak); only active clearnet is blocked.
-        if (PASSIVE_MEDIA_TYPES.has(details.type)) return {};
+        // Only requests that can execute or exfiltrate are policed; passive
+        // display content is allowed anywhere (it travels over Tor anyway).
+        if (!ACTIVE_CLEARNET_TYPES.has(details.type)) return {};
         const url: string = details.url || "";
         if (
           url.startsWith("data:") ||
