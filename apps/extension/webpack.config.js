@@ -74,6 +74,13 @@ module.exports = {
     filename: "[name].bundle.js",
   },
   optimization: {
+    // Scope hoisting (module concatenation) mangled cross-module top-level
+    // consts into a shared scope, and terser then produced a wrong reference:
+    // the background icon loop `for (const size of ICON_SIZES)` was emitted
+    // iterating a NUMBER constant instead of the array, throwing "M is not
+    // iterable" on every status update. Disabling concatenation keeps each
+    // module's bindings separate, at a small bundle-size cost.
+    concatenateModules: false,
     splitChunks: {
       chunks(chunk) {
         if (isDisableSplitChunks) {
