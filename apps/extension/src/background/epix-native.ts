@@ -58,6 +58,16 @@ function hostOf(url: string): string {
 const isEpix = (h: string) => h.endsWith(".epix");
 const isLocal = (h: string) =>
   h === "127.0.0.1" || h === "localhost" || h === "[::1]";
+// The EPIX chain's own infrastructure (rpc/api/evmrpc.epix.zone). It is the
+// wallet's essential backend - reachable from every `.epix` page and never
+// subject to the clearnet block, matching the PAC's dedicated DIRECT rule.
+const isEpixZone = (h: string) => h === "epix.zone" || h.endsWith(".epix.zone");
+// Passive media a page only displays (never reads back): images, video/audio,
+// fonts. Allowed through the clearnet block even to clearnet - it routes over
+// Tor, so no IP leaks, and blocking it breaks ordinary posted content (e.g.
+// EpixTalk gifs/images). Active clearnet that could exfiltrate - scripts,
+// fetch/XHR, sub-frames, beacons - stays blocked.
+const PASSIVE_MEDIA_TYPES = new Set(["image", "imageset", "media", "font"]);
 
 // A typed-ish view of the native host's `status` reply.
 export interface EpixStatus {
@@ -296,6 +306,9 @@ export function initEpixNative(): void {
           details.originUrl || details.documentUrl || ""
         );
         if (!isEpix(originHost)) return {};
+        // Passive media a page merely displays is allowed anywhere (over Tor,
+        // so no IP leak); only active clearnet is blocked.
+        if (PASSIVE_MEDIA_TYPES.has(details.type)) return {};
         const url: string = details.url || "";
         if (
           url.startsWith("data:") ||
@@ -306,7 +319,17 @@ export function initEpixNative(): void {
           return {};
         }
         const targetHost = hostOf(url);
-        if (isEpix(targetHost) || isLocal(targetHost)) return {};
+        // The chain's own infra (`*.epix.zone`) is always allowed: it is the
+        // wallet's backend, and blocking it broke tipping / balances on every
+        // `.epix` page (its evmrpc/rpc/api calls were cancelled here even
+        // though the proxy handler below routes them). Not user clearnet.
+        if (
+          isEpix(targetHost) ||
+          isEpixZone(targetHost) ||
+          isLocal(targetHost)
+        ) {
+          return {};
+        }
         if (allowed.has(originHost)) return {};
         return { cancel: true };
       },
@@ -324,13 +347,7 @@ export function initEpixNative(): void {
     browser.proxy.onRequest.addListener(
       (details: any) => {
         const host = hostOf(details.url || "");
-        if (
-          !host ||
-          isEpix(host) ||
-          isLocal(host) ||
-          host === "epix.zone" ||
-          host.endsWith(".epix.zone")
-        ) {
+        if (!host || isEpix(host) || isLocal(host) || isEpixZone(host)) {
           return undefined; // the PAC decides (node proxy / DIRECT)
         }
         if (torClearnet == null || torEnabled == null) {
