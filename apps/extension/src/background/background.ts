@@ -28,8 +28,8 @@ import {
 } from "../config";
 import { initEpixNative } from "./epix-native";
 
-// Epix desktop integration: the clearnet-block enforcement + native-host bridge
-// (Tor/I2P status, routing, per-site allow). No-op on non-desktop shells.
+// Epix network integration: live direct/Tor routing in desktop Firefox plus
+// the native-host bridge used by the Tor/I2P status and settings UI.
 initEpixNative();
 
 const router = new ExtensionRouter(ExtensionEnv.produceEnv);

@@ -31,9 +31,7 @@ export interface UseEpixStatus {
   available: boolean;
   status: EpixStatus | null;
   torClearnet: boolean;
-  allowedSites: string[];
   setTorClearnet: (on: boolean) => Promise<void>;
-  revokeSite: (site: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -60,7 +58,6 @@ const shared = {
   status: null as EpixStatus | null,
   available: readCachedAvailable(),
   torClearnet: true,
-  allowedSites: [] as string[],
 };
 
 const listeners = new Set<() => void>();
@@ -85,21 +82,15 @@ async function refreshShared(): Promise<void> {
     const res = await sendToBackground({ type: "epix-status" });
     if (res?.ok) {
       shared.status = res.status;
-      shared.torClearnet = res.status?.tor_clearnet !== false;
+      if (typeof res.status?.tor_clearnet === "boolean") {
+        shared.torClearnet = res.status.tor_clearnet;
+      }
       setAvailable(true);
     } else {
       setAvailable(false);
     }
   } catch {
     setAvailable(false);
-  }
-  try {
-    const list = await sendToBackground({ type: "epix-list-clearnet-allow" });
-    if (list?.ok) {
-      shared.allowedSites = list.sites || [];
-    }
-  } catch {
-    // ignore
   }
   notify();
 }
@@ -138,24 +129,16 @@ export function useEpixStatus(pollMs = 5000): UseEpixStatus {
     shared.torClearnet = on;
     notify();
     try {
-      await sendToBackground({ type: "epix-set-tor-clearnet", on });
+      const result = await sendToBackground({
+        type: "epix-set-tor-clearnet",
+        on,
+      });
+      if (!result?.ok) {
+        throw new Error(result?.error || "routing change rejected");
+      }
     } catch {
       shared.torClearnet = !on; // revert on failure
       notify();
-    }
-  }, []);
-
-  const revokeSite = useCallback(async (site: string) => {
-    shared.allowedSites = shared.allowedSites.filter((x) => x !== site);
-    notify();
-    try {
-      await sendToBackground({
-        type: "epix-set-clearnet-allow",
-        site,
-        allow: false,
-      });
-    } catch {
-      // ignore; next refresh reconciles
     }
   }, []);
 
@@ -163,9 +146,7 @@ export function useEpixStatus(pollMs = 5000): UseEpixStatus {
     available: shared.available,
     status: shared.status,
     torClearnet: shared.torClearnet,
-    allowedSites: shared.allowedSites,
     setTorClearnet,
-    revokeSite,
     refresh: refreshShared,
   };
 }
