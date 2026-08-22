@@ -2,13 +2,14 @@
 //
 // This absorbs the whole of the old standalone `browser-ext`, so the shell
 // ships a single extension (this wallet) with no gaps:
-//   1. Clearnet block (EpixNet #15): a `.epix` page may not reach the open
-//      internet unless the user allowed that site. Enforced with a blocking
-//      webRequest listener.
-//   2. A bridge to the node's native-messaging host (`zone.epix.nmh`) so the
+//   1. A bridge to the node's native-messaging host (`zone.epix.nmh`) so the
 //      wallet UI can read Tor + I2P status and our onion / i2p addresses, and
-//      flip the "route clearnet through Tor" setting + per-site clearnet
-//      allowances.
+//      flip the "route clearnet through Tor" setting.
+//   2. Live proxy routing so the clearnet toggle applies without a restart.
+//
+// `.epix` pages may use ordinary HTTPS APIs. The routing preference decides
+// whether those requests travel directly or over Tor; the wallet must not
+// cancel them before Firefox reaches the proxy decision.
 //
 // The base proxy routing (PAC: `.epix` -> node proxy, clearnet -> DIRECT or
 // the node's Tor SOCKS) is written by the launcher's Firefox profile at
@@ -22,9 +23,9 @@
 
 const NATIVE_HOST = "zone.epix.nmh";
 
-// Sites the user allowed to reach clearnet, mirrored from the native host so the
-// synchronous webRequest listener can consult it without a round-trip. (The Tor
-// routing state lives on the native host; the UI reads it from `status`.)
+// Legacy per-site allowances remain readable/revocable for compatibility with
+// existing profiles. They no longer gate requests: `.epix` pages can use HTTPS
+// APIs regardless of whether clearnet is routed directly or through Tor.
 let allowed = new Set<string>();
 
 // Tor routing state, mirrored the same way for the synchronous proxy
@@ -59,33 +60,8 @@ const isEpix = (h: string) => h.endsWith(".epix");
 const isLocal = (h: string) =>
   h === "127.0.0.1" || h === "localhost" || h === "[::1]";
 // The EPIX chain's own infrastructure (rpc/api/evmrpc.epix.zone). It is the
-// wallet's essential backend - reachable from every `.epix` page and never
-// subject to the clearnet block, matching the PAC's dedicated DIRECT rule.
+// wallet's essential backend and follows the PAC's dedicated DIRECT rule.
 const isEpixZone = (h: string) => h === "epix.zone" || h.endsWith(".epix.zone");
-// Request types that can execute code in the page or carry arbitrary data
-// out of it: scripts, fetch/XHR, websockets, beacons/pings, frames, plugin
-// objects, navigations. Only these are subject to the clearnet block.
-// Everything else (images, video/audio, fonts, stylesheets, manifests, and
-// any passive type added in the future) is display-only content the page
-// cannot read back; it routes over Tor, so no IP leaks, and blocking it just
-// breaks ordinary sites (posted images, CDN stylesheets). A block-list of
-// active types instead of an allow-list of passive ones means new resource
-// types fail open to "renders fine" rather than "site looks broken".
-const ACTIVE_CLEARNET_TYPES = new Set([
-  "main_frame",
-  "sub_frame",
-  "script",
-  "xmlhttprequest",
-  "websocket",
-  "beacon",
-  "ping",
-  "csp_report",
-  "object",
-  "object_subrequest",
-  "xslt",
-  "other",
-]);
-
 // A typed-ish view of the native host's `status` reply.
 export interface EpixStatus {
   serving?: boolean;
@@ -296,66 +272,19 @@ async function refreshAllowed(): Promise<void> {
 }
 
 /**
- * Install the clearnet block + native bridge. Called once from the background
- * entry. Safe on non-desktop shells (native calls just fail and are ignored).
+ * Install live proxy routing + the native bridge. Called once from the
+ * background entry. Safe on non-desktop shells (native calls just fail and
+ * are ignored).
  */
 export function initEpixNative(): void {
   const browser: any = (globalThis as any).browser;
-  // The UI bridge (part 2) only needs runtime messaging; the clearnet block
-  // (part 1) needs webRequest. The mobile shells have no webRequest, so gate
-  // the block on it but always register the bridge - otherwise the Tor/I2P
-  // shield can't reach the native host and stays hidden there.
+  // The native bridge is optional on mobile shells, but always register the
+  // runtime side when available so the Tor/I2P shield can reach its host.
   if (!browser?.runtime?.onMessage) {
     return;
   }
 
-  // 1. Clearnet block: a request whose origin is a `.epix` page may only reach
-  // another `.epix` site or loopback (the node), unless the user allowed that
-  // origin. Ported verbatim from the old browser-ext background. Desktop only
-  // (webRequest); on mobile the node/engine enforces the policy instead.
-  if (browser.webRequest?.onBeforeRequest) {
-    // Prime the allow-list from the native host.
-    refreshAllowed();
-
-    browser.webRequest.onBeforeRequest.addListener(
-      (details: any) => {
-        const originHost = hostOf(
-          details.originUrl || details.documentUrl || ""
-        );
-        if (!isEpix(originHost)) return {};
-        // Only requests that can execute or exfiltrate are policed; passive
-        // display content is allowed anywhere (it travels over Tor anyway).
-        if (!ACTIVE_CLEARNET_TYPES.has(details.type)) return {};
-        const url: string = details.url || "";
-        if (
-          url.startsWith("data:") ||
-          url.startsWith("blob:") ||
-          url.startsWith("about:") ||
-          url.startsWith("moz-extension:")
-        ) {
-          return {};
-        }
-        const targetHost = hostOf(url);
-        // The chain's own infra (`*.epix.zone`) is always allowed: it is the
-        // wallet's backend, and blocking it broke tipping / balances on every
-        // `.epix` page (its evmrpc/rpc/api calls were cancelled here even
-        // though the proxy handler below routes them). Not user clearnet.
-        if (
-          isEpix(targetHost) ||
-          isEpixZone(targetHost) ||
-          isLocal(targetHost)
-        ) {
-          return {};
-        }
-        if (allowed.has(originHost)) return {};
-        return { cancel: true };
-      },
-      { urls: ["<all_urls>"] },
-      ["blocking"]
-    );
-  }
-
-  // 1b. Live clearnet routing (Firefox shells only; Chrome has no
+  // 1. Live clearnet routing (Firefox shells only; Chrome has no
   // proxy.onRequest and never enters here). Only general clearnet is steered:
   // everything the PAC routes specially falls through with undefined. Until
   // the native host has answered a status query, everything falls through,
@@ -395,10 +324,10 @@ export function initEpixNative(): void {
     );
   }
 
-  // 1c. Toolbar status icon: reflect the Tor/I2P posture on the button itself.
+  // 2. Toolbar status icon: reflect the Tor/I2P posture on the button itself.
   initStatusIcon(browser);
 
-  // 2. UI bridge: the Epix settings page talks to this over runtime messaging.
+  // 3. UI bridge: the Epix settings page talks to this over runtime messaging.
   //
   // Keplr's own router listens on this same `runtime.onMessage`, and `browser`
   // here is the webextension-polyfill, which does NOT support the Chrome-style
