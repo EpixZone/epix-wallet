@@ -31,9 +31,7 @@ export interface UseEpixStatus {
   available: boolean;
   status: EpixStatus | null;
   torClearnet: boolean;
-  allowedSites: string[];
   setTorClearnet: (on: boolean) => Promise<void>;
-  revokeSite: (site: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -60,7 +58,6 @@ const shared = {
   status: null as EpixStatus | null,
   available: readCachedAvailable(),
   torClearnet: true,
-  allowedSites: [] as string[],
 };
 
 const listeners = new Set<() => void>();
@@ -92,14 +89,6 @@ async function refreshShared(): Promise<void> {
     }
   } catch {
     setAvailable(false);
-  }
-  try {
-    const list = await sendToBackground({ type: "epix-list-clearnet-allow" });
-    if (list?.ok) {
-      shared.allowedSites = list.sites || [];
-    }
-  } catch {
-    // ignore
   }
   notify();
 }
@@ -145,27 +134,11 @@ export function useEpixStatus(pollMs = 5000): UseEpixStatus {
     }
   }, []);
 
-  const revokeSite = useCallback(async (site: string) => {
-    shared.allowedSites = shared.allowedSites.filter((x) => x !== site);
-    notify();
-    try {
-      await sendToBackground({
-        type: "epix-set-clearnet-allow",
-        site,
-        allow: false,
-      });
-    } catch {
-      // ignore; next refresh reconciles
-    }
-  }, []);
-
   return {
     available: shared.available,
     status: shared.status,
     torClearnet: shared.torClearnet,
-    allowedSites: shared.allowedSites,
     setTorClearnet,
-    revokeSite,
     refresh: refreshShared,
   };
 }

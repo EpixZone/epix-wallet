@@ -19,8 +19,6 @@
     "scripting",
     "webNavigation",
     "nativeMessaging",
-    "webRequest",
-    "webRequestBlocking",
     "proxy"
   ],
   "icons": {

@@ -53,8 +53,8 @@ async function openDashboardConfig(): Promise<void> {
 
 /**
  * The Epix Network panel: Tor + I2P status, our onion / i2p addresses, the
- * "route clearnet through Tor" toggle, and the per-site clearnet allowances,
- * plus a link to the node's full config page. Used inside a modal opened from
+ * "route clearnet through Tor" toggle, plus a link to the node's full config
+ * page. Used inside a modal opened from
  * the header shield and from the pre-login screen (it talks to the node's
  * native host, so it works before unlock). `onClose` closes that modal after
  * opening the config tab.
@@ -69,14 +69,7 @@ export const EpixNetworkPanel: FunctionComponent<{
   const theme = useTheme();
   const isLight = theme.mode === "light";
 
-  const {
-    available,
-    status,
-    torClearnet,
-    allowedSites,
-    setTorClearnet,
-    revokeSite,
-  } = useEpixStatus();
+  const { available, status, torClearnet, setTorClearnet } = useEpixStatus();
 
   const sub = isLight ? ColorPalette["gray-300"] : ColorPalette["gray-200"];
   const card = isLight ? ColorPalette["gray-50"] : ColorPalette["gray-500"];
@@ -182,35 +175,6 @@ export const EpixNetworkPanel: FunctionComponent<{
             </React.Fragment>
           ) : null}
         </Box>
-
-        {/* Per-site clearnet allowances */}
-        {allowedSites.length > 0 ? (
-          <Box padding="1rem" borderRadius="0.5rem" backgroundColor={card}>
-            <Subtitle3>
-              {intl.formatMessage({ id: "page.setting.epix.clearnet-allowed" })}
-            </Subtitle3>
-            <Gutter size="0.5rem" />
-            <Stack gutter="0.5rem">
-              {allowedSites.map((site) => (
-                <Columns sum={1} alignY="center" key={site}>
-                  <Body3 style={{ wordBreak: "break-all" }}>{site}</Body3>
-                  <Column weight={1} />
-                  <Box
-                    cursor="pointer"
-                    onClick={() => revokeSite(site)}
-                    paddingX="0.5rem"
-                  >
-                    <Body3 color={ColorPalette["red-300"]}>
-                      {intl.formatMessage({
-                        id: "page.setting.epix.clearnet-revoke",
-                      })}
-                    </Body3>
-                  </Box>
-                </Columns>
-              ))}
-            </Stack>
-          </Box>
-        ) : null}
       </Stack>
 
       <Gutter size="1rem" />

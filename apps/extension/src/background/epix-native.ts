@@ -23,11 +23,6 @@
 
 const NATIVE_HOST = "zone.epix.nmh";
 
-// Legacy per-site allowances remain readable/revocable for compatibility with
-// existing profiles. They no longer gate requests: `.epix` pages can use HTTPS
-// APIs regardless of whether clearnet is routed directly or through Tor.
-let allowed = new Set<string>();
-
 // Tor routing state, mirrored the same way for the synchronous proxy
 // listener. null = not learned yet; the listener then defers to the PAC's
 // launch-time choice.
@@ -262,15 +257,6 @@ export function epixNativeAvailable(): boolean {
   return !!(globalThis as any).browser?.runtime?.sendNativeMessage;
 }
 
-async function refreshAllowed(): Promise<void> {
-  try {
-    const res = await nativeSend({ cmd: "listClearnetAllow" });
-    allowed = new Set<string>(res?.sites || []);
-  } catch {
-    // Native host not up yet; keep the last known set.
-  }
-}
-
 /**
  * Install live proxy routing + the native bridge. Called once from the
  * background entry. Safe on non-desktop shells (native calls just fail and
@@ -358,11 +344,6 @@ export function initEpixNative(): void {
           },
           (e) => ({ ok: false, error: String(e) })
         );
-      case "epix-list-clearnet-allow":
-        return refreshAllowed().then(() => ({
-          ok: true,
-          sites: Array.from(allowed),
-        }));
       case "epix-open-config":
         // Ask the host to open the node's config page in the browser. Only
         // the mobile hosts implement this (the desktop epix-nmh answers with
@@ -392,18 +373,6 @@ export function initEpixNative(): void {
               : { ok: false, error: r?.error || "no response" },
           (e) => ({ ok: false, error: String(e) })
         );
-      case "epix-set-clearnet-allow": {
-        const site: string = msg.site;
-        const allow = !!msg.allow;
-        return nativeSend({ cmd: "setClearnetAllow", site, allow }).then(
-          () => {
-            if (allow) allowed.add(site);
-            else allowed.delete(site);
-            return { ok: true, site, allow };
-          },
-          (e) => ({ ok: false, error: String(e) })
-        );
-      }
       default:
         return Promise.resolve({ ok: false, error: "unknown epix message" });
     }
