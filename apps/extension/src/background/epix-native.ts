@@ -15,8 +15,8 @@
 // the node's Tor SOCKS) is written by the launcher's Firefox profile at
 // startup. On top of it, a `proxy.onRequest` listener here re-decides the
 // clearnet leg per request, so flipping "route clearnet through Tor" applies
-// immediately instead of on the next launch. `.epix`, loopback, and
-// `*.epix.zone` always return undefined and fall through to the PAC.
+// immediately instead of on the next launch. Xite, I2P, loopback, and EPIX
+// infrastructure destinations retain the launcher's dedicated routes.
 //
 // Native messaging only exists in the desktop Firefox shell; on GeckoView /
 // WKWebView the calls throw and are swallowed, so this is a no-op there.
@@ -28,6 +28,7 @@ const NATIVE_HOST = "zone.epix.nmh";
 // launch-time choice.
 let torClearnet: boolean | null = null;
 let torEnabled: boolean | null = null;
+let torStatus: string | null = null;
 
 // The node's Tor SOCKS listener, a fixed contract with the desktop shell
 // (SOCKS_ADDR in epix-browser's launcher).
@@ -39,9 +40,9 @@ function mirrorRoutingState(status: EpixStatus | undefined): void {
   if (typeof status.tor_clearnet === "boolean") {
     torClearnet = status.tor_clearnet;
   }
-  if (typeof status.tor_enabled === "boolean") {
-    torEnabled = status.tor_enabled;
-  }
+  torEnabled =
+    typeof status.tor_enabled === "boolean" ? status.tor_enabled : null;
+  torStatus = typeof status.tor_status === "string" ? status.tor_status : null;
 }
 
 function hostOf(url: string): string {
@@ -52,11 +53,63 @@ function hostOf(url: string): string {
   }
 }
 const isEpix = (h: string) => h.endsWith(".epix");
+const isXiteAddress = (h: string) => /^epix1[a-z0-9]{20,80}$/.test(h);
+const isI2p = (h: string) => h.endsWith(".i2p");
 const isLocal = (h: string) =>
   h === "127.0.0.1" || h === "localhost" || h === "[::1]";
 // The EPIX chain's own infrastructure (rpc/api/evmrpc.epix.zone). It is the
 // wallet's essential backend and follows the PAC's dedicated DIRECT rule.
-const isEpixZone = (h: string) => h === "epix.zone" || h.endsWith(".epix.zone");
+const isEpixZone = (h: string) => h.endsWith(".epix.zone");
+
+/**
+ * Select the per-request route without disturbing destinations owned by the
+ * launcher's PAC. Firefox treats `{ type: "direct" }` as a fallback to the
+ * configured browser proxy; `null` is the actual no-proxy result.
+ */
+export function routeEpixRequest(
+  url: string,
+  clearnetOverTor: boolean | null,
+  torIsEnabled: boolean | null,
+  currentTorStatus: string | null
+): any {
+  const host = hostOf(url);
+  if (!host) {
+    return undefined;
+  }
+  if (isLocal(host)) {
+    return null;
+  }
+  if (isEpix(host) || isXiteAddress(host) || isI2p(host) || isEpixZone(host)) {
+    return undefined;
+  }
+  if (clearnetOverTor === false) {
+    return null;
+  }
+  if (clearnetOverTor == null) {
+    return undefined;
+  }
+
+  // `tor_enabled` becomes true only after routing is live. Bootstrapping,
+  // Recovering, and Failed are still Tor-on states and must never select a
+  // direct route while the user has asked to route clearnet through Tor.
+  const torIsConfigured =
+    currentTorStatus != null
+      ? currentTorStatus !== "Disabled"
+      : torIsEnabled === true;
+  if (!torIsConfigured) {
+    // With an older/incomplete status reply, keep the launch-time PAC choice.
+    return currentTorStatus == null ? undefined : null;
+  }
+  return [
+    {
+      type: "socks",
+      host: TOR_SOCKS_HOST,
+      port: TOR_SOCKS_PORT,
+      proxyDNS: true,
+    },
+  ];
+}
+
 // A typed-ish view of the native host's `status` reply.
 export interface EpixStatus {
   serving?: boolean;
@@ -278,24 +331,12 @@ export function initEpixNative(): void {
   if (browser.proxy?.onRequest) {
     browser.proxy.onRequest.addListener(
       (details: any) => {
-        const host = hostOf(details.url || "");
-        if (!host || isEpix(host) || isLocal(host) || isEpixZone(host)) {
-          return undefined; // the PAC decides (node proxy / DIRECT)
-        }
-        if (torClearnet == null || torEnabled == null) {
-          return undefined; // state unknown: keep the launch-time routing
-        }
-        if (torClearnet && torEnabled) {
-          return [
-            {
-              type: "socks",
-              host: TOR_SOCKS_HOST,
-              port: TOR_SOCKS_PORT,
-              proxyDNS: true,
-            },
-          ];
-        }
-        return { type: "direct" };
+        return routeEpixRequest(
+          details.url || "",
+          torClearnet,
+          torEnabled,
+          torStatus
+        );
       },
       { urls: ["<all_urls>"] }
     );
@@ -337,7 +378,13 @@ export function initEpixNative(): void {
         );
       case "epix-set-tor-clearnet":
         return nativeSend({ cmd: "setTorClearnet", on: !!msg.on }).then(
-          () => {
+          (result: any) => {
+            if (result?.ok !== true) {
+              return {
+                ok: false,
+                error: result?.error || "native host rejected routing change",
+              };
+            }
             // The routing listener picks the change up immediately.
             torClearnet = !!msg.on;
             return { ok: true, on: !!msg.on };

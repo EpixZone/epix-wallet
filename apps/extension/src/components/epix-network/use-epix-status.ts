@@ -82,7 +82,9 @@ async function refreshShared(): Promise<void> {
     const res = await sendToBackground({ type: "epix-status" });
     if (res?.ok) {
       shared.status = res.status;
-      shared.torClearnet = res.status?.tor_clearnet !== false;
+      if (typeof res.status?.tor_clearnet === "boolean") {
+        shared.torClearnet = res.status.tor_clearnet;
+      }
       setAvailable(true);
     } else {
       setAvailable(false);
@@ -127,7 +129,13 @@ export function useEpixStatus(pollMs = 5000): UseEpixStatus {
     shared.torClearnet = on;
     notify();
     try {
-      await sendToBackground({ type: "epix-set-tor-clearnet", on });
+      const result = await sendToBackground({
+        type: "epix-set-tor-clearnet",
+        on,
+      });
+      if (!result?.ok) {
+        throw new Error(result?.error || "routing change rejected");
+      }
     } catch {
       shared.torClearnet = !on; // revert on failure
       notify();
