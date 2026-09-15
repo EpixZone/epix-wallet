@@ -37,6 +37,9 @@ jobs:
       - name: Enable yarn 3
         run: corepack enable
 
+      - name: Verify release source revision
+        run: node --test scripts/build-dist.test.cjs
+
       - name: Install dependencies
         run: yarn install --immutable
 
@@ -62,6 +65,7 @@ jobs:
             echo "$TAG already published; wallet builds are immutable per commit."
           else
             gh release create "$TAG" \
+              --target "$GITHUB_SHA" \
               --title "Epix Wallet $VERSION ($REV)" \
               --notes "Immutable Firefox extension build for epix-wallet commit $GITHUB_SHA.
           Pin it in EpixNet: set shells/wallet-ext.rev to $REV." \

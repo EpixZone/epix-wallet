@@ -63,6 +63,10 @@ const shared = {
 const listeners = new Set<() => void>();
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let subscriberCount = 0;
+let routingRevision = 0;
+let pendingRoutingChanges = 0;
+let confirmedTorClearnet = shared.torClearnet;
+let routingChanges = Promise.resolve();
 
 function notify(): void {
   listeners.forEach((l) => l());
@@ -78,12 +82,20 @@ function setAvailable(on: boolean): void {
 }
 
 async function refreshShared(): Promise<void> {
+  const revision = routingRevision;
+  const hadPendingChange = pendingRoutingChanges > 0;
   try {
     const res = await sendToBackground({ type: "epix-status" });
     if (res?.ok) {
       shared.status = res.status;
-      if (typeof res.status?.tor_clearnet === "boolean") {
+      if (
+        !hadPendingChange &&
+        pendingRoutingChanges === 0 &&
+        revision === routingRevision &&
+        typeof res.status?.tor_clearnet === "boolean"
+      ) {
         shared.torClearnet = res.status.tor_clearnet;
+        confirmedTorClearnet = shared.torClearnet;
       }
       setAvailable(true);
     } else {
@@ -126,20 +138,30 @@ export function useEpixStatus(pollMs = 5000): UseEpixStatus {
   }, [pollMs]);
 
   const setTorClearnet = useCallback(async (on: boolean) => {
+    const revision = ++routingRevision;
+    pendingRoutingChanges++;
     shared.torClearnet = on;
     notify();
-    try {
-      const result = await sendToBackground({
-        type: "epix-set-tor-clearnet",
-        on,
-      });
-      if (!result?.ok) {
-        throw new Error(result?.error || "routing change rejected");
+    // Apply rapid clicks in order and roll back to the last acknowledged
+    // value if a request fails. Polling cannot replace an optimistic choice.
+    routingChanges = routingChanges.then(async () => {
+      try {
+        const result = await sendToBackground({
+          type: "epix-set-tor-clearnet",
+          on,
+        });
+        if (result?.ok) confirmedTorClearnet = on;
+      } catch {
+        // Keep the last confirmed route when the host is unavailable.
+      } finally {
+        pendingRoutingChanges--;
+        if (revision === routingRevision) {
+          shared.torClearnet = confirmedTorClearnet;
+          notify();
+        }
       }
-    } catch {
-      shared.torClearnet = !on; // revert on failure
-      notify();
-    }
+    });
+    await routingChanges;
   }, []);
 
   return {
