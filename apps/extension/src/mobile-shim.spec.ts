@@ -53,7 +53,7 @@ describe("mobile localStorage hydration", () => {
   it("does not repopulate storage after clear while the native read is pending", async () => {
     host.localStorage.clear();
     await replyToRead();
-    expect(host.localStorage.length).toBe(0);
+    expect(host.localStorage).toHaveLength(0);
     expect(requests).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
