@@ -29,6 +29,9 @@ const NATIVE_HOST = "zone.epix.nmh";
 let torClearnet: boolean | null = null;
 let torEnabled: boolean | null = null;
 let torStatus: string | null = null;
+let routingRevision = 0;
+let statusRevision = 0;
+let pendingStatus: Promise<EpixStatus> | null = null;
 
 // The node's Tor SOCKS listener, a fixed contract with the desktop shell
 // (SOCKS_ADDR in epix-browser's launcher).
@@ -45,6 +48,32 @@ function mirrorRoutingState(status: EpixStatus | undefined): void {
   torStatus = typeof status.tor_status === "string" ? status.tor_status : null;
 }
 
+// Startup, the toolbar, and the popup can poll simultaneously. Share the
+// native round trip and prevent a status sampled before a successful toggle
+// from restoring the previous route when its reply arrives late.
+function readStatus(): Promise<EpixStatus> {
+  if (pendingStatus) return pendingStatus;
+  const revision = routingRevision;
+  const requestRevision = ++statusRevision;
+  const request = nativeSend({ cmd: "status" })
+    .then((status: EpixStatus) => {
+      const current =
+        revision === routingRevision
+          ? status
+          : {
+              ...status,
+              ...(torClearnet != null ? { tor_clearnet: torClearnet } : {}),
+            };
+      if (requestRevision === statusRevision) mirrorRoutingState(current);
+      return current;
+    })
+    .finally(() => {
+      if (pendingStatus === request) pendingStatus = null;
+    });
+  pendingStatus = request;
+  return request;
+}
+
 function hostOf(url: string): string {
   try {
     return new URL(url).hostname;
@@ -55,6 +84,7 @@ function hostOf(url: string): string {
 const isEpix = (h: string) => h.endsWith(".epix");
 const isXiteAddress = (h: string) => /^epix1[a-z0-9]{20,80}$/.test(h);
 const isI2p = (h: string) => h.endsWith(".i2p");
+const isOnion = (h: string) => h.endsWith(".onion");
 const isLocal = (h: string) =>
   h === "127.0.0.1" || h === "localhost" || h === "[::1]";
 // The EPIX chain's own infrastructure (rpc/api/evmrpc.epix.zone). It is the
@@ -79,7 +109,13 @@ export function routeEpixRequest(
   if (isLocal(host)) {
     return null;
   }
-  if (isEpix(host) || isXiteAddress(host) || isI2p(host) || isEpixZone(host)) {
+  if (
+    isEpix(host) ||
+    isXiteAddress(host) ||
+    isI2p(host) ||
+    isOnion(host) ||
+    isEpixZone(host)
+  ) {
     return undefined;
   }
   if (clearnetOverTor === false) {
@@ -284,8 +320,7 @@ function initStatusIcon(browser: any): void {
 
   const tick = async () => {
     try {
-      const status: EpixStatus = await nativeSend({ cmd: "status" });
-      mirrorRoutingState(status);
+      const status = await readStatus();
       paint(statusDotState(status));
     } catch {
       // Native host gone (or not up yet): plain mark, no dot.
@@ -342,13 +377,10 @@ export function initEpixNative(): void {
     );
 
     // Prime the routing mirror; the panel's status polling keeps it fresh.
-    nativeSend({ cmd: "status" }).then(
-      (status: EpixStatus) => mirrorRoutingState(status),
-      () => {
-        // No native host (mobile shells, plain Firefox): mirrors stay null
-        // and the listener keeps falling through.
-      }
-    );
+    readStatus().catch(() => {
+      // No native host (mobile shells, plain Firefox): mirrors stay null
+      // and the listener keeps falling through.
+    });
   }
 
   // 2. Toolbar status icon: reflect the Tor/I2P posture on the button itself.
@@ -369,11 +401,8 @@ export function initEpixNative(): void {
     }
     switch (msg.type) {
       case "epix-status":
-        return nativeSend({ cmd: "status" }).then(
-          (status: EpixStatus) => {
-            mirrorRoutingState(status);
-            return { ok: true, status };
-          },
+        return readStatus().then(
+          (status: EpixStatus) => ({ ok: true, status }),
           (e) => ({ ok: false, error: String(e) })
         );
       case "epix-set-tor-clearnet":
@@ -387,6 +416,8 @@ export function initEpixNative(): void {
             }
             // The routing listener picks the change up immediately.
             torClearnet = !!msg.on;
+            routingRevision++;
+            pendingStatus = null;
             return { ok: true, on: !!msg.on };
           },
           (e) => ({ ok: false, error: String(e) })

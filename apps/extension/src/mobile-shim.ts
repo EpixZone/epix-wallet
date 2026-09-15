@@ -363,18 +363,27 @@ function installLocalStoragePolyfill(): void {
 
   const LS_PREFIX = "epix-ls/";
   const mem = new Map<string, string>();
+  let hydrating = true;
+  let clearedDuringHydration = false;
+  const changedDuringHydration = new Set<string>();
 
   const storage = {
     getItem: (k: string): string | null => (mem.has(k) ? mem.get(k)! : null),
     setItem: (k: string, v: string) => {
+      if (hydrating) changedDuringHydration.add(k);
       mem.set(k, String(v));
       sendStore({ cmd: "set", key: LS_PREFIX + k, value: String(v) });
     },
     removeItem: (k: string) => {
+      if (hydrating) changedDuringHydration.add(k);
       mem.delete(k);
       sendStore({ cmd: "remove", key: LS_PREFIX + k });
     },
     clear: () => {
+      if (hydrating) {
+        clearedDuringHydration = true;
+        changedDuringHydration.clear();
+      }
       for (const k of [...mem.keys()]) {
         sendStore({ cmd: "remove", key: LS_PREFIX + k });
       }
@@ -407,16 +416,29 @@ function installLocalStoragePolyfill(): void {
 
   // Hydrate from the native store (async, best-effort). The direct consumers
   // are optional features that tolerate a cold miss on the very first launch.
-  sendStore({ cmd: "keys" }).then(async (keys: string[]) => {
-    await Promise.all(
-      (keys || [])
-        .filter((k) => k.startsWith(LS_PREFIX))
-        .map(async (k) => {
-          const v = await sendStore({ cmd: "get", key: k });
-          if (typeof v === "string") mem.set(k.slice(LS_PREFIX.length), v);
-        })
-    );
-  });
+  sendStore({ cmd: "keys" })
+    .then(async (keys: string[]) => {
+      await Promise.all(
+        (keys || [])
+          .filter((k) => k.startsWith(LS_PREFIX))
+          .map(async (k) => {
+            const v = await sendStore({ cmd: "get", key: k });
+            const key = k.slice(LS_PREFIX.length);
+            // A late initial read must not replace a newer write or restore
+            // a removed key. clear() also removes keys not loaded yet.
+            if (changedDuringHydration.has(key)) return;
+            if (clearedDuringHydration) {
+              await sendStore({ cmd: "remove", key: k });
+            } else if (typeof v === "string") {
+              mem.set(key, v);
+            }
+          })
+      );
+    })
+    .finally(() => {
+      hydrating = false;
+      changedDuringHydration.clear();
+    });
 }
 
 installLocalStoragePolyfill();
