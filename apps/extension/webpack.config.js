@@ -220,7 +220,7 @@ module.exports = {
                 // executable injected through a workspace-modified PATH.
                 const gitExecutable =
                   process.platform === "win32"
-                    ? "C:\\Program Files\\Git\\cmd\\git.exe"
+                    ? String.raw`C:\Program Files\Git\cmd\git.exe`
                     : "/usr/bin/git";
                 const git = (...args) =>
                   execFileSync(gitExecutable, args, {
