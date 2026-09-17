@@ -1914,19 +1914,21 @@ export const IBCSwapPage: FunctionComponent = observer(() => {
 
         <Gutter size="0.75rem" />
 
-        <TextButtonStyles.Container>
-          <TextButtonStyles.Button
-            onClick={(e) => {
-              e.preventDefault();
+        {TermsOfUseUrl && (
+          <TextButtonStyles.Container>
+            <TextButtonStyles.Button
+              onClick={(e) => {
+                e.preventDefault();
 
-              browser.tabs.create({
-                url: TermsOfUseUrl,
-              });
-            }}
-          >
-            <FormattedMessage id="page.ibc-swap.button.terms-of-use.title" />
-          </TextButtonStyles.Button>
-        </TextButtonStyles.Container>
+                browser.tabs.create({
+                  url: TermsOfUseUrl,
+                });
+              }}
+            >
+              <FormattedMessage id="page.ibc-swap.button.terms-of-use.title" />
+            </TextButtonStyles.Button>
+          </TextButtonStyles.Container>
+        )}
 
         <Gutter size="0.75rem" />
       </Box>

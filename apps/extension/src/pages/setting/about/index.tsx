@@ -7,7 +7,7 @@ import { PageButton } from "../components";
 import { RightArrowIcon } from "../../../components/icon";
 import { Stack } from "../../../components/stack";
 import { useIntl } from "react-intl";
-import { TermsOfUseUrl } from "../../../config.ui";
+import { TermsOfUseUrl, PrivacyPolicyUrl } from "../../../config.ui";
 
 export const AboutKeplrPage: FunctionComponent = observer(() => {
   const intl = useIntl();
@@ -31,29 +31,33 @@ export const AboutKeplrPage: FunctionComponent = observer(() => {
             }}
           />
 
-          <PageButton
-            title={intl.formatMessage({
-              id: "page.setting.about.terms-of-use",
-            })}
-            endIcon={<RightArrowIcon />}
-            onClick={() => {
-              browser.tabs.create({
-                url: TermsOfUseUrl,
-              });
-            }}
-          />
+          {TermsOfUseUrl && (
+            <PageButton
+              title={intl.formatMessage({
+                id: "page.setting.about.terms-of-use",
+              })}
+              endIcon={<RightArrowIcon />}
+              onClick={() => {
+                browser.tabs.create({
+                  url: TermsOfUseUrl,
+                });
+              }}
+            />
+          )}
 
-          <PageButton
-            title={intl.formatMessage({
-              id: "page.setting.about.privacy-policy",
-            })}
-            endIcon={<RightArrowIcon />}
-            onClick={() => {
-              browser.tabs.create({
-                url: TermsOfUseUrl,
-              });
-            }}
-          />
+          {PrivacyPolicyUrl && (
+            <PageButton
+              title={intl.formatMessage({
+                id: "page.setting.about.privacy-policy",
+              })}
+              endIcon={<RightArrowIcon />}
+              onClick={() => {
+                browser.tabs.create({
+                  url: PrivacyPolicyUrl,
+                });
+              }}
+            />
+          )}
         </Stack>
       </Box>
     </HeaderLayout>

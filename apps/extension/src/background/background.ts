@@ -9,7 +9,6 @@ import { BACKGROUND_PORT } from "@keplr-wallet/router";
 import {
   ExtensionRouter,
   ExtensionGuards,
-  ExtensionEnv,
   ContentScriptMessageRequester,
   InExtensionMessageRequester,
 } from "@keplr-wallet/router-extension";
@@ -27,12 +26,13 @@ import {
   TokenContractListURL,
 } from "../config";
 import { initEpixNative } from "./epix-native";
+import { mobileEnv } from "./mobile-env";
 
 // Epix network integration: live direct/Tor routing in desktop Firefox plus
 // the native-host bridge used by the Tor/I2P status and settings UI.
 initEpixNative();
 
-const router = new ExtensionRouter(ExtensionEnv.produceEnv);
+const router = new ExtensionRouter(mobileEnv);
 router.addGuard(ExtensionGuards.checkOriginIsValid);
 router.addGuard(ExtensionGuards.checkMessageIsInternal);
 
@@ -172,6 +172,9 @@ const { initFn, analyticsService, phishingListService } = init(
 );
 
 router.listen(BACKGROUND_PORT, initFn).then(() => {
+  if (typeof window !== "undefined") {
+    (window as any).__epixMobileBackgroundReady = true;
+  }
   // No auto-opened register page: on every platform the first launch belongs
   // to the app/xite, and onboarding starts when the user opens the wallet
   // with an empty keyring (see src/index.tsx, which opens /register.html#).

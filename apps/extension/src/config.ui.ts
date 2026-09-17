@@ -2,7 +2,8 @@
 import { FiatCurrency } from "@keplr-wallet/types";
 
 export const HelpDeskUrl = "https://github.com/EpixZone/epix-wallet/issues";
-export const TermsOfUseUrl = "https://discord.gg/bF2GKHgrfv";
+export const TermsOfUseUrl = process.env["EPIX_TERMS_URL"] || "";
+export const PrivacyPolicyUrl = process.env["EPIX_PRIVACY_URL"] || "";
 
 // The EPIX chain id. Use ChainIdHelper.parse(EpixChainId).identifier when
 // logic depends on the chain identifier rather than the full chain id.
@@ -133,6 +134,14 @@ export const GoogleAPIKeyForMeasurement =
   process.env["KEPLR_EXT_GOOGLE_API_KEY_FOR_MEASUREMENT"] || "";
 
 export const AmplitudeAPIKey = process.env["KEPLR_EXT_AMPLITUDE_API_KEY"] || "";
+
+// Show the usage-data control only when a service can send analytics.
+export const WalletUsageAnalyticsConfigured = Boolean(
+  AmplitudeAPIKey ||
+    (GoogleMeasurementId && GoogleAPIKeyForMeasurement) ||
+    (process.env["KEPLR_EXT_ANALYTICS_API_URL"] &&
+      process.env["KEPLR_EXT_ANALYTICS_API_AUTH_TOKEN"])
+);
 
 export const ICNSInfo = {
   chainId: "osmosis-1",

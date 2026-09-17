@@ -13,6 +13,7 @@ import { BACKGROUND_PORT } from "@keplr-wallet/router";
 import { SetDisableAnalyticsMsg } from "@keplr-wallet/background";
 import { observer } from "mobx-react-lite";
 import { useStore } from "../../../stores";
+import { WalletUsageAnalyticsConfigured } from "../../../config.ui";
 
 export const SettingSecurityPage: FunctionComponent = observer(() => {
   const { uiConfigStore } = useStore();
@@ -58,7 +59,8 @@ export const SettingSecurityPage: FunctionComponent = observer(() => {
             onClick={() => navigate("/setting/security/change-password")}
           />
 
-          {uiConfigStore.platform === "firefox" ? null : (
+          {!WalletUsageAnalyticsConfigured ||
+          uiConfigStore.platform === "firefox" ? null : (
             <PageButton
               title={intl.formatMessage({
                 id: "page.setting.security.analytics-title",
