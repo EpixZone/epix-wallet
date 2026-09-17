@@ -46,7 +46,17 @@ jobs:
       - name: Build libraries
         run: yarn build:libs
 
+      - name: Check mobile wallet approval transport
+        run: |
+          yarn workspace @keplr-wallet/extension typecheck
+          yarn workspace @keplr-wallet/extension test --runInBand src/background/mobile-env.test.ts
+
       - name: Build extension
+        env:
+          EPIX_TERMS_URL: ${{ vars.EPIX_TERMS_URL }}
+          EPIX_PRIVACY_URL: ${{ vars.EPIX_PRIVACY_URL }}
+          # Set only after the operator has published and verified both pages.
+          EPIX_MOBILE_STORE_BUILD: ${{ vars.EPIX_MOBILE_STORE_BUILD }}
         run: yarn workspace @keplr-wallet/extension build
 
       - name: Zip firefox build

@@ -3720,17 +3720,9 @@ export const isNativeChainInUI = (chainId: string): boolean => {
   );
 };
 
-// The origins that are able to pass any permission that external webpages can have.
-export const PrivilegedOrigins: string[] = [
-  "https://wallet.keplr.app",
-  "https://validator.keplr.app",
-  "https://chains.keplr.app",
-  "https://testnet.keplr.app",
-  "https://multisig.keplr.app",
-  "https://beta-stage.polaris.app",
-  "https://beta.polaris.app",
-  "https://polaris.app",
-];
+// Epix Wallet has no external websites that bypass connection approval.
+// Upstream service domains are third parties in this distribution.
+export const PrivilegedOrigins: string[] = [];
 
 export const MsgPrivilegedContractMap: Record<
   string,

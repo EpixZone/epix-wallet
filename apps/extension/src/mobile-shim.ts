@@ -44,13 +44,16 @@ const stubEvent = () => {
 
 const onMessage = stubEvent();
 
-function dispatchMessage(message: any): Promise<any> {
+function dispatchMessage(
+  message: any,
+  sender?: { id: string; url: string }
+): Promise<any> {
+  const messageSender = sender ?? { id: EXT_ID, url: window.location.href };
   return new Promise((resolve, reject) => {
     setTimeout(() => {
-      const sender = { id: EXT_ID, url: window.location.href };
       for (const l of [...onMessage._listeners]) {
         try {
-          const r = l(message, sender);
+          const r = l(message, messageSender);
           if (r !== undefined && r !== null && typeof r.then === "function") {
             r.then(resolve, reject);
             return;
@@ -72,6 +75,13 @@ function dispatchMessage(message: any): Promise<any> {
     }, 0);
   });
 }
+
+// Called only in the wallet document by the native host. Sender provenance is
+// reconstructed natively from WKFrameInfo; webpages cannot select an internal
+// extension identity. The router additionally checks origin and message type.
+(window as any).__epixDappReceive = (message: any, sender: any) => {
+  return dispatchMessage(message, { id: "", url: sender.url });
+};
 
 // ---------------------------------------------------------------------------
 // storage.local on localStorage; storage.session in memory.
@@ -140,8 +150,13 @@ const storePending = new Map<
   { resolve: (v: any) => void; reject: (e: any) => void }
 >();
 
-(window as any).__epixStoreReply = (id: number, result: any) => {
-  storePending.get(id)?.resolve(result);
+(window as any).__epixStoreReply = (
+  id: number,
+  result: any,
+  error?: string
+) => {
+  if (error) storePending.get(id)?.reject(new Error(error));
+  else storePending.get(id)?.resolve(result);
   storePending.delete(id);
 };
 

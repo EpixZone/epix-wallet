@@ -8,6 +8,41 @@ const BundleAnalyzerPlugin =
   require("webpack-bundle-analyzer").BundleAnalyzerPlugin;
 const fs = require("fs");
 
+const analyticsEnvironmentKeys = [
+  "KEPLR_EXT_AMPLITUDE_API_KEY",
+  "KEPLR_EXT_ANALYTICS_API_URL",
+  "KEPLR_EXT_ANALYTICS_API_AUTH_TOKEN",
+  "KEPLR_EXT_GOOGLE_MEASUREMENT_ID",
+  "KEPLR_EXT_GOOGLE_API_KEY_FOR_MEASUREMENT",
+];
+const analyticsConfigured = analyticsEnvironmentKeys.some((key) =>
+  Boolean(process.env[key])
+);
+
+// Store artifacts require real, public policy pages, supplied by the operator.
+if (process.env.EPIX_MOBILE_STORE_BUILD === "1") {
+  if (analyticsConfigured) {
+    throw new Error(
+      "The mobile privacy policy requires wallet analytics to be disabled. Remove analytics credentials before building for the stores."
+    );
+  }
+  for (const key of ["EPIX_TERMS_URL", "EPIX_PRIVACY_URL"]) {
+    let valid = false;
+    try {
+      const url = new URL(process.env[key] || "");
+      valid =
+        url.protocol === "https:" &&
+        !["discord.gg", "localhost"].includes(url.hostname);
+    } catch (_) {
+      /* Missing/invalid URL fails the release build below. */
+    }
+    if (!valid)
+      throw new Error(
+        `${key} must point to the operator's published HTTPS policy page`
+      );
+  }
+}
+
 const isBuildManifestV2 = process.env.BUILD_MANIFEST_V2 === "true";
 
 const isEnvDevelopment = process.env.NODE_ENV !== "production";
@@ -59,6 +94,7 @@ module.exports = {
   entry: {
     popup: ["./src/index.tsx"],
     mobileShim: ["./src/mobile-shim.ts"],
+    mobileProvider: ["./src/mobile-provider.ts"],
     register: ["./src/register.tsx"],
     blocklist: ["./src/pages/blocklist/index.tsx"],
     ledgerGrant: ["./src/ledger-grant.tsx"],
@@ -87,7 +123,11 @@ module.exports = {
           return false;
         }
 
-        const servicePackages = ["contentScripts", "injectedScript"];
+        const servicePackages = [
+          "contentScripts",
+          "injectedScript",
+          "mobileProvider",
+        ];
 
         if (!isBuildManifestV2) {
           servicePackages.push("background");
@@ -164,11 +204,65 @@ module.exports = {
     ],
   },
   plugins: [
+    {
+      apply(compiler) {
+        compiler.hooks.thisCompilation.tap(
+          "EpixMobileBuildInfo",
+          (compilation) => {
+            compilation.hooks.processAssets.tap(
+              {
+                name: "EpixMobileBuildInfo",
+                stage: webpack.Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL,
+              },
+              () => {
+                const { execFileSync } = require("node:child_process");
+                // Build provenance must use the installed system Git, never an
+                // executable injected through a workspace-modified PATH.
+                const gitExecutable =
+                  process.platform === "win32"
+                    ? String.raw`C:\Program Files\Git\cmd\git.exe`
+                    : "/usr/bin/git";
+                const git = (...args) =>
+                  execFileSync(gitExecutable, args, {
+                    cwd: __dirname,
+                    encoding: "utf8",
+                  }).trim();
+                compilation.emitAsset(
+                  "epix-mobile-build.json",
+                  new webpack.sources.RawSource(
+                    JSON.stringify(
+                      {
+                        schema: 1,
+                        providerProtocol: 1,
+                        revision: git("rev-parse", "HEAD"),
+                        modifiedSource:
+                          git(
+                            "status",
+                            "--porcelain",
+                            "--untracked-files=normal"
+                          ).length > 0,
+                        termsURL: process.env.EPIX_TERMS_URL || "",
+                        privacyURL: process.env.EPIX_PRIVACY_URL || "",
+                        analyticsConfigured,
+                      },
+                      null,
+                      2
+                    ) + "\n"
+                  )
+                );
+              }
+            );
+          }
+        );
+      },
+    },
     new webpack.ProvidePlugin({
       process: "process/browser",
       Buffer: ["buffer", "Buffer"],
     }),
     new webpack.EnvironmentPlugin({
+      EPIX_TERMS_URL: "",
+      EPIX_PRIVACY_URL: "",
       NODE_ENV: isEnvDevelopment ? "development" : "production",
       // XXX: SC_DISABLE_SPEEDY is used for force enabling speedy mode for styled-components.
       //      According to the document, styled-components injects stylings to <style /> tag for each class name if development mode.

@@ -25,7 +25,7 @@ import {
 import { InExtensionMessageRequester } from "@keplr-wallet/router-extension";
 import { BACKGROUND_PORT } from "@keplr-wallet/router";
 import { SearchTextInput } from "../../components/input";
-import { HelpDeskUrl } from "../../config.ui";
+import { HelpDeskUrl, WalletUsageAnalyticsConfigured } from "../../config.ui";
 import { useFocusOnMount } from "../../hooks/use-focus-on-mount";
 import { Gutter } from "../../components/gutter";
 import { XAxis, YAxis } from "../../components/axis";
@@ -360,36 +360,42 @@ export const SettingPage: FunctionComponent = observer(() => {
                   rightProps: {},
                   onClick: () => navigate("/setting/security/auto-lock"),
                 },
-                {
-                  key: "share-anonymous-data",
-                  icon: IconAnonymous,
-                  title: intl.formatMessage({
-                    id: "page.setting.security.analytics-title",
-                  }),
-                  right: Toggle,
-                  rightProps: {
-                    size: "smaller",
-                    isOpen: !disableAnalytics,
-                    setIsOpen: () => {
-                      const disableAnalytics =
-                        localStorage.getItem("disable-analytics") === "true";
+                ...(WalletUsageAnalyticsConfigured &&
+                uiConfigStore.platform !== "firefox"
+                  ? [
+                      {
+                        key: "share-anonymous-data",
+                        icon: IconAnonymous,
+                        title: intl.formatMessage({
+                          id: "page.setting.security.analytics-title",
+                        }),
+                        right: Toggle,
+                        rightProps: {
+                          size: "smaller",
+                          isOpen: !disableAnalytics,
+                          setIsOpen: () => {
+                            const disableAnalytics =
+                              localStorage.getItem("disable-analytics") ===
+                              "true";
 
-                      new InExtensionMessageRequester()
-                        .sendMessage(
-                          BACKGROUND_PORT,
-                          new SetDisableAnalyticsMsg(!disableAnalytics)
-                        )
-                        .then((analyticsDisabled) => {
-                          localStorage.setItem(
-                            "disable-analytics",
-                            analyticsDisabled ? "true" : "false"
-                          );
+                            new InExtensionMessageRequester()
+                              .sendMessage(
+                                BACKGROUND_PORT,
+                                new SetDisableAnalyticsMsg(!disableAnalytics)
+                              )
+                              .then((analyticsDisabled) => {
+                                localStorage.setItem(
+                                  "disable-analytics",
+                                  analyticsDisabled ? "true" : "false"
+                                );
 
-                          setDisableAnalytics(analyticsDisabled);
-                        });
-                    },
-                  },
-                },
+                                setDisableAnalytics(analyticsDisabled);
+                              });
+                          },
+                        },
+                      },
+                    ]
+                  : []),
               ],
             },
             {
