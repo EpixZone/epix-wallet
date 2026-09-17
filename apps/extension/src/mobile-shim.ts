@@ -46,13 +46,14 @@ const onMessage = stubEvent();
 
 function dispatchMessage(
   message: any,
-  sender = { id: EXT_ID, url: window.location.href }
+  sender?: { id: string; url: string }
 ): Promise<any> {
+  const messageSender = sender ?? { id: EXT_ID, url: window.location.href };
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       for (const l of [...onMessage._listeners]) {
         try {
-          const r = l(message, sender);
+          const r = l(message, messageSender);
           if (r !== undefined && r !== null && typeof r.then === "function") {
             r.then(resolve, reject);
             return;

@@ -215,9 +215,15 @@ module.exports = {
                 stage: webpack.Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL,
               },
               () => {
-                const { execFileSync } = require("child_process");
+                const { execFileSync } = require("node:child_process");
+                // Build provenance must use the installed system Git, never an
+                // executable injected through a workspace-modified PATH.
+                const gitExecutable =
+                  process.platform === "win32"
+                    ? "C:\\Program Files\\Git\\cmd\\git.exe"
+                    : "/usr/bin/git";
                 const git = (...args) =>
-                  execFileSync("git", args, {
+                  execFileSync(gitExecutable, args, {
                     cwd: __dirname,
                     encoding: "utf8",
                   }).trim();
