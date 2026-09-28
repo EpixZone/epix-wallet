@@ -131,6 +131,7 @@ import { StakeEmptyPage } from "./pages/stake/empty";
 import { StakeValidatorListPage } from "./pages/stake/validators";
 import { StakeValidatorDetailPage } from "./pages/stake/validator";
 import { StakeDelegatePage } from "./pages/stake/delegate";
+import { StakeCancelUndelegatePage } from "./pages/stake/cancel-undelegate";
 import { StakeUndelegatePage } from "./pages/stake/undelegate";
 import { StakeRedelegatePage } from "./pages/stake/redelegate";
 import { SwitchAccountPage } from "./pages/switch-account";
@@ -456,6 +457,10 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
               <Route
                 path="/stake/delegate/:chainId/:validatorAddress"
                 element={<StakeDelegatePage />}
+              />
+              <Route
+                path="/stake/cancel-undelegate/:chainId/:validatorAddress/:creationHeight"
+                element={<StakeCancelUndelegatePage />}
               />
               <Route
                 path="/stake/undelegate/:chainId/:validatorAddress"

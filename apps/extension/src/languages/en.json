@@ -644,6 +644,8 @@
   "page.stake.delegate.title": "Stake",
   "page.stake.delegate.guide-box.title": "Staking will lock your funds for {unbondingPeriodDay} days",
   "page.stake.delegate.guide-box.paragraph": "You will need to unstake in order for your staked assets to be liquid again. This process will take {unbondingPeriodDay} days to complete.",
+  "page.stake.cancel-undelegate.title": "Cancel undelegation",
+  "page.stake.cancel-undelegate.description": "This cancels the remaining amount of this undelegation and stakes it with the same validator again. To withdraw it later, you will need to start a new undelegation period.",
   "page.stake.undelegate.title": "Unstake",
   "page.stake.undelegate.guide-box.title": "Once the unstaking period begins you will:",
   "page.stake.undelegate.guide-box.paragraph-1": "not receive staking rewards",

@@ -13,6 +13,7 @@ export type QueriesStore = IQueriesStore<
       cosmos?: Pick<
         CosmosQueriesImpl,
         | "queryDelegations"
+        | "queryUnbondingDelegations"
         | "queryFeeMarketGasPrices"
         | "queryEvmFeeMarketBaseFee"
       >;
