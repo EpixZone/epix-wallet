@@ -1,4 +1,5 @@
 import type { SceneTransitionRef } from "../../../components/transition";
+import { v4 as uuidv4 } from "uuid";
 
 // Only a depth marker goes into browser history. Recovery words, keys and
 // passwords stay in the existing in-memory scenes.
@@ -15,7 +16,7 @@ export function bindRegisterNavigation(
 ): () => void {
   const scene = getScene();
   if (!scene) return () => undefined;
-  const owner = `register-${Date.now()}-${Math.random()}`;
+  const owner = `register-${uuidv4()}`;
   let depth = scene.stack.length;
   let signature = scene.stack.join("/");
   let applyingHistory = false;

@@ -1,3 +1,5 @@
+import { v4 as uuidv4 } from "uuid";
+
 /** A touch modal gets a history entry so Android Back closes it before the page. */
 export function bindModalBack(
   close: () => void,
@@ -6,7 +8,7 @@ export function bindModalBack(
     "history" | "addEventListener" | "removeEventListener"
   > = window
 ): () => void {
-  const id = `modal-${Date.now()}-${Math.random()}`;
+  const id = `modal-${uuidv4()}`;
   const stack = browser.history.state?.epixModals ?? [];
   browser.history.pushState(
     { ...browser.history.state, epixModals: [...stack, id] },
