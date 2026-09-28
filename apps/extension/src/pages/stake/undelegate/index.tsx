@@ -22,6 +22,7 @@ import { GuideBox } from "../../../components/guide-box";
 import { Body2 } from "../../../components/typography";
 import { ColorPalette } from "../../../styles";
 import { ValidatorCard } from "../components/validator-card";
+import { useSubmitStakeTx } from "../hooks/use-submit-stake-tx";
 import { useFeemarketGasAdjustment } from "../hooks/use-feemarket-gas-adjustment";
 
 export const StakeUndelegatePage: FunctionComponent = () => {
@@ -52,7 +53,6 @@ const UndelegateView: FunctionComponent<{
 }> = observer(({ chainId, validatorAddress }) => {
   const { accountStore, chainStore, queriesStore } = useStore();
   const intl = useIntl();
-  const navigate = useNavigate();
 
   const account = accountStore.getAccount(chainId);
   const sender = account.bech32Address;
@@ -93,6 +93,16 @@ const UndelegateView: FunctionComponent<{
     gasSimulator,
   });
 
+  const onSubmit = useSubmitStakeTx({
+    ...sendConfigs,
+    interactionBlocked: txConfigsValidate.interactionBlocked,
+    makeTx: () =>
+      account.cosmos.makeUndelegateTx(
+        sendConfigs.amountConfig.amount[0].toDec().toString(),
+        sendConfigs.recipientConfig.recipient
+      ),
+  });
+
   return (
     <HeaderLayout
       title={intl.formatMessage({ id: "page.stake.undelegate.title" })}
@@ -108,50 +118,7 @@ const UndelegateView: FunctionComponent<{
           isLoading: account.isSendingMsg === "undelegate",
         },
       ]}
-      onSubmit={async (e) => {
-        e.preventDefault();
-
-        if (txConfigsValidate.interactionBlocked) {
-          return;
-        }
-
-        const tx = account.cosmos.makeUndelegateTx(
-          sendConfigs.amountConfig.amount[0].toDec().toString(),
-          sendConfigs.recipientConfig.recipient
-        );
-
-        try {
-          await tx.send(
-            sendConfigs.feeConfig.toStdFee(),
-            sendConfigs.memoConfig.memo,
-            {
-              preferNoSetFee: true,
-              preferNoSetMemo: true,
-            },
-            {
-              onBroadcasted: () => {
-                navigate("/tx-result/pending");
-              },
-              onFulfill: (tx: any) => {
-                if (tx.code != null && tx.code !== 0) {
-                  console.log(tx.log ?? tx.raw_log);
-                  navigate("/tx-result/failed");
-                  return;
-                }
-
-                navigate("/tx-result/success");
-              },
-            }
-          );
-        } catch (e) {
-          if (e?.message === "Request rejected") {
-            return;
-          }
-
-          console.log(e);
-          navigate("/tx-result/failed");
-        }
-      }}
+      onSubmit={onSubmit}
     >
       <Box
         paddingX="0.75rem"

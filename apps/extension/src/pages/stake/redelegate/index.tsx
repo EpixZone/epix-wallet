@@ -26,6 +26,7 @@ import { ColorPalette } from "../../../styles";
 import { ArrowRightIcon } from "../../../components/icon";
 import { ValidatorCard } from "../components/validator-card";
 import { ValidatorImage } from "../components/validator-image";
+import { useSubmitStakeTx } from "../hooks/use-submit-stake-tx";
 import { useFeemarketGasAdjustment } from "../hooks/use-feemarket-gas-adjustment";
 import { COMMON_HOVER_OPACITY } from "../../../styles/constant";
 
@@ -132,6 +133,17 @@ const RedelegateView: FunctionComponent<{
       gasSimulator,
     });
 
+    const onSubmit = useSubmitStakeTx({
+      ...sendConfigs,
+      interactionBlocked: txConfigsValidate.interactionBlocked,
+      makeTx: () =>
+        account.cosmos.makeBeginRedelegateTx(
+          sendConfigs.amountConfig.amount[0].toDec().toString(),
+          validatorAddress,
+          dstValidatorAddress
+        ),
+    });
+
     return (
       <HeaderLayout
         title={intl.formatMessage({ id: "page.stake.redelegate.title" })}
@@ -147,51 +159,7 @@ const RedelegateView: FunctionComponent<{
             isLoading: account.isSendingMsg === "redelegate",
           },
         ]}
-        onSubmit={async (e) => {
-          e.preventDefault();
-
-          if (txConfigsValidate.interactionBlocked) {
-            return;
-          }
-
-          const tx = account.cosmos.makeBeginRedelegateTx(
-            sendConfigs.amountConfig.amount[0].toDec().toString(),
-            validatorAddress,
-            dstValidatorAddress
-          );
-
-          try {
-            await tx.send(
-              sendConfigs.feeConfig.toStdFee(),
-              sendConfigs.memoConfig.memo,
-              {
-                preferNoSetFee: true,
-                preferNoSetMemo: true,
-              },
-              {
-                onBroadcasted: () => {
-                  navigate("/tx-result/pending");
-                },
-                onFulfill: (tx: any) => {
-                  if (tx.code != null && tx.code !== 0) {
-                    console.log(tx.log ?? tx.raw_log);
-                    navigate("/tx-result/failed");
-                    return;
-                  }
-
-                  navigate("/tx-result/success");
-                },
-              }
-            );
-          } catch (e) {
-            if (e?.message === "Request rejected") {
-              return;
-            }
-
-            console.log(e);
-            navigate("/tx-result/failed");
-          }
-        }}
+        onSubmit={onSubmit}
       >
         <Box
           paddingX="0.75rem"

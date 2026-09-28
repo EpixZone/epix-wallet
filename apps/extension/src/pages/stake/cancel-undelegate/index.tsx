@@ -18,6 +18,7 @@ import { Stack } from "../../../components/stack";
 import { MemoInput } from "../../../components/input/memo-input";
 import { FeeControl } from "../../../components/input/fee-control";
 import { ValidatorCard } from "../components/validator-card";
+import { useSubmitStakeTx } from "../hooks/use-submit-stake-tx";
 import { useFeemarketGasAdjustment } from "../hooks/use-feemarket-gas-adjustment";
 
 export const StakeCancelUndelegatePage: FunctionComponent = () => {
@@ -54,7 +55,6 @@ const CancelUndelegateView: FunctionComponent<{
 }> = observer(({ chainId, validatorAddress, creationHeight }) => {
   const { accountStore, chainStore, queriesStore } = useStore();
   const intl = useIntl();
-  const navigate = useNavigate();
 
   const account = accountStore.getAccount(chainId);
   const sender = account.bech32Address;
@@ -97,6 +97,17 @@ const CancelUndelegateView: FunctionComponent<{
     gasSimulator,
   });
 
+  const onSubmit = useSubmitStakeTx({
+    ...sendConfigs,
+    interactionBlocked: txConfigsValidate.interactionBlocked,
+    makeTx: () =>
+      account.cosmos.makeCancelUndelegateTx(
+        sendConfigs.amountConfig.amount[0].toDec().toString(),
+        validatorAddress,
+        creationHeight
+      ),
+  });
+
   return (
     <HeaderLayout
       title={intl.formatMessage({
@@ -115,51 +126,7 @@ const CancelUndelegateView: FunctionComponent<{
           isLoading: account.isSendingMsg === "cancelUndelegate",
         },
       ]}
-      onSubmit={async (e) => {
-        e.preventDefault();
-
-        if (txConfigsValidate.interactionBlocked) {
-          return;
-        }
-
-        try {
-          const tx = account.cosmos.makeCancelUndelegateTx(
-            sendConfigs.amountConfig.amount[0].toDec().toString(),
-            validatorAddress,
-            creationHeight
-          );
-
-          await tx.send(
-            sendConfigs.feeConfig.toStdFee(),
-            sendConfigs.memoConfig.memo,
-            {
-              preferNoSetFee: true,
-              preferNoSetMemo: true,
-            },
-            {
-              onBroadcasted: () => {
-                navigate("/tx-result/pending");
-              },
-              onFulfill: (tx: any) => {
-                if (tx.code != null && tx.code !== 0) {
-                  console.log(tx.log ?? tx.raw_log);
-                  navigate("/tx-result/failed");
-                  return;
-                }
-
-                navigate("/tx-result/success");
-              },
-            }
-          );
-        } catch (e) {
-          if (e?.message === "Request rejected") {
-            return;
-          }
-
-          console.log(e);
-          navigate("/tx-result/failed");
-        }
-      }}
+      onSubmit={onSubmit}
     >
       <Box
         paddingX="0.75rem"
