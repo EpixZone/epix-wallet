@@ -659,14 +659,12 @@ export class EthereumAccountBase {
   }
 
   static isEthereumHexAddressWithChecksum(hexAddress: string): boolean {
-    const isHexAddress = !!hexAddress.match(/^0x[0-9A-Fa-f]*$/);
-    const isChecksumAddress = !!hexAddress.match(
-      /([A-F].*[a-f])|([a-f].*[A-F])/
-    );
-    if (!isHexAddress || hexAddress.length !== 42) {
+    if (hexAddress.length !== 42 || !/^0x[0-9A-Fa-f]{40}$/.test(hexAddress)) {
       return false;
     }
 
+    const isChecksumAddress =
+      /[A-F]/.test(hexAddress) && /[a-f]/.test(hexAddress);
     const checksumHexAddress = getEthAddress(hexAddress.toLowerCase());
     if (isChecksumAddress && checksumHexAddress !== hexAddress) {
       return false;
