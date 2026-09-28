@@ -1,3 +1,6 @@
+import { useNavigate } from "react-router";
+import { ChainIdHelper } from "@keplr-wallet/cosmos";
+import { Button } from "../../../components/button";
 import React, { FunctionComponent } from "react";
 import { observer } from "mobx-react-lite";
 import { FormattedMessage, useIntl } from "react-intl";
@@ -19,6 +22,7 @@ export const UnbondingCard: FunctionComponent<{
 }> = observer(({ chainId, validatorAddress }) => {
   const { accountStore, queriesStore } = useStore();
   const intl = useIntl();
+  const navigate = useNavigate();
   const theme = useTheme();
 
   const account = accountStore.getAccount(chainId);
@@ -102,6 +106,24 @@ export const UnbondingCard: FunctionComponent<{
                 </XAxis>
                 <Gutter size="0.5rem" />
                 <ProgressBar progress={progress} />
+                {ChainIdHelper.parse(chainId).identifier === "epix_1916" &&
+                  new Date(entry.completionTime).getTime() > Date.now() && (
+                    <Box paddingTop="0.5rem">
+                      <Button
+                        color="secondary"
+                        size="small"
+                        text={intl.formatMessage({
+                          id: "page.stake.cancel-undelegate.title",
+                          defaultMessage: "Cancel undelegation",
+                        })}
+                        onClick={() =>
+                          navigate(
+                            `/stake/cancel-undelegate/${chainId}/${validatorAddress}/${entry.creationHeight.toString()}`
+                          )
+                        }
+                      />
+                    </Box>
+                  )}
               </Box>
             );
           })}
