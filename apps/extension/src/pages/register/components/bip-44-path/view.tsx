@@ -11,29 +11,7 @@ import { Tooltip } from "../../../../components/tooltip";
 import { InformationOutlineIcon } from "../../../../components/icon";
 import { XAxis } from "../../../../components/axis";
 import { useTheme } from "styled-components";
-
-const CloseSvg: FunctionComponent<{ size: number | string; color: string }> = ({
-  size,
-  color,
-}) => {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width={size}
-      height={size}
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <path
-        stroke={color}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2.5"
-        d="M6 18L18 6M6 6l12 12"
-      />
-    </svg>
-  );
-};
+import { XCloseIcon as DSXCloseIcon } from "@keplr-wallet/design-system";
 
 export const SetBip44PathCard: FunctionComponent<{
   coinType?: number;
@@ -69,8 +47,12 @@ export const SetBip44PathCard: FunctionComponent<{
       <Styles.Title>
         <FormattedMessage id="pages.register.components.bip-44-path.title" />
       </Styles.Title>
-      <Styles.CloseContainer onClick={onClickReset}>
-        <CloseSvg size="1.5rem" color={ColorPalette["gray-300"]} />
+      <Styles.CloseContainer
+        type="button"
+        aria-label={intl.formatMessage({ id: "button.close" })}
+        onClick={onClickReset}
+      >
+        <DSXCloseIcon size="1.5rem" />
       </Styles.CloseContainer>
       <Gutter size="1.125rem" />
       <ul>
@@ -126,7 +108,6 @@ export const SetBip44PathCard: FunctionComponent<{
       <Gutter size="0.5rem" />
       <Styles.InputsContainer>
         <div>{`m/-'/${coinType != null ? coinType : "-"}'/`}</div>
-        <Gutter size="0.5rem" />
         <Styles.InputContainer>
           <TextInput
             type="number"
@@ -141,9 +122,7 @@ export const SetBip44PathCard: FunctionComponent<{
             errorBorder={!state.isAccountValid()}
           />
         </Styles.InputContainer>
-        <Gutter size="0.5rem" />
         <Styles.LightText>{`'/`}</Styles.LightText>
-        <Gutter size="0.5rem" />
         <Styles.InputContainer>
           <TextInput
             type="number"
@@ -158,9 +137,7 @@ export const SetBip44PathCard: FunctionComponent<{
             errorBorder={!state.isChangeValid()}
           />
         </Styles.InputContainer>
-        <Gutter size="0.5rem" />
         <Styles.LightText>/</Styles.LightText>
-        <Gutter size="0.5rem" />
         <Styles.InputContainer>
           <TextInput
             type="number"

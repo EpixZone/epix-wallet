@@ -1,3 +1,4 @@
+import { focusForKeyboard } from "../../../utils/focus";
 import React, {
   FunctionComponent,
   useCallback,
@@ -161,9 +162,7 @@ export const EnableChainsScene: FunctionComponent<{
         });
       },
       onDidVisible: () => {
-        if (searchRef.current) {
-          searchRef.current.focus();
-        }
+        focusForKeyboard(searchRef.current);
       },
     });
 

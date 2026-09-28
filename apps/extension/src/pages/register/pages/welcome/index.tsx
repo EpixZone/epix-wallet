@@ -100,13 +100,33 @@ export const WelcomePage: FunctionComponent = observer(() => {
                 maxWidth="31.25rem"
                 style={{
                   fontWeight: 600,
-                  fontSize: "clamp(2.25rem, 8vw, 3.5rem)",
+                  fontSize: "clamp(1.75rem, 7vw, 3.5rem)",
+                  lineHeight: 1.2,
                 }}
               >
                 <FormattedMessage id="pages.register.pages.welcome.title" />
               </Box>
 
-              <Gutter size="2.25rem" />
+              <Gutter size="1.25rem" />
+              <Button
+                text={intl.formatMessage({
+                  id: "pages.register.pages.welcome.finish-button",
+                })}
+                size="large"
+                style={{
+                  width: "100%",
+                  maxWidth: "22.5rem",
+                  whiteSpace: "normal",
+                  height: "auto",
+                  minHeight: "3.25rem",
+                  padding: "0.75rem",
+                }}
+                onClick={() => {
+                  window.close();
+                }}
+              />
+
+              <Gutter size="1.5rem" />
 
               <Box style={{ fontWeight: 500, fontSize: "1.25rem" }}>
                 <FormattedMessage id="pages.register.pages.welcome.paragraph" />
@@ -159,19 +179,6 @@ export const WelcomePage: FunctionComponent = observer(() => {
         <Gutter size="1.5rem" />
 
         <XAxis alignY="center" wrap="wrap">
-          <Button
-            text={intl.formatMessage({
-              id: "pages.register.pages.welcome.finish-button",
-            })}
-            size="large"
-            style={{ width: "10rem" }}
-            onClick={() => {
-              window.close();
-            }}
-          />
-
-          <Gutter size="1.5rem" />
-
           <Box
             cursor="pointer"
             onClick={(e) => {
@@ -182,7 +189,7 @@ export const WelcomePage: FunctionComponent = observer(() => {
               });
             }}
           >
-            <XAxis alignY="center">
+            <XAxis alignY="center" wrap="wrap" gap="0.5rem">
               <Box
                 padding="0.375rem"
                 backgroundColor={
@@ -238,7 +245,7 @@ const CongratsImage: FunctionComponent<{ size: string }> = ({ size }) => {
       : require("../../../../public/assets/img/congrats-bird-dark.png");
 
   return (
-    <img
+    <Styles.CongratsImage
       src={src}
       alt="Congrats"
       style={{

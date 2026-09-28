@@ -11,6 +11,8 @@ const ResponsivePaddingBox = styled(Box)`
     && {
       padding-left: 1.25rem;
       padding-right: 1.25rem;
+      padding-top: 1rem;
+      padding-bottom: 1rem;
     }
   }
 `;

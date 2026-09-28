@@ -11,8 +11,24 @@ import { Stack } from "../../../components/stack";
 import { RegisterH4 } from "../components/typography";
 import { Box } from "../../../components/box";
 import { FormattedMessage, useIntl } from "react-intl";
-import { useTheme } from "styled-components";
+import styled, { useTheme } from "styled-components";
 import { KeystoneIcon } from "../../../components/icon/keystone";
+
+const HardwareIllustration = styled(Box)`
+  padding: 3.125rem 0;
+  img {
+    width: 10.625rem;
+    height: 10.625rem;
+  }
+
+  @media screen and (max-width: 640px) {
+    padding: 1rem 0;
+    img {
+      width: clamp(48px, 12vh, 96px);
+      height: clamp(48px, 12vh, 96px);
+    }
+  }
+`;
 
 export const ConnectHardwareWalletScene: FunctionComponent = () => {
   const sceneTransition = useSceneTransition();
@@ -48,16 +64,12 @@ export const ConnectHardwareWalletScene: FunctionComponent = () => {
           <FormattedMessage id="pages.register.connect-hardware.content.title" />
         </Box>
       </RegisterH4>
-      <Box alignX="center" paddingBottom="3.125rem" paddingTop="3.125rem">
+      <HardwareIllustration alignX="center">
         <img
           src={require("../../../public/assets/img/intro-hardware-wallet.png")}
-          style={{
-            width: "10.625rem",
-            height: "10.625rem",
-          }}
-          alt="intro-hardware-wallet image"
+          alt=""
         />
-      </Box>
+      </HardwareIllustration>
       <Stack gutter="1.25rem">
         <Button
           text={intl.formatMessage({

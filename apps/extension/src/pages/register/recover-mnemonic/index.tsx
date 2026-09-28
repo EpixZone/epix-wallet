@@ -29,6 +29,7 @@ import { Buffer } from "buffer/";
 import { FormattedMessage, useIntl } from "react-intl";
 import { isMnemonicWord } from "@keplr-wallet/common";
 import { checkButtonPositionAndScrollToButton } from "../utils/check-button-position-and-scroll-to-button";
+import { focusForKeyboard } from "../../../utils/focus";
 import { fluidSceneWidth } from "../utils/scene-width";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const bip39 = require("bip39");
@@ -89,9 +90,7 @@ export const RecoverMnemonicScene: FunctionComponent = observer(() => {
       });
     },
     onDidVisible: () => {
-      if (firstTextInputRef.current) {
-        firstTextInputRef.current.focus();
-      }
+      focusForKeyboard(firstTextInputRef.current);
     },
   });
 
@@ -140,7 +139,7 @@ export const RecoverMnemonicScene: FunctionComponent = observer(() => {
   const handlePaste = (index: number, value: string) => {
     const words = value
       .trim()
-      .split(" ")
+      .split(/\s+/)
       .map((word) => word.toLowerCase().trim())
       .filter((word) => word.length > 0);
 

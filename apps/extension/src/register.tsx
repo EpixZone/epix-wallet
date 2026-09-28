@@ -18,6 +18,7 @@ import { WelcomePage } from "./pages/register/pages/welcome";
 import { AppIntlProvider } from "./languages";
 import { observer } from "mobx-react-lite";
 import { useLoadFonts } from "./use-load-fonts";
+import { useKeyboardViewport } from "./hooks/use-keyboard-viewport";
 import { useAutoLockMonitoring } from "./use-auto-lock-monitoring";
 import "simplebar-react/dist/simplebar.min.css";
 import { AppThemeProvider } from "./theme";
@@ -54,6 +55,7 @@ const AppRouter: FunctionComponent = () => {
 };
 
 const App: FunctionComponent = () => {
+  useKeyboardViewport();
   return (
     <StoreProvider>
       <AppThemeProvider>

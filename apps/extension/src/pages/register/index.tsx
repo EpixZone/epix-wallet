@@ -2,6 +2,7 @@ import { observer } from "mobx-react-lite";
 import React, {
   FunctionComponent,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -45,7 +46,11 @@ import {
   EpixStatusBarHeight,
   useEpixStatus,
 } from "../../components/epix-network";
+import { bindRegisterNavigation } from "./utils/navigation";
 import { fluidSceneWidth } from "./utils/scene-width";
+import { Styles as ButtonStyles } from "../../components/button/styles";
+import { Styles as TextButtonStyles } from "../../components/button-text/styles";
+import { Styles as RadioStyles } from "../../components/radio-group/styles";
 
 // The Tor/I2P strip spans the top of the register tab: the browser's privacy
 // controls are useful before (or without) ever creating a wallet, and the
@@ -61,12 +66,51 @@ const StatusBarTop = styled.div`
   z-index: 1001;
 `;
 
-const Container = styled.div`
-  min-width: 100vw;
+const Container = styled.div<{ $topInset: string }>`
+  --register-top-inset: ${({ $topInset }) => $topInset};
+  --register-bottom-inset: 1rem;
+  width: 100%;
+  min-width: 0;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  padding-top: var(--register-top-inset);
+  padding-bottom: var(--register-bottom-inset);
+
+  ${ButtonStyles.Button}, ${TextButtonStyles.Button} {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    min-height: 2.75rem;
+    height: auto;
+    padding: 0.75rem;
+    line-height: 1.35;
+  }
+  ${ButtonStyles.Left}, ${ButtonStyles.Right} {
+    flex-shrink: 0;
+  }
+
+  @media screen and (max-width: 640px) {
+    justify-content: flex-start;
+
+    ${RadioStyles.Container} {
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      align-items: stretch;
+      padding-block: 0.25rem;
+    }
+    ${RadioStyles.Button} {
+      flex: 1;
+      min-width: 0;
+      min-height: 2.75rem;
+      height: auto;
+      padding: 0.5rem 0.25rem;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      line-height: 1.3;
+    }
+  }
 `;
 
 export const RegisterPage: FunctionComponent = observer(() => {
@@ -118,9 +162,7 @@ export const RegisterPage: FunctionComponent = observer(() => {
     // The strip is fixed, so give the container matching top padding: on a
     // short window the vertically-centered content would otherwise start
     // underneath it.
-    <Container
-      style={{ paddingTop: hasEpixStatusBar ? EpixStatusBarHeight : undefined }}
-    >
+    <Container $topInset={hasEpixStatusBar ? EpixStatusBarHeight : "0px"}>
       <StatusBarTop>
         <EpixNetworkStatusBar panelMode="inline" centered />
       </StatusBarTop>
@@ -133,6 +175,29 @@ const RegisterPageImpl: FunctionComponent = observer(() => {
   const { chainStore } = useStore();
 
   const sceneRef = useRef<SceneTransitionRef | null>(null);
+  useEffect(() => bindRegisterNavigation(() => sceneRef.current), []);
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const sceneContainerRef = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    const container = sceneContainerRef.current;
+    if (!header || !container) {
+      return;
+    }
+
+    // Let the intro fill the remaining viewport without assuming a fixed
+    // header height: translated text and larger fonts can change it.
+    const updateHeaderHeight = () => {
+      container.style.setProperty(
+        "--register-header-height",
+        `${header.getBoundingClientRect().height}px`
+      );
+    };
+    updateHeaderHeight();
+    const observer = new ResizeObserver(updateHeaderHeight);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
   const theme = useTheme();
 
   const [searchParams] = useSearchParams();
@@ -275,8 +340,11 @@ const RegisterPageImpl: FunctionComponent = observer(() => {
 
   return (
     <RegisterHeaderProvider {...headerContext}>
-      <RegisterHeader sceneRef={sceneRef} />
+      <div ref={headerRef}>
+        <RegisterHeader sceneRef={sceneRef} />
+      </div>
       <Box
+        ref={sceneContainerRef}
         position="relative"
         marginX="auto"
         backgroundColor={
@@ -381,7 +449,7 @@ const RegisterPageImpl: FunctionComponent = observer(() => {
             ...KeplrWalletPrivate.RegisterScenes,
           ]}
           initialSceneProps={initials.scene}
-          transitionAlign="center"
+          transitionAlign="top"
         />
       </Box>
     </RegisterHeaderProvider>

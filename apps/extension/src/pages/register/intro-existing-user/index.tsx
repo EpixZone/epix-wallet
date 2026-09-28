@@ -71,44 +71,46 @@ export const RegisterIntroExistingUserScene: FunctionComponent = () => {
           </Box>
         }
         right={
-          <Box height="100%">
-            <RegisterH4
-              color={
-                theme.mode === "light"
-                  ? ColorPalette["gray-400"]
-                  : ColorPalette["gray-50"]
-              }
-            >
-              <FormattedMessage id="pages.register.intro-existing-user.social-recovery-title" />
-            </RegisterH4>
+          KeplrWalletPrivate.onGoogleSignInClick ? (
+            <Box height="100%">
+              <RegisterH4
+                color={
+                  theme.mode === "light"
+                    ? ColorPalette["gray-400"]
+                    : ColorPalette["gray-50"]
+                }
+              >
+                <FormattedMessage id="pages.register.intro-existing-user.social-recovery-title" />
+              </RegisterH4>
 
-            <Gutter size="0.5rem" />
-            <div style={{ flex: 1 }}>
-              <Subtitle3 color={ColorPalette["gray-200"]}>
-                <FormattedMessage id="pages.register.intro-existing-user.social-recovery-paragraph" />
-              </Subtitle3>
-            </div>
+              <Gutter size="0.5rem" />
+              <div style={{ flex: 1 }}>
+                <Subtitle3 color={ColorPalette["gray-200"]}>
+                  <FormattedMessage id="pages.register.intro-existing-user.social-recovery-paragraph" />
+                </Subtitle3>
+              </div>
 
-            <Stack gutter="0.625rem">
-              <Button
-                text={intl.formatMessage({
-                  id: "pages.register.intro-existing-user.social-recovery-google-button",
-                })}
-                size="large"
-                color="secondary"
-                left={<GoogleIcon />}
-                onClick={() => {
-                  if (KeplrWalletPrivate.onGoogleSignInClick) {
-                    KeplrWalletPrivate.onGoogleSignInClick(sceneTransition);
-                  } else {
-                    alert(
-                      intl.formatMessage({ id: "error.not-supported-error" })
-                    );
-                  }
-                }}
-              />
-            </Stack>
-          </Box>
+              <Stack gutter="0.625rem">
+                <Button
+                  text={intl.formatMessage({
+                    id: "pages.register.intro-existing-user.social-recovery-google-button",
+                  })}
+                  size="large"
+                  color="secondary"
+                  left={<GoogleIcon />}
+                  onClick={() => {
+                    if (KeplrWalletPrivate.onGoogleSignInClick) {
+                      KeplrWalletPrivate.onGoogleSignInClick(sceneTransition);
+                    } else {
+                      alert(
+                        intl.formatMessage({ id: "error.not-supported-error" })
+                      );
+                    }
+                  }}
+                />
+              </Stack>
+            </Box>
+          ) : null
         }
       />
     </RegisterSceneBox>

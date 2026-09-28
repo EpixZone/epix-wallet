@@ -1,3 +1,4 @@
+import { focusForKeyboard } from "../../../../utils/focus";
 import React, { Fragment, FunctionComponent, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStore } from "../../../../stores";
@@ -83,7 +84,7 @@ export const CopyAddressScene: FunctionComponent<{
       if (searchRef.current) {
         // XXX: Scene transition 컴포넌트가 최초 scene의 경우 onDidVisible를 발생 못시키는 문제가 있다.
         //      이 문제 때문에 그냥 mount일때와 onDidVisible일때 모두 focus를 준다.
-        searchRef.current.focus();
+        focusForKeyboard(searchRef.current);
       }
     },
   });

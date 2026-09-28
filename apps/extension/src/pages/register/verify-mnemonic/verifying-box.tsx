@@ -12,9 +12,9 @@ import {
 import { XAxis, YAxis } from "../../../components/axis";
 import { ColorPalette } from "../../../styles";
 import styled, { useTheme } from "styled-components";
-import { Gutter } from "../../../components/gutter";
 import { useSceneEvents } from "../../../components/transition";
 import { FormattedMessage } from "react-intl";
+import { focusForKeyboard } from "../../../utils/focus";
 
 const Styles = {
   IndexText: styled.div`
@@ -29,6 +29,16 @@ const Styles = {
     margin-right: 0.25rem;
   `,
 };
+
+const VerifyingWords = styled.div`
+  display: flex;
+  gap: 1rem;
+  max-width: 100%;
+
+  @media screen and (max-width: 480px) {
+    flex-direction: column;
+  }
+`;
 
 const VerifyingWordInput = styled(TextInput)`
   ${TextInputStyles.TextInputContainer} {
@@ -57,7 +67,7 @@ export const VerifyingMnemonicBox = forwardRef<
   const firstInputRef = useRef<HTMLInputElement | null>(null);
   useSceneEvents({
     onDidVisible: () => {
-      firstInputRef.current?.focus();
+      focusForKeyboard(firstInputRef.current);
     },
   });
 
@@ -92,43 +102,38 @@ export const VerifyingMnemonicBox = forwardRef<
       borderRadius="0.5rem"
     >
       <YAxis alignX="center">
-        <XAxis alignY="center">
+        <VerifyingWords>
           {words.map((word, i) => {
             return (
-              <React.Fragment key={word.index}>
-                <XAxis alignY="center">
-                  <Styles.IndexText>
-                    <FormattedMessage
-                      id="pages.register.verify-mnemonic.verifying-box.word"
-                      values={{ index: word.index + 1 }}
-                    />
-                  </Styles.IndexText>
-                  <VerifyingWordInput
-                    ref={i === 0 ? firstInputRef : undefined}
-                    value={inputs[word.index] ?? ""}
-                    onChange={(e) => {
-                      e.preventDefault();
-
-                      setInputs({
-                        ...inputs,
-                        [word.index]: e.target.value,
-                      });
-                    }}
-                    errorBorder={(() => {
-                      if (validatingStarted) {
-                        return inputs[word.index]?.trim() !== word.word;
-                      }
-                      return false;
-                    })()}
+              <XAxis key={word.index} alignY="center">
+                <Styles.IndexText>
+                  <FormattedMessage
+                    id="pages.register.verify-mnemonic.verifying-box.word"
+                    values={{ index: word.index + 1 }}
                   />
-                </XAxis>
-                {i !== words.length - 1 ? (
-                  <Gutter size="1rem" direction="horizontal" />
-                ) : null}
-              </React.Fragment>
+                </Styles.IndexText>
+                <VerifyingWordInput
+                  ref={i === 0 ? firstInputRef : undefined}
+                  value={inputs[word.index] ?? ""}
+                  onChange={(e) => {
+                    e.preventDefault();
+
+                    setInputs({
+                      ...inputs,
+                      [word.index]: e.target.value,
+                    });
+                  }}
+                  errorBorder={(() => {
+                    if (validatingStarted) {
+                      return inputs[word.index]?.trim() !== word.word;
+                    }
+                    return false;
+                  })()}
+                />
+              </XAxis>
             );
           })}
-        </XAxis>
+        </VerifyingWords>
       </YAxis>
     </Box>
   );

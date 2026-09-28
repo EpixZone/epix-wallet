@@ -1,10 +1,4 @@
-import React, {
-  FunctionComponent,
-  PropsWithChildren,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { FunctionComponent, useEffect, useRef, useState } from "react";
 import { RegisterSceneBox } from "../components/register-scene-box";
 import { Button } from "../../../components/button";
 import {
@@ -30,7 +24,8 @@ import { VerticalCollapseTransition } from "../../../components/transition/verti
 import { WarningBox } from "../../../components/warning-box";
 import { CopyToClipboard } from "../components/copy-to-clipboard";
 import { useIntl } from "react-intl";
-import { useTheme } from "styled-components";
+import styled from "styled-components";
+import { DSColor } from "@keplr-wallet/design-system";
 import { checkButtonPositionAndScrollToButton } from "../utils/check-button-position-and-scroll-to-button";
 import { fluidSceneWidth } from "../utils/scene-width";
 
@@ -120,57 +115,57 @@ export const NewMnemonicScene: FunctionComponent = observer(() => {
     <RegisterSceneBox>
       <Box position="relative">
         {!policyVerified ? (
-          <BlurBackdrop>
-            <div
-              style={{ width: "10rem", height: "10rem" }}
-              ref={seedAnimDivRef}
-            />
-          </BlurBackdrop>
-        ) : null}
-        <Box alignX="center">
-          <HorizontalRadioGroup
-            size="large"
-            selectedKey={wordsType}
-            onSelect={(key) => {
-              setWordsType(key as WordsType);
-            }}
-            items={[
-              {
-                key: "12words",
-                text: intl.formatMessage({
-                  id: "pages.register.new-mnemonic.12-words-tab",
-                }),
-              },
-              {
-                key: "24words",
-                text: intl.formatMessage({
-                  id: "pages.register.new-mnemonic.24-words-tab",
-                }),
-              },
-            ]}
-            itemMinWidth="6.25rem"
-          />
-        </Box>
-        <Gutter size="1rem" />
-        <Bleed left="1rem">
-          <VerticalResizeTransition>
-            <Styles.WordsGridContainer columns={words.length > 12 ? 4 : 3}>
-              {words.map((word, i) => {
-                return (
-                  <XAxis key={i} alignY="center">
-                    <Styles.IndexText>{i + 1}.</Styles.IndexText>
-                    <TextInput value={word} readOnly={true} />
-                  </XAxis>
-                );
-              })}
-            </Styles.WordsGridContainer>
+          <PhrasePreview aria-hidden="true">
+            <div ref={seedAnimDivRef} />
+          </PhrasePreview>
+        ) : (
+          <React.Fragment>
+            <Box alignX="center">
+              <HorizontalRadioGroup
+                size="large"
+                selectedKey={wordsType}
+                onSelect={(key) => {
+                  setWordsType(key as WordsType);
+                }}
+                items={[
+                  {
+                    key: "12words",
+                    text: intl.formatMessage({
+                      id: "pages.register.new-mnemonic.12-words-tab",
+                    }),
+                  },
+                  {
+                    key: "24words",
+                    text: intl.formatMessage({
+                      id: "pages.register.new-mnemonic.24-words-tab",
+                    }),
+                  },
+                ]}
+                itemMinWidth="6.25rem"
+              />
+            </Box>
             <Gutter size="1rem" />
-          </VerticalResizeTransition>
-        </Bleed>
+            <Bleed left="1rem">
+              <VerticalResizeTransition>
+                <Styles.WordsGridContainer columns={words.length > 12 ? 4 : 3}>
+                  {words.map((word, i) => {
+                    return (
+                      <XAxis key={i} alignY="center">
+                        <Styles.IndexText>{i + 1}.</Styles.IndexText>
+                        <TextInput value={word} readOnly={true} />
+                      </XAxis>
+                    );
+                  })}
+                </Styles.WordsGridContainer>
+                <Gutter size="1rem" />
+              </VerticalResizeTransition>
+            </Bleed>
 
-        <CopyToClipboard text={words.join(" ")} />
+            <CopyToClipboard text={words.join(" ")} />
 
-        <Gutter size="1.625rem" />
+            <Gutter size="1.625rem" />
+          </React.Fragment>
+        )}
       </Box>
 
       <Box>
@@ -193,41 +188,44 @@ export const NewMnemonicScene: FunctionComponent = observer(() => {
         />
       </Box>
 
-      <Gutter size="1.5rem" />
-
-      <Box width="100%" maxWidth="27.25rem" marginX="auto">
-        <VerticalCollapseTransition
-          width="100%"
-          collapsed={isBIP44CardOpen}
-          onTransitionEnd={() => {
-            if (isBIP44CardOpen) {
-              checkButtonPositionAndScrollToButton(buttonContainerRef);
-            }
-          }}
-        >
-          <Box alignX="center">
-            <Button
-              size="small"
-              color="secondary"
-              text={intl.formatMessage({
-                id: "button.advanced",
-              })}
-              disabled={!policyVerified}
-              onClick={() => {
-                setIsBIP44CardOpen(true);
+      {policyVerified ? (
+        <React.Fragment>
+          <Gutter size="1.5rem" />
+          <Box width="100%" maxWidth="27.25rem" marginX="auto">
+            <VerticalCollapseTransition
+              width="100%"
+              collapsed={isBIP44CardOpen}
+              onTransitionEnd={() => {
+                if (isBIP44CardOpen) {
+                  checkButtonPositionAndScrollToButton(buttonContainerRef);
+                }
               }}
-            />
+            >
+              <Box alignX="center">
+                <Button
+                  size="small"
+                  color="secondary"
+                  text={intl.formatMessage({
+                    id: "button.advanced",
+                  })}
+                  disabled={!policyVerified}
+                  onClick={() => {
+                    setIsBIP44CardOpen(true);
+                  }}
+                />
+              </Box>
+            </VerticalCollapseTransition>
+            <VerticalCollapseTransition collapsed={!isBIP44CardOpen}>
+              <SetBip44PathCard
+                state={bip44PathState}
+                onClose={() => {
+                  setIsBIP44CardOpen(false);
+                }}
+              />
+            </VerticalCollapseTransition>
           </Box>
-        </VerticalCollapseTransition>
-        <VerticalCollapseTransition collapsed={!isBIP44CardOpen}>
-          <SetBip44PathCard
-            state={bip44PathState}
-            onClose={() => {
-              setIsBIP44CardOpen(false);
-            }}
-          />
-        </VerticalCollapseTransition>
-      </Box>
+        </React.Fragment>
+      ) : null}
       <Gutter size="1.25rem" />
 
       <Box width="100%" maxWidth="22.5rem" marginX="auto">
@@ -261,6 +259,7 @@ export const NewMnemonicScene: FunctionComponent = observer(() => {
             disabled={policyDelayRemaining > 0}
             onClick={() => {
               setPolicyVerified(true);
+              window.scrollTo(0, 0);
             }}
           />
         )}
@@ -269,30 +268,22 @@ export const NewMnemonicScene: FunctionComponent = observer(() => {
   );
 });
 
-const BlurBackdrop: FunctionComponent<PropsWithChildren> = ({ children }) => {
-  const theme = useTheme();
+const PhrasePreview = styled.div`
+  display: flex;
+  justify-content: center;
+  background: ${DSColor.fill.neutral.low};
+  border-radius: 1rem;
+  margin-bottom: 1rem;
 
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: "-1.625rem",
-        bottom: 0,
-        left: "-1rem",
-        right: "-1rem",
-        backgroundImage: `url(${require(theme.mode === "light"
-          ? "../../../public/assets/img/register-new-recovery-phrase-blur-light.png"
-          : "../../../public/assets/img/register-new-recovery-phrase-blur.png")})`,
-        backgroundSize: "cover",
-        borderRadius: "1rem",
-        zIndex: 1000,
+  > div {
+    width: 10rem;
+    height: 10rem;
+  }
 
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      {children}
-    </div>
-  );
-};
+  @media screen and (max-width: 640px) {
+    > div {
+      width: clamp(48px, 12vh, 96px);
+      height: clamp(48px, 12vh, 96px);
+    }
+  }
+`;

@@ -12,6 +12,7 @@ import { useSceneEvents } from "../../../../components/transition";
 import { useIntl } from "react-intl";
 import { useTheme } from "styled-components";
 import { ColorPalette } from "../../../../styles";
+import { focusForKeyboard } from "../../../../utils/focus";
 import { stringLengthByGrapheme } from "../../../../utils/string";
 
 export interface FormDataNamePassword {
@@ -73,7 +74,7 @@ export const FormNamePassword: FunctionComponent<
     useSceneEvents({
       onDidVisible: () => {
         if (autoFocus && nameTextInputRef.current) {
-          nameTextInputRef.current.focus();
+          focusForKeyboard(nameTextInputRef.current);
         }
       },
     });
