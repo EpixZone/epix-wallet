@@ -26,6 +26,7 @@ import { PubKey } from "@keplr-wallet/proto-types/cosmos/crypto/secp256k1/keys";
 import { MsgSend } from "@keplr-wallet/proto-types/cosmos/bank/v1beta1/tx";
 import { MsgTransfer } from "@keplr-wallet/proto-types/ibc/applications/transfer/v1/tx";
 import {
+  MsgCancelUnbondingDelegation,
   MsgBeginRedelegate,
   MsgDelegate,
   MsgUndelegate,
@@ -124,6 +125,7 @@ export interface CosmosMsgOpts {
   readonly ibcTransfer: MsgOpt;
   readonly delegate: MsgOpt;
   readonly undelegate: MsgOpt;
+  readonly cancelUndelegate: MsgOpt;
   readonly redelegate: MsgOpt;
   // The gas multiplication per rewards.
   readonly withdrawRewards: MsgOpt;
@@ -150,6 +152,10 @@ export const defaultCosmosMsgOpts: CosmosMsgOpts = {
   },
   undelegate: {
     type: "cosmos-sdk/MsgUndelegate",
+    gas: 250000,
+  },
+  cancelUndelegate: {
+    type: "cosmos-sdk/MsgCancelUnbondingDelegation",
     gas: 250000,
   },
   redelegate: {
@@ -1984,6 +1990,115 @@ export class CosmosAccountImpl {
           }
           this.queries.cosmos.queryRewards
             .getQueryBech32Address(this.base.bech32Address)
+            .fetch();
+        }
+      }
+    );
+  }
+
+  makeCancelUndelegateTx(
+    amount: string,
+    validatorAddress: string,
+    creationHeight: string
+  ) {
+    const currency = requireCosmosInfo(
+      this.chainGetter.getModularChain(this.chainId)
+    ).stakeCurrency;
+    Bech32Address.validate(
+      validatorAddress,
+      requireCosmosInfo(this.chainGetter.getModularChain(this.chainId))
+        .bech32Config?.bech32PrefixValAddr
+    );
+    if (!currency) throw new Error("Stake currency is null");
+    if (
+      !/^[1-9]\d*$/.test(creationHeight) ||
+      new Int(creationHeight).gt(new Int("9223372036854775807"))
+    ) {
+      throw new Error("Invalid unbonding creation height");
+    }
+    if (
+      !/^\d+(\.\d+)?$/.test(amount) ||
+      (amount.split(".")[1]?.length || 0) > currency.coinDecimals
+    ) {
+      throw new Error("Cancel amount has invalid precision");
+    }
+    const minimal = new Dec(amount).mul(
+      DecUtils.getPrecisionDec(currency.coinDecimals)
+    );
+    if (
+      minimal.lte(new Dec(0)) ||
+      !minimal.equals(new Dec(minimal.truncate()))
+    ) {
+      throw new Error("Cancel amount must be positive whole base units");
+    }
+    const validateEntry = () => {
+      const entry = this.queries.cosmos.queryUnbondingDelegations
+        .getQueryBech32Address(this.base.bech32Address)
+        .unbondings.find(
+          (value) => value.validator_address === validatorAddress
+        )
+        ?.entries.find((value) => value.creation_height === creationHeight);
+      if (!entry || new Date(entry.completion_time).getTime() <= Date.now()) {
+        throw new Error("This undelegation is no longer available to cancel");
+      }
+      if (minimal.gt(new Dec(entry.balance))) {
+        throw new Error("Amount exceeds the remaining unbonding balance");
+      }
+    };
+    validateEntry();
+    return this.makeTx(
+      "cancelUndelegate",
+      async () => {
+        validateEntry();
+        const value = {
+          delegator_address: this.base.bech32Address,
+          validator_address: validatorAddress,
+          amount: {
+            denom: currency.coinMinimalDenom,
+            amount: minimal.truncate().toString(),
+          },
+          creation_height: creationHeight,
+        };
+        return {
+          aminoMsgs: [{ type: this.msgOpts.cancelUndelegate.type, value }],
+          protoMsgs: [
+            {
+              typeUrl: "/cosmos.staking.v1beta1.MsgCancelUnbondingDelegation",
+              value: MsgCancelUnbondingDelegation.encode({
+                delegatorAddress: value.delegator_address,
+                validatorAddress,
+                amount: value.amount,
+                creationHeight,
+              }).finish(),
+            },
+          ],
+          rlpTypes: {
+            MsgValue: [
+              { name: "delegator_address", type: "string" },
+              { name: "validator_address", type: "string" },
+              { name: "amount", type: "TypeAmount" },
+              { name: "creation_height", type: "string" },
+            ],
+            TypeAmount: [
+              { name: "denom", type: "string" },
+              { name: "amount", type: "string" },
+            ],
+          },
+        };
+      },
+      (tx) => {
+        if (tx.code == null || tx.code === 0) {
+          this.queries.cosmos.queryUnbondingDelegations
+            .getQueryBech32Address(this.base.bech32Address)
+            .fetch();
+          this.queries.cosmos.queryDelegations
+            .getQueryBech32Address(this.base.bech32Address)
+            .fetch();
+          this.queries.cosmos.queryRewards
+            .getQueryBech32Address(this.base.bech32Address)
+            .fetch();
+          this.queries.cosmos.queryValidators
+            .getQueryStatus(BondStatus.Bonded)
             .fetch();
         }
       }
