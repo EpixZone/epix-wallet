@@ -79,6 +79,7 @@ import { SettingSecurityChangePasswordPage } from "./pages/setting/security/chan
 import { AppIntlProvider } from "./languages";
 import { SettingSecurityAutoLockPage } from "./pages/setting/security/auto-lock";
 import { useLoadFonts } from "./use-load-fonts";
+import { useKeyboardViewport } from "./hooks/use-keyboard-viewport";
 import { useAutoLockMonitoring } from "./use-auto-lock-monitoring";
 import { Splash } from "./components/splash";
 import { IBCTransferPage } from "./pages/ibc-transfer";
@@ -668,6 +669,7 @@ const LightModeBackground: FunctionComponent<{
 };
 
 const App: FunctionComponent = () => {
+  useKeyboardViewport();
   useMatchPopupSize();
 
   return (

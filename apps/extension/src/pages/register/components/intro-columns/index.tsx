@@ -36,13 +36,17 @@ const Divider = styled.div`
 
 export const IntroColumns: FunctionComponent<{
   left: ReactNode;
-  right: ReactNode;
+  right?: ReactNode;
 }> = ({ left, right }) => {
   return (
     <Container>
       <Column>{left}</Column>
-      <Divider />
-      <Column>{right}</Column>
+      {right ? (
+        <React.Fragment>
+          <Divider />
+          <Column>{right}</Column>
+        </React.Fragment>
+      ) : null}
     </Container>
   );
 };

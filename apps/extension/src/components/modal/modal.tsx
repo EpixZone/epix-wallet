@@ -16,6 +16,7 @@ import Color from "color";
 import SimpleBar from "simplebar-react";
 import { ColorPalette } from "../../styles";
 import { useTheme } from "styled-components";
+import { bindModalBack } from "./mobile-back";
 
 const AnimatedSimpleBar = animated(SimpleBar);
 
@@ -31,6 +32,13 @@ export const Modal: FunctionComponent<PropsWithChildren<ModalProps>> = ({
   children,
 }) => {
   const modalRoot = useModalRoot(isOpen);
+  const closeRef = useRef(close);
+  closeRef.current = close;
+  useEffect(() => {
+    if (isOpen && navigator.maxTouchPoints > 0) {
+      return bindModalBack(() => closeRef.current());
+    }
+  }, [isOpen]);
 
   // For transition during close.
   const [forceNotDetach, setForceNotDetach] = useState(isOpen);

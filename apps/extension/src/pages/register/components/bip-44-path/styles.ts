@@ -1,5 +1,6 @@
 import styled from "styled-components";
 import { ColorPalette } from "../../../../styles";
+import { DSColor } from "@keplr-wallet/design-system";
 
 export const Styles = {
   Container: styled.div`
@@ -27,6 +28,8 @@ export const Styles = {
     }
   `,
   Title: styled.div`
+    padding-right: 2rem;
+    overflow-wrap: anywhere;
     color: ${(props) =>
       props.theme.mode === "light"
         ? ColorPalette["gray-500"]
@@ -37,12 +40,19 @@ export const Styles = {
     letter-spacing: 0.2px;
     font-weight: 700;
   `,
-  CloseContainer: styled.div`
+  CloseContainer: styled.button`
     position: absolute;
 
-    top: 1.25rem;
-    right: 1.25rem;
-
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 0;
+    color: ${DSColor.typography.secondary};
     cursor: pointer;
   `,
   SubTitle: styled.div`
@@ -59,6 +69,18 @@ export const Styles = {
     display: flex;
     flex-direction: row;
     align-items: center;
+    gap: 0.375rem;
+
+    @media screen and (max-width: 480px) {
+      flex-wrap: wrap;
+      > div:first-child {
+        width: 100%;
+      }
+      input {
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
+      }
+    }
 
     font-size: 1rem;
     line-height: 1.2;
@@ -70,6 +92,7 @@ export const Styles = {
   `,
   InputContainer: styled.div`
     flex: 1;
+    min-width: 0;
   `,
   LightText: styled.div`
     color: ${(props) =>

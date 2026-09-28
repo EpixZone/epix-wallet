@@ -20,7 +20,53 @@ import { ColorPalette } from "../../../../styles";
 import { RegisterH1, RegisterH4, RegisterH3 } from "../typography";
 import { HelpDeskButton } from "../help-desk-button";
 import { FormattedMessage, useIntl } from "react-intl";
-import { useTheme } from "styled-components";
+import styled, { useTheme } from "styled-components";
+import {
+  ArrowLeftIcon,
+  DSColor,
+  DSTypography,
+} from "@keplr-wallet/design-system";
+
+const HeaderContainer = styled(Box)`
+  text-align: center;
+  @media screen and (max-width: 640px) {
+    padding: 0.75rem 1rem 0;
+    ul {
+      padding-left: 1.25rem;
+      text-align: left;
+    }
+  }
+`;
+const HeaderNavigation = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  margin-bottom: 0.75rem;
+`;
+const BackControl = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: ${DSColor.fill.neutral.low};
+  color: ${DSColor.typography.primary};
+  cursor: pointer;
+`;
+const IntroLogo = styled.img`
+  height: 3.125rem;
+  max-width: 100%;
+  object-fit: contain;
+  @media screen and (max-width: 640px) {
+    height: 2rem;
+  }
+`;
 
 export const RegisterHeader: FunctionComponent<{
   sceneRef: MutableRefObject<SceneTransitionRef | null>;
@@ -131,20 +177,17 @@ export const RegisterHeader: FunctionComponent<{
   }, []);
 
   return (
-    <Box position="relative" marginX="auto" width="100%" maxWidth="47.75rem">
-      {header.mode !== "intro" ? <HelpDeskButton /> : null}
-      {isBackShown && !currentIsEmpty ? (
-        <div
-          style={{
-            position: "absolute",
-            cursor: "pointer",
-            top: "-0.5rem",
-            left: "0.5rem",
-            zIndex: 1000,
-          }}
-        >
-          <BackButton sceneRef={sceneRef} />
-        </div>
+    <HeaderContainer
+      position="relative"
+      marginX="auto"
+      width="100%"
+      maxWidth="47.75rem"
+    >
+      {(isBackShown || header.mode !== "intro") && !currentIsEmpty ? (
+        <HeaderNavigation>
+          {isBackShown ? <BackButton sceneRef={sceneRef} /> : <span />}
+          <HelpDeskButton />
+        </HeaderNavigation>
       ) : null}
       <SceneTransition
         ref={headerSceneRef}
@@ -173,16 +216,16 @@ export const RegisterHeader: FunctionComponent<{
         initialSceneProps={{
           name: header.mode,
         }}
-        transitionAlign="center"
+        transitionAlign="top"
         transitionMode="opacity"
       />
       {
         <VerticalResizeTransition>
           {/* bottom padding */}
-          {currentIsEmpty ? null : <Gutter size="2rem" />}
+          {currentIsEmpty ? null : <Gutter size="1rem" />}
         </VerticalResizeTransition>
       }
-    </Box>
+    </HeaderContainer>
   );
 };
 
@@ -192,17 +235,14 @@ const HeaderIntro: FunctionComponent = () => {
   return (
     <Box paddingY="0.25rem">
       <YAxis alignX="center">
-        <img
+        <IntroLogo
           src={require(theme.mode === "light"
             ? "../../../../public/assets/img/intro-logo-light.png"
             : "../../../../public/assets/img/intro-logo.png")}
-          style={{
-            height: "3.125rem",
-          }}
-          alt="intro-hardware-wallet image"
+          alt="Epix Wallet"
         />
 
-        <Gutter size="1.25rem" />
+        <Gutter size="0.75rem" />
 
         <RegisterH4
           color={
@@ -383,48 +423,11 @@ const HeaderDirect: FunctionComponent<{
 
 const BackButton: FunctionComponent<{
   sceneRef: MutableRefObject<SceneTransitionRef | null>;
-}> = ({ sceneRef }) => {
-  const theme = useTheme();
-
-  return (
-    <div
-      style={{
-        width: "2.5rem",
-        height: "2.5rem",
-        backgroundColor:
-          theme.mode === "light"
-            ? ColorPalette["gray-50"]
-            : ColorPalette["gray-500"],
-        borderRadius: "100000px",
-        cursor: "pointer",
-
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-      onClick={(e) => {
-        e.preventDefault();
-
-        if (sceneRef.current && sceneRef.current.stack.length > 1) {
-          sceneRef.current.pop();
-        }
-      }}
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="1.5rem"
-        height="1.5rem"
-        fill="none"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke={ColorPalette["gray-200"]}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2.5"
-          d="M19.5 12h-15m0 0l6.75 6.75M4.5 12l6.75-6.75"
-        />
-      </svg>
-    </div>
-  );
-};
+}> = ({ sceneRef }) => (
+  <BackControl type="button" onClick={() => sceneRef.current?.pop()}>
+    <ArrowLeftIcon size={20} aria-hidden="true" />
+    <DSTypography size="textSm" weight="medium">
+      <FormattedMessage id="button.back" />
+    </DSTypography>
+  </BackControl>
+);

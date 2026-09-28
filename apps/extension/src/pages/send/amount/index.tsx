@@ -1,3 +1,4 @@
+import { focusForKeyboard } from "../../../utils/focus";
 import React, {
   FunctionComponent,
   useEffect,
@@ -489,9 +490,7 @@ export const SendAmountPage: FunctionComponent = observer(() => {
   ] = useState(false);
 
   useEffect(() => {
-    if (addressRef.current) {
-      addressRef.current.focus();
-    }
+    focusForKeyboard(addressRef.current);
   }, []);
 
   useEffect(() => {

@@ -19,7 +19,13 @@ export const Styles = {
     // On narrow (phone) viewports the desktop padding would leave no room
     // for the content.
     @media screen and (max-width: 800px) {
-      padding: 2.5rem 1.25rem;
+      padding: 1.25rem;
+      align-items: flex-start;
+    }
+  `,
+  CongratsImage: styled.img`
+    @media screen and (max-width: 640px) {
+      max-width: 4.5rem;
     }
   `,
   ResponsiveContainer: styled.div`

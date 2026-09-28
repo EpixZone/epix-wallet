@@ -108,58 +108,60 @@ export const RegisterIntroNewUserScene: FunctionComponent = () => {
           </Box>
         }
         right={
-          <Box height="100%">
-            <RegisterH4
-              color={
-                theme.mode === "light"
-                  ? ColorPalette["gray-400"]
-                  : ColorPalette["gray-50"]
-              }
-            >
-              <FormattedMessage id="pages.register.intro-new-user.sign-up-social-title" />
-            </RegisterH4>
-            <Gutter size="0.5rem" />
-            <Subtitle3 color={ColorPalette["gray-200"]}>
-              <FormattedMessage id="pages.register.intro-new-user.sign-up-social-paragraph" />
-              <br />
-              <br />
-            </Subtitle3>
-            <Gutter size="1.5rem" />
+          KeplrWalletPrivate.onGoogleSignInClick ? (
+            <Box height="100%">
+              <RegisterH4
+                color={
+                  theme.mode === "light"
+                    ? ColorPalette["gray-400"]
+                    : ColorPalette["gray-50"]
+                }
+              >
+                <FormattedMessage id="pages.register.intro-new-user.sign-up-social-title" />
+              </RegisterH4>
+              <Gutter size="0.5rem" />
+              <Subtitle3 color={ColorPalette["gray-200"]}>
+                <FormattedMessage id="pages.register.intro-new-user.sign-up-social-paragraph" />
+                <br />
+                <br />
+              </Subtitle3>
+              <Gutter size="1.5rem" />
 
-            <Stack gutter="0.625rem">
-              <Button
-                text={intl.formatMessage({
-                  id: "pages.register.intro-new-user.sign-up-google-button",
-                })}
-                size="large"
-                color="secondary"
-                left={<GoogleIcon />}
-                onClick={() => {
-                  if (KeplrWalletPrivate.onGoogleSignInClick) {
-                    KeplrWalletPrivate.onGoogleSignInClick(sceneTransition);
-                  } else {
-                    alert(
-                      intl.formatMessage({ id: "error.not-supported-error" })
-                    );
-                  }
-                }}
-              />
-            </Stack>
+              <Stack gutter="0.625rem">
+                <Button
+                  text={intl.formatMessage({
+                    id: "pages.register.intro-new-user.sign-up-google-button",
+                  })}
+                  size="large"
+                  color="secondary"
+                  left={<GoogleIcon />}
+                  onClick={() => {
+                    if (KeplrWalletPrivate.onGoogleSignInClick) {
+                      KeplrWalletPrivate.onGoogleSignInClick(sceneTransition);
+                    } else {
+                      alert(
+                        intl.formatMessage({ id: "error.not-supported-error" })
+                      );
+                    }
+                  }}
+                />
+              </Stack>
 
-            <Box style={{ flex: 1 }} />
+              <Box style={{ flex: 1 }} />
 
-            <Columns sum={1} gutter="0.25rem" alignY="center">
-              <XAxis>
-                <BoltIcon />
-                <BoltIcon />
-                <BoltIcon />
-              </XAxis>
+              <Columns sum={1} gutter="0.25rem" alignY="center">
+                <XAxis>
+                  <BoltIcon />
+                  <BoltIcon />
+                  <BoltIcon />
+                </XAxis>
 
-              <Caption1 color={ColorPalette["gray-200"]}>
-                <FormattedMessage id="pages.register.intro-new-user.more-convenience-text" />
-              </Caption1>
-            </Columns>
-          </Box>
+                <Caption1 color={ColorPalette["gray-200"]}>
+                  <FormattedMessage id="pages.register.intro-new-user.more-convenience-text" />
+                </Caption1>
+              </Columns>
+            </Box>
+          ) : null
         }
       />
     </RegisterSceneBox>
