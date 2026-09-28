@@ -125,7 +125,6 @@ export interface CosmosMsgOpts {
   readonly ibcTransfer: MsgOpt;
   readonly delegate: MsgOpt;
   readonly undelegate: MsgOpt;
-  readonly cancelUndelegate: MsgOpt;
   readonly redelegate: MsgOpt;
   // The gas multiplication per rewards.
   readonly withdrawRewards: MsgOpt;
@@ -152,10 +151,6 @@ export const defaultCosmosMsgOpts: CosmosMsgOpts = {
   },
   undelegate: {
     type: "cosmos-sdk/MsgUndelegate",
-    gas: 250000,
-  },
-  cancelUndelegate: {
-    type: "cosmos-sdk/MsgCancelUnbondingDelegation",
     gas: 250000,
   },
   redelegate: {
@@ -2060,7 +2055,9 @@ export class CosmosAccountImpl {
           creation_height: creationHeight,
         };
         return {
-          aminoMsgs: [{ type: this.msgOpts.cancelUndelegate.type, value }],
+          aminoMsgs: [
+            { type: "cosmos-sdk/MsgCancelUnbondingDelegation", value },
+          ],
           protoMsgs: [
             {
               typeUrl: "/cosmos.staking.v1beta1.MsgCancelUnbondingDelegation",
