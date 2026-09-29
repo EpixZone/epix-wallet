@@ -77,7 +77,7 @@ export const EIP712DomainTypeValidator = Joi.array()
   });
 
 export const EIP712MessageValidator = Joi.object<{
-  types: Record<string, unknown>;
+  types: Record<string, { name: string; type: string }[]>;
   primaryType: string;
   domain: Record<string, unknown>;
   message: Record<string, unknown>;
@@ -85,7 +85,7 @@ export const EIP712MessageValidator = Joi.object<{
   types: Joi.object({
     EIP712Domain: EIP712DomainTypeValidator.required(),
   })
-    .unknown(true)
+    .pattern(Joi.string(), Joi.array().items(EIP712PropertyFieldValidator))
     .required(),
   primaryType: Joi.string().min(1).required(),
   domain: Joi.object().required(),

@@ -14,6 +14,7 @@ import {
   SceneTransitionRef,
 } from "../../components/transition";
 import { RegisterIntroScene } from "./intro";
+import { ImportWalletQRScene } from "./import-qr";
 import { NewMnemonicScene } from "./new-mnemonic";
 import { Box } from "../../components/box";
 import { VerifyMnemonicScene } from "./verify-mnemonic";
@@ -365,6 +366,11 @@ const RegisterPageImpl: FunctionComponent = observer(() => {
               name: "intro",
               element: RegisterIntroScene,
               width: fluidSceneWidth("31rem"),
+            },
+            {
+              name: "import-wallet-qr",
+              element: ImportWalletQRScene,
+              width: fluidSceneWidth("33.75rem"),
             },
             {
               name: "new-user",

@@ -38,3 +38,14 @@ describe("Test coin", () => {
     expect(() => Coin.parse("asd 100")).toThrow();
   });
 });
+
+test.each([
+  "100atom\n",
+  "prefix100atom",
+  "-100atom",
+  "1.5atom",
+  "0".repeat(100000),
+  "0".repeat(100000) + "!",
+])("rejects malformed coins without accepting a numeric suffix", (value) =>
+  expect(() => Coin.parse(value)).toThrow("Invalid coin str")
+);

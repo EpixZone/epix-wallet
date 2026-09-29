@@ -1,4 +1,4 @@
-import { exponentDecStringToDecString } from "./etc";
+import { exponentDecStringToDecString, isValidDecimalString } from "./etc";
 
 describe("Test etc utils", () => {
   it("Test exponentDecStringToDecString", () => {
@@ -71,3 +71,14 @@ describe("Test etc utils", () => {
     expect(exponentDecStringToDecString("-0.00123e-1")).toBe("-0.000123");
   });
 });
+
+test.each(["0", "-10", "123.45", "0."])("accepts decimal %s", (value) => {
+  expect(isValidDecimalString(value)).toBe(true);
+});
+
+test.each(["1\n", "1x2", "1 2", "1..2", "0".repeat(100000) + "!"])(
+  "rejects malformed decimals",
+  (value) => {
+    expect(isValidDecimalString(value)).toBe(false);
+  }
+);

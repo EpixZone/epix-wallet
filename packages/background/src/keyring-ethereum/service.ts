@@ -330,8 +330,8 @@ export class KeyRingEthereumService {
                 contractAddress: tx.to,
               }),
           });
-        } catch (e) {
-          console.log(e);
+        } catch {
+          console.warn("Failed to record Ethereum signing analytics");
         }
 
         return {

@@ -134,7 +134,17 @@ export class Keplr implements IKeplr {
     };
 
     return new Promise((resolve, reject) => {
-      const receiveResponse = (e: any) => {
+      const receiveResponse = (e: MessageEvent) => {
+        // Native WebView responses are synthetic events without an origin or source.
+        const isNativeResponse =
+          isMobile && e.origin === "" && e.source === null;
+        if (
+          !isNativeResponse &&
+          (e.origin !== window.location.origin || e.source !== window)
+        ) {
+          return;
+        }
+
         const proxyResponse: ProxyRequestResponse = parseMessage(e.data);
 
         if (!proxyResponse || proxyResponse.type !== "proxy-request-response") {
@@ -960,7 +970,17 @@ class EthereumProvider extends EventEmitter implements IEthereumProvider {
     };
 
     return new Promise((resolve, reject) => {
-      const receiveResponse = (e: any) => {
+      const receiveResponse = (e: MessageEvent) => {
+        // Native WebView responses are synthetic events without an origin or source.
+        const isNativeResponse =
+          isMobile && e.origin === "" && e.source === null;
+        if (
+          !isNativeResponse &&
+          (e.origin !== window.location.origin || e.source !== window)
+        ) {
+          return;
+        }
+
         const proxyResponse: ProxyRequestResponse = parseMessage(e.data);
 
         if (!proxyResponse || proxyResponse.type !== "proxy-request-response") {
@@ -1250,7 +1270,17 @@ export class BitcoinProvider extends EventEmitter implements IBitcoinProvider {
     };
 
     return new Promise((resolve, reject) => {
-      const receiveResponse = (e: any) => {
+      const receiveResponse = (e: MessageEvent) => {
+        // Native WebView responses are synthetic events without an origin or source.
+        const isNativeResponse =
+          isMobile && e.origin === "" && e.source === null;
+        if (
+          !isNativeResponse &&
+          (e.origin !== window.location.origin || e.source !== window)
+        ) {
+          return;
+        }
+
         const proxyResponse: ProxyRequestResponse = parseMessage(e.data);
 
         if (!proxyResponse || proxyResponse.type !== "proxy-request-response") {

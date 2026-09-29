@@ -5,6 +5,7 @@
 import https from "https";
 import http from "http";
 import fs from "fs";
+import { iconFilePath } from "./files.mjs";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -187,7 +188,8 @@ async function main() {
   const components = collectComponents(rootNode)
     .map((c) => ({ ...c, name: c.name.replace(/_/g, "-") }))
     .filter(({ name }) => {
-      if (name.includes("/") || name.includes("..")) return false;
+      if (name.trim() !== name || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(name))
+        return false;
       if (seen.has(name)) return false;
       seen.add(name);
       return true;
@@ -251,11 +253,10 @@ async function main() {
         continue;
       }
       const kebabName = toKebabFileName(name);
-      fs.writeFileSync(
-        path.join(COMPONENTS_DIR, `${kebabName}.tsx`),
-        componentCode,
-        "utf8"
-      );
+      fs.writeFileSync(iconFilePath(COMPONENTS_DIR, name), componentCode, {
+        encoding: "utf8",
+        flag: "wx",
+      });
       newComponents.push({ componentName, kebabName });
       successCount++;
     } catch (error) {

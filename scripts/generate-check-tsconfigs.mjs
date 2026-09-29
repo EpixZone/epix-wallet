@@ -99,20 +99,30 @@ function getWorkspacePackages() {
     // 하위 eslintrc는 같은 rule에 대해 부모를 완전히 대체하므로
     // root의 "src/*" 패턴도 함께 포함해야 한다.
     const eslintrcPath = path.join(pkg.dir, ".eslintrc.json");
-    const existingEslintrc = fs.existsSync(eslintrcPath)
-      ? JSON.parse(fs.readFileSync(eslintrcPath, "utf8"))
-      : {};
-    existingEslintrc.rules = {
-      ...existingEslintrc.rules,
-      "no-restricted-imports": [
-        "error",
-        { patterns: ["src/*", pkg.name, `${pkg.name}/*`] },
-      ],
-    };
-    fs.writeFileSync(
-      eslintrcPath,
-      JSON.stringify(existingEslintrc, null, 2) + "\n"
-    );
+    let eslintrcFd;
+    try {
+      eslintrcFd = fs.openSync(eslintrcPath, "r+");
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+      eslintrcFd = fs.openSync(eslintrcPath, "wx+");
+    }
+    try {
+      const contents = fs.readFileSync(eslintrcFd, "utf8");
+      const existingEslintrc = contents ? JSON.parse(contents) : {};
+      existingEslintrc.rules = {
+        ...existingEslintrc.rules,
+        "no-restricted-imports": [
+          "error",
+          { patterns: ["src/*", pkg.name, `${pkg.name}/*`] },
+        ],
+      };
+      const updated = JSON.stringify(existingEslintrc, null, 2) + "\n";
+      // Read and update the same open file, even if its pathname is replaced.
+      fs.writeSync(eslintrcFd, updated, 0, "utf8");
+      fs.ftruncateSync(eslintrcFd, Buffer.byteLength(updated));
+    } finally {
+      fs.closeSync(eslintrcFd);
+    }
     generatedFiles.push(eslintrcPath);
     console.log(
       `Generated: ${path.relative(path.resolve(__dirname, ".."), eslintrcPath)}`

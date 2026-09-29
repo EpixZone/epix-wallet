@@ -142,7 +142,7 @@ try {
   if (url.origin === _blocklistURL.origin) {
     addEventListener("message", (e) => {
       try {
-        if (e.origin !== _blocklistURL.origin) {
+        if (e.origin !== _blocklistURL.origin || e.source !== window) {
           return;
         }
         if (e.data.type !== "allow-temp-blocklist-url") {

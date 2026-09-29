@@ -725,7 +725,7 @@ describe("Test chain info schema", () => {
       );
 
       // But, after being validated, the unknown field should be stripped.
-      assert.strictEqual(validated["unknownField"], undefined);
+      assert.strictEqual("unknownField" in validated, false);
     });
 
     await assert.doesNotReject(async () => {

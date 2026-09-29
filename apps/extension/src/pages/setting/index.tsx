@@ -100,6 +100,7 @@ export const SettingPage: FunctionComponent = observer(() => {
     },
     {
       key: "link-keplr-mobile",
+      searches: ["QR", "Android", "desktop", "import", "export"],
       icon: IconLinkKeplrMobile,
       title: intl.formatMessage({
         id: "page.setting.general.link-kpelr-mobile-title",

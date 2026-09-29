@@ -107,6 +107,14 @@ export const RegisterIntroScene: FunctionComponent = observer(() => {
             sceneTransition.push("existing-user");
           }}
         />
+        <TextButton
+          text={intl.formatMessage({
+            id: "wallet-transfer.import-title",
+            defaultMessage: "Scan desktop QR",
+          })}
+          size="large"
+          onClick={() => sceneTransition.push("import-wallet-qr")}
+        />
         {uiConfigStore.platform !== "firefox" ? (
           <TextButton
             text={intl.formatMessage({

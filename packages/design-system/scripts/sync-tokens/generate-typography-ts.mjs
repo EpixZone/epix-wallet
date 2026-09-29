@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 // Figma text style JSON → generate typography-tokens.ts
-// Input: /tmp/figma-typography.json (generated after running sync-typography.mjs)
+// Pass the input JSON path printed by sync-typography.mjs as the first argument.
 
 import fs from "fs";
-import os from "os";
+import { writeFileAtomic } from "./files.mjs";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const inputPath = process.argv[2] || "/tmp/figma-typography.json";
+const inputPath = process.argv[2];
+if (!inputPath) {
+  console.error("Error: An input JSON path is required");
+  process.exit(1);
+}
 const outputPath =
   process.argv[3] ||
   path.join(__dirname, "../../src/foundation/typography/typography-tokens.ts");
@@ -142,8 +146,6 @@ if (fs.existsSync(outputPath)) {
 }
 
 // ── Atomic write ───────────────────────────────────────────────────────────────
-const tmpPath = path.join(os.tmpdir(), `typography_${Date.now()}.ts.tmp`);
-fs.writeFileSync(tmpPath, newContent, "utf8");
-fs.renameSync(tmpPath, outputPath);
+writeFileAtomic(outputPath, newContent);
 console.log(`✓ Generated: ${outputPath}`);
 console.log(`  Styles: ${fieldOrder.length} (from Figma)`);

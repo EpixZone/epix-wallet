@@ -5,7 +5,7 @@
 // Phase 3: Commit staged files to final locations (atomic)
 // Phase 4: Sync icons → React components (additive-only)
 
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -22,7 +22,10 @@ const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), "sync-tokens-"));
 const STAGED_COLOR = path.join(stagingDir, "color.ts");
 const STAGED_TYPO = path.join(stagingDir, "typography.ts");
 
-const forceFlag = process.argv.includes("--force") ? " --force" : "";
+const forceArgs = process.argv.includes("--force") ? ["--force"] : [];
+const variablesPath = path.join(stagingDir, "figma-vars.json");
+const typographyPath = path.join(stagingDir, "figma-typography.json");
+const options = { stdio: "inherit", cwd, shell: false };
 
 function cleanup() {
   try {
@@ -30,30 +33,47 @@ function cleanup() {
   } catch {}
 }
 
-function run(cmd, opts = {}) {
-  execSync(cmd, { stdio: "inherit", cwd, ...opts });
-}
-
 try {
   // ── Phase 1: Fetch all data from Figma ──────────────────────────────────────
   console.log("═══ Phase 1: Fetching data from Figma ═══\n");
 
-  run(
-    'figma-use eval "$(cat scripts/sync-tokens/figma-extract-vars.mjs)" > /tmp/figma-vars.json',
-    { shell: true }
+  const variables = execFileSync(
+    "figma-use",
+    [
+      "eval",
+      fs.readFileSync(path.join(__dirname, "figma-extract-vars.mjs"), "utf8"),
+    ],
+    { ...options, stdio: ["ignore", "pipe", "inherit"] }
+  );
+  fs.writeFileSync(variablesPath, variables, { flag: "wx", mode: 0o600 });
+
+  execFileSync(
+    process.execPath,
+    [path.join(__dirname, "sync-typography.mjs"), typographyPath],
+    options
   );
 
-  run("node scripts/sync-tokens/sync-typography.mjs");
-
-  // ── Phase 2: Generate TS files to staging ───────────────────────────────────
-  console.log("\n═══ Phase 2: Generating TS files (staging) ═══\n");
-
-  run(
-    `node scripts/sync-tokens/generate-color-ts.mjs /tmp/figma-vars.json "${STAGED_COLOR}"${forceFlag}`
+  // Generate TS files inside the private staging directory.
+  console.log("\nGenerating TS files (staging)\n");
+  execFileSync(
+    process.execPath,
+    [
+      path.join(__dirname, "generate-color-ts.mjs"),
+      variablesPath,
+      STAGED_COLOR,
+      ...forceArgs,
+    ],
+    options
   );
-
-  run(
-    `node scripts/sync-tokens/generate-typography-ts.mjs /tmp/figma-typography.json "${STAGED_TYPO}"${forceFlag}`
+  execFileSync(
+    process.execPath,
+    [
+      path.join(__dirname, "generate-typography-ts.mjs"),
+      typographyPath,
+      STAGED_TYPO,
+      ...forceArgs,
+    ],
+    options
   );
 
   // ── Phase 3: Commit staged files ────────────────────────────────────────────
@@ -68,7 +88,11 @@ try {
   console.log("\n═══ Phase 4: Syncing icons ═══\n");
 
   try {
-    run("node scripts/sync-tokens/sync-icons.mjs");
+    execFileSync(
+      process.execPath,
+      [path.join(__dirname, "sync-icons.mjs")],
+      options
+    );
   } catch (iconError) {
     console.warn(`\n⚠ Icon sync failed (color/typography were saved)`);
     console.warn(`  ${iconError.message}`);
@@ -76,7 +100,7 @@ try {
 
   // ── Format generated files ──────────────────────────────────────────────────
   console.log("\n═══ Formatting generated files ═══\n");
-  run('npx prettier --write "src/**/*.{ts,tsx}"');
+  execFileSync("npx", ["prettier", "--write", "src/**/*.{ts,tsx}"], options);
 
   console.log("\n✓ All sync steps completed successfully");
 } catch (error) {

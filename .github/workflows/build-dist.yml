@@ -43,6 +43,9 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
+      - name: Check dependency security compatibility
+        run: yarn test:dependency-security
+
       - name: Build libraries
         run: yarn build:libs
 

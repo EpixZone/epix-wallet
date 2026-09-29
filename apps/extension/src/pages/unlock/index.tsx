@@ -136,6 +136,13 @@ export const UnlockPage: FunctionComponent = observer(() => {
   // 한 곳에서 unlock이 완료되면 다른 view에서도 적절하게 처리해준다.
   useEffect(() => {
     const handler = async (e: MessageEvent) => {
+      if (
+        e.origin !== window.location.origin ||
+        (e.source !== null &&
+          !browser.extension.getViews().includes(e.source as Window))
+      ) {
+        return;
+      }
       if (e.data?.type === "__keplr_unlocked_from_view") {
         if (e.data.viewId !== viewPostMessageId) {
           let closeWindowAfterProceedNext = false;

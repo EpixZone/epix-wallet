@@ -11,6 +11,12 @@ For dApp compatibility and to keep upstream merges simple, the fork keeps the `w
 - Bug reports and feature requests: [GitHub issues](https://github.com/EpixZone/epix-wallet/issues)
 - Questions and support: [Epix Discord](https://discord.gg/bF2GKHgrfv)
 
+## Transfer a desktop wallet to Android
+
+Open **Settings > Export to Android with QR** on desktop, then **Scan desktop QR**
+in the Android wallet. The encrypted transfer stays offline. See the
+[Android transfer guide](docs/epix/android-wallet-transfer.md) for instructions.
+
 ## Repository layout
 
 This is a Yarn workspaces monorepo managed with Lerna.

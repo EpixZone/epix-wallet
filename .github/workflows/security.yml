@@ -61,7 +61,7 @@ jobs:
           skip-dirs: node_modules,.yarn
           format: sarif
           output: trivy.sarif
-          severity: HIGH,CRITICAL
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
       - uses: github/codeql-action/upload-sarif@df409f7d9260372bd5f19e5b04e83cb3c43714ae # v3.27.9
         if: always()
         with:

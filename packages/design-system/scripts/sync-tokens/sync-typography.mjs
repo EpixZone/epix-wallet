@@ -1,13 +1,15 @@
 #!/usr/bin/env node
-// Figma REST API → Fetch text styles → save to /tmp/figma-typography.json
+// Fetch Figma text styles into the specified output or a private temporary directory.
 // Requires: FIGMA_ACCESS_TOKEN environment variable
 
 import https from "https";
 import fs from "fs";
+import os from "os";
+import path from "path";
+import { writeFileAtomic } from "./files.mjs";
 
 const FILE_KEY = "nhxLa3t70UV80DEjPWMz3Z";
 const TOKEN = process.env.FIGMA_ACCESS_TOKEN;
-const OUTPUT = "/tmp/figma-typography.json";
 
 if (!TOKEN) {
   console.error("Error: FIGMA_ACCESS_TOKEN not set");
@@ -33,6 +35,12 @@ function apiGet(url) {
 }
 
 async function main() {
+  const outputPath =
+    process.argv[2] ||
+    path.join(
+      fs.mkdtempSync(path.join(os.tmpdir(), "figma-typography-")),
+      "typography.json"
+    );
   console.log("Fetching text styles from Figma...");
 
   // 1. Fetch text style list
@@ -75,8 +83,8 @@ async function main() {
     };
   }
 
-  fs.writeFileSync(OUTPUT, JSON.stringify(result, null, 2), "utf8");
-  console.log(`✓ Saved: ${OUTPUT} (${Object.keys(result).length} styles)`);
+  writeFileAtomic(outputPath, JSON.stringify(result, null, 2));
+  console.log(`✓ Saved: ${outputPath} (${Object.keys(result).length} styles)`);
 }
 
 main().catch((error) => {

@@ -11,6 +11,7 @@ import { PlainObject } from "@keplr-wallet/background";
 import { useIntl } from "react-intl";
 
 export const RegisterNamePasswordScene: FunctionComponent<{
+  name?: string;
   mnemonic?: string;
   privateKey?: {
     value: Uint8Array;
@@ -25,7 +26,7 @@ export const RegisterNamePasswordScene: FunctionComponent<{
   stepPrevious: number;
   stepTotal: number;
 }> = observer(
-  ({ mnemonic, privateKey, bip44Path, stepPrevious, stepTotal }) => {
+  ({ name, mnemonic, privateKey, bip44Path, stepPrevious, stepTotal }) => {
     const sceneTransition = useSceneTransition();
     const intl = useIntl();
 
@@ -43,7 +44,7 @@ export const RegisterNamePasswordScene: FunctionComponent<{
       },
     });
 
-    const form = useFormNamePassword();
+    const form = useFormNamePassword(name);
 
     return (
       <RegisterSceneBox>
