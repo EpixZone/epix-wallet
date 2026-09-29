@@ -1,6 +1,20 @@
 import fs from "fs";
 import path from "path";
 
+export function configuredExecutable(configuredPath) {
+  if (typeof configuredPath !== "string" || !path.isAbsolute(configuredPath)) {
+    throw new Error(
+      "Set FIGMA_USE_EXECUTABLE to the absolute path of the installed figma-use executable"
+    );
+  }
+  const executable = fs.realpathSync(configuredPath);
+  if (!fs.statSync(executable).isFile()) {
+    throw new Error("FIGMA_USE_EXECUTABLE must be an executable file");
+  }
+  fs.accessSync(executable, fs.constants.X_OK);
+  return executable;
+}
+
 // A private, exclusive directory prevents symlink attacks. Keeping it beside
 // the destination also makes rename atomic when /tmp is on another filesystem.
 export function writeFileAtomic(outputPath, contents) {

@@ -28,6 +28,7 @@ build
 !apps/mobile/noop-keplr-wallet-mobile-private/build
 
 .cache
+.parcel-cache
 
 coverage
 

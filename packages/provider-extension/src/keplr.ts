@@ -846,7 +846,10 @@ class EthereumProvider extends EventEmitter implements IEthereumProvider {
   constructor(protected readonly keplr: Keplr) {
     super();
 
-    this._initProviderState();
+    this._initProviderState().catch(() => {
+      // Initial discovery is best effort. A later request retries while disconnected.
+      console.error("Failed to initialize Ethereum provider state");
+    });
 
     window.addEventListener("keplr_keystorechange", async () => {
       if (this._currentChainId) {
@@ -1049,7 +1052,7 @@ class EthereumProvider extends EventEmitter implements IEthereumProvider {
     }
   };
 
-  protected async _handleConnect(evmChainId: number) {
+  protected _handleConnect(evmChainId: number): void {
     if (!this._isConnected) {
       this._isConnected = true;
 
@@ -1076,7 +1079,7 @@ class EthereumProvider extends EventEmitter implements IEthereumProvider {
     }
   }
 
-  protected async _handleChainChanged(evmChainId: number) {
+  protected _handleChainChanged(evmChainId: number): void {
     const evmChainIdHexString = `0x${evmChainId.toString(16)}`;
     if (evmChainIdHexString !== this.chainId) {
       this.chainId = evmChainIdHexString;
@@ -1086,7 +1089,7 @@ class EthereumProvider extends EventEmitter implements IEthereumProvider {
     }
   }
 
-  protected async _handleAccountsChanged(selectedAddress: string | null) {
+  protected _handleAccountsChanged(selectedAddress: string | null): void {
     if (this.selectedAddress !== selectedAddress) {
       this.selectedAddress = selectedAddress;
 
@@ -1404,11 +1407,11 @@ export class BitcoinProvider extends EventEmitter implements IBitcoinProvider {
     return this.requestAccounts();
   }
 
-  protected _handleNetworkChanged = async (network: BitcoinNetwork) => {
+  protected _handleNetworkChanged = (network: BitcoinNetwork): void => {
     this.emit("networkChanged", network);
   };
 
-  protected _handleAccountsChanged = async (accounts: string[] | null) => {
+  protected _handleAccountsChanged = (accounts: string[] | null): void => {
     if (accounts && accounts.length > 0) {
       this.emit("accountChanged", accounts);
       this.emit("accountsChanged", accounts);

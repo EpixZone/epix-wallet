@@ -6,6 +6,7 @@ import https from "https";
 import http from "http";
 import fs from "fs";
 import { iconFilePath } from "./files.mjs";
+import { generateComponent, MAX_SVG_BYTES } from "./svg-component.mjs";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -59,7 +60,16 @@ function downloadSvg(url) {
             .then(resolve)
             .catch(reject);
         let rawData = "";
-        response.on("data", (chunk) => (rawData += chunk));
+        let bytes = 0;
+        response.on("data", (chunk) => {
+          bytes += chunk.length;
+          if (bytes > MAX_SVG_BYTES) {
+            response.destroy();
+            reject(new Error("SVG exceeds the size limit"));
+            return;
+          }
+          rawData += chunk;
+        });
         response.on("end", () => {
           if (response.statusCode >= 400)
             return reject(
@@ -80,44 +90,6 @@ function collectComponents(node, results = []) {
 
 // ── SVG → JSX conversion ────────────────────────────────────────────────────
 
-const ATTR_MAP = {
-  "stroke-width": "strokeWidth",
-  "stroke-linecap": "strokeLinecap",
-  "stroke-linejoin": "strokeLinejoin",
-  "fill-rule": "fillRule",
-  "clip-rule": "clipRule",
-  "clip-path": "clipPath",
-  "stop-color": "stopColor",
-  "stop-opacity": "stopOpacity",
-  "font-size": "fontSize",
-  "font-weight": "fontWeight",
-  "text-anchor": "textAnchor",
-  "dominant-baseline": "dominantBaseline",
-  "color-interpolation-filters": "colorInterpolationFilters",
-  "flood-opacity": "floodOpacity",
-  "flood-color": "floodColor",
-  "stroke-miterlimit": "strokeMiterlimit",
-  "xlink:href": "xlinkHref",
-  "xmlns:xlink": "xmlnsXlink",
-  class: "className",
-};
-
-function convertAttributes(svgContent) {
-  let result = svgContent;
-  for (const [svgAttr, jsxAttr] of Object.entries(ATTR_MAP)) {
-    result = result.replace(
-      new RegExp(`\\b${svgAttr.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}=`, "g"),
-      `${jsxAttr}=`
-    );
-  }
-  // Replace hardcoded colors with {color} prop (keep "none" and "currentColor" as-is)
-  result = result.replace(
-    /\b(stroke|fill)="(#[0-9a-fA-F]{3,8}|rgb[^"]*|rgba[^"]*|black|white|red|blue|green)"/g,
-    `$1={color}`
-  );
-  return result;
-}
-
 function toComponentName(name) {
   return (
     name
@@ -129,48 +101,6 @@ function toComponentName(name) {
 
 function toKebabFileName(name) {
   return name + "-icon";
-}
-
-function parseSvg(content) {
-  const svgMatch = content.match(/<svg([^>]*)>([\s\S]*)<\/svg>/i);
-  if (!svgMatch) return null;
-  const viewBoxMatch = svgMatch[1].match(/viewBox="([^"]*)"/);
-  return {
-    viewBox: viewBoxMatch ? viewBoxMatch[1] : "0 0 24 24",
-    innerContent: svgMatch[2].trim(),
-  };
-}
-
-function generateComponent(componentName, svgContent) {
-  const parsed = parseSvg(svgContent);
-  if (!parsed) return null;
-
-  const convertedInner = convertAttributes(parsed.innerContent);
-  const usesColor = convertedInner.includes("{color}");
-
-  return [
-    `import React from "react";`,
-    `import type { DSIconProps } from "../types";`,
-    ``,
-    `export const ${componentName}: React.FC<DSIconProps> = ({`,
-    `  size = 24,`,
-    `  color = "currentColor",`,
-    `  ...props`,
-    `}) => (`,
-    `  <svg`,
-    `    width={size}`,
-    `    height={size}`,
-    `    viewBox="${parsed.viewBox}"`,
-    `    fill="none"`,
-    `    xmlns="http://www.w3.org/2000/svg"`,
-    ...(usesColor ? [] : [`    color={color}`]),
-    `    {...props}`,
-    `  >`,
-    `    ${convertedInner}`,
-    `  </svg>`,
-    `);`,
-    ``,
-  ].join("\n");
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
@@ -247,11 +177,6 @@ async function main() {
       const svgContent = await downloadSvg(svgUrl);
       const componentName = toComponentName(name);
       const componentCode = generateComponent(componentName, svgContent);
-      if (!componentCode) {
-        console.warn(`  ⚠ Could not parse SVG for: ${name}`);
-        failCount++;
-        continue;
-      }
       const kebabName = toKebabFileName(name);
       fs.writeFileSync(iconFilePath(COMPONENTS_DIR, name), componentCode, {
         encoding: "utf8",

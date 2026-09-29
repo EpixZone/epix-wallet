@@ -26,8 +26,10 @@
     "@storybook/react": "^10.3.3",
     "@storybook/react-vite": "^10.3.3",
     "@types/styled-components": "^5.1.26",
+    "saxes": "^6.0.0",
     "storybook": "^10.3.3",
     "styled-components": "^5.3.11",
+    "typescript": "5.0.4",
     "vite": "^8.0.3"
   },
   "peerDependencies": {

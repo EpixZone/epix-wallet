@@ -1,5 +1,16 @@
 {
   "ignorePatterns": ["**/*.mdx"],
+  "overrides": [
+    {
+      "files": ["scripts/**/*.mjs"],
+      "rules": {
+        "import/no-extraneous-dependencies": [
+          "error",
+          { "devDependencies": true }
+        ]
+      }
+    }
+  ],
   "rules": {
     "react/react-in-jsx-scope": "off",
     "no-restricted-imports": [

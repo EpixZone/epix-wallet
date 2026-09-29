@@ -107,7 +107,8 @@ export const SettingGeneralLinkKeplrMobilePage: FunctionComponent = observer(
                   "Select a recovery phrase or private key wallet to export. Hardware wallets must be connected separately on Android."
                 )}
               </DSTypography>
-            ) : transfer ? (
+            ) : null}
+            {supported && transfer ? (
               <React.Fragment>
                 <DSTypography as="p" size="textSm">
                   {message(
@@ -135,7 +136,8 @@ export const SettingGeneralLinkKeplrMobilePage: FunctionComponent = observer(
                   onClick={() => setTransfer(undefined)}
                 />
               </React.Fragment>
-            ) : (
+            ) : null}
+            {supported && !transfer ? (
               <form
                 onSubmit={async (event) => {
                   event.preventDefault();
@@ -245,7 +247,7 @@ export const SettingGeneralLinkKeplrMobilePage: FunctionComponent = observer(
                   />
                 </Stack>
               </form>
-            )}
+            ) : null}
             {error ? (
               <DSTypography as="p" role="alert" size="textSm">
                 {error}

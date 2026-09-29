@@ -336,7 +336,8 @@ export const UnlockPage: FunctionComponent = observer(() => {
                   }}
                   isLoading={isLoading}
                   onClick={() => {
-                    tryUnlock(migrationSecondPhasePassword);
+                    // tryUnlock reports errors and clears loading state internally.
+                    void tryUnlock(migrationSecondPhasePassword);
                   }}
                 />
 

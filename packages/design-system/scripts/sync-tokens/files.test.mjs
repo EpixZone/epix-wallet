@@ -3,7 +3,32 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { iconFilePath, writeFileAtomic } from "./files.mjs";
+import {
+  configuredExecutable,
+  iconFilePath,
+  writeFileAtomic,
+} from "./files.mjs";
+
+test("executables require an explicit absolute executable file, never PATH lookup", () => {
+  assert.equal(
+    configuredExecutable(process.execPath),
+    fs.realpathSync(process.execPath)
+  );
+  for (const executable of [undefined, "", "figma-use", "./figma-use"]) {
+    assert.throws(() => configuredExecutable(executable), /absolute path/);
+  }
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "token-command-test-")
+  );
+  try {
+    assert.throws(() => configuredExecutable(directory), /executable file/);
+    const file = path.join(directory, "figma-use");
+    fs.writeFileSync(file, "not executable", { mode: 0o600 });
+    assert.throws(() => configuredExecutable(file));
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 test("atomic writes replace a destination symlink without changing its target", () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "token-files-test-"));

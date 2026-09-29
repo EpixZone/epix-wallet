@@ -26,5 +26,5 @@ jobs:
       - name: Security regressions
         run: |
           yarn test:dependency-security
-          node --test packages/design-system/scripts/sync-tokens/files.test.mjs
+          node --test packages/design-system/scripts/sync-tokens/*.test.mjs
       - run: yarn ci

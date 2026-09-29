@@ -82,13 +82,16 @@ function fromBase64(value: unknown, maxBytes: number): Uint8Array {
   ) {
     throw invalid();
   }
-  const bytes = Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
+  const bytes = Uint8Array.from(
+    atob(value),
+    (char) => char.codePointAt(0) ?? 0
+  );
   if (bytes.length > maxBytes || toBase64(bytes) !== value) throw invalid();
   return bytes;
 }
 
 function toBase64(value: Uint8Array): string {
-  return btoa(String.fromCharCode(...value));
+  return btoa(String.fromCodePoint(...value));
 }
 
 function parseEnvelope(text: string) {
