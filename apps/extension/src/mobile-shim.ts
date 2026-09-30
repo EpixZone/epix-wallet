@@ -433,7 +433,9 @@ function installLocalStoragePolyfill(): void {
   // are optional features that tolerate a cold miss on the very first launch.
   sendStore({ cmd: "keys" })
     .then(async (keys: string[]) => {
-      await Promise.all(
+      // Wait for every read before clearing the conflict markers, even if
+      // one key fails while another native reply is still pending.
+      await Promise.allSettled(
         (keys || [])
           .filter((k) => k.startsWith(LS_PREFIX))
           .map(async (k) => {
@@ -453,6 +455,10 @@ function installLocalStoragePolyfill(): void {
     .finally(() => {
       hydrating = false;
       changedDuringHydration.clear();
+    })
+    .catch(() => {
+      // Native storage may be unavailable. Keep the in-memory values when
+      // this best-effort hydration cannot enumerate the persisted keys.
     });
 }
 

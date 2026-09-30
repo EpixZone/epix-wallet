@@ -321,14 +321,14 @@ function initStatusIcon(browser: any): void {
   const tick = async () => {
     try {
       const status = await readStatus();
-      paint(statusDotState(status));
+      await paint(statusDotState(status));
     } catch {
       // Native host gone (or not up yet): plain mark, no dot.
-      paint(null);
+      await paint(null);
     }
   };
-  tick();
-  setInterval(tick, 5000);
+  void tick();
+  setInterval(() => void tick(), 5000);
 }
 
 async function nativeSend(msg: object): Promise<any> {

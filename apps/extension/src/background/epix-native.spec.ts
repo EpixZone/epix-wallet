@@ -90,7 +90,7 @@ describe("native status polling", () => {
 
   beforeEach(async () => {
     jest.resetModules();
-    jest.useFakeTimers();
+    jest.useFakeTimers({ doNotFake: ["setImmediate"] });
     sendNativeMessage = jest.fn();
     (globalThis as any).browser = {
       runtime: {
@@ -150,4 +150,47 @@ describe("native status polling", () => {
       );
     }
   );
+
+  it("retries the toolbar icon after an asynchronous paint failure", async () => {
+    const globals = globalThis as any;
+    const previous = {
+      fetch: globals.fetch,
+      createImageBitmap: globals.createImageBitmap,
+      OffscreenCanvas: globals.OffscreenCanvas,
+    };
+    globals.fetch = jest
+      .fn()
+      .mockResolvedValue({ blob: () => Promise.resolve({}) });
+    globals.createImageBitmap = jest.fn().mockResolvedValue({});
+    globals.OffscreenCanvas = jest.fn().mockImplementation(() => ({
+      getContext: () => ({
+        drawImage: jest.fn(),
+        beginPath: jest.fn(),
+        arc: jest.fn(),
+        fill: jest.fn(),
+        getImageData: jest.fn().mockReturnValue({}),
+      }),
+    }));
+    globals.browser.runtime.getURL = (path: string) => path;
+    const setIcon = globals.browser.browserAction.setIcon;
+    setIcon.mockRejectedValueOnce(new Error("toolbar unavailable"));
+    setIcon.mockResolvedValue(undefined);
+    sendNativeMessage.mockResolvedValue({
+      tor_enabled: true,
+      tor_status: "OK",
+    });
+
+    try {
+      const { initEpixNative } = await import("./epix-native");
+      initEpixNative();
+      await new Promise(setImmediate);
+      expect(setIcon).toHaveBeenCalledTimes(1);
+
+      jest.advanceTimersByTime(5000);
+      await new Promise(setImmediate);
+      expect(setIcon).toHaveBeenCalledTimes(2);
+    } finally {
+      Object.assign(globals, previous);
+    }
+  });
 });
