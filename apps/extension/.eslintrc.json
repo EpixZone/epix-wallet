@@ -10,5 +10,16 @@
         ]
       }
     ]
-  }
+  },
+  "overrides": [
+    {
+      "files": [".storybook/cli.mjs"],
+      "rules": {
+        "import/no-extraneous-dependencies": [
+          "error",
+          { "devDependencies": true }
+        ]
+      }
+    }
+  ]
 }
