@@ -302,7 +302,7 @@ const browserShim = {
   },
   tabs: {
     // This shim has one host-owned document, represented by a stable tab ID.
-    getCurrent: async () => ({ id: 1, url: window.location.href }),
+    getCurrent: () => Promise.resolve({ id: 1, url: window.location.href }),
     // Full pages (register, sign approvals) replace this document, exactly
     // like the Android sheet behaves. The extension's page names map to
     // their mobile builds (same app + the in-page background + this shim).
