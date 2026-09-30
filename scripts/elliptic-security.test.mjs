@@ -5,7 +5,7 @@ import test from "node:test";
 
 const require = createRequire(import.meta.url);
 
-// Exercise the copy consumed by the Ethereum signing dependency, including
+// Exercise the CommonJS copy consumed by the Ethereum dependency, including
 // its own BN version. Noble is the wallet's independent signing implementation.
 const signingRequire = createRequire(
   require.resolve("@ethersproject/signing-key")

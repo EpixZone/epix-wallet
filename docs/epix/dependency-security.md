@@ -36,7 +36,8 @@ wallet source imported it.
 
 ## Elliptic nonce backport
 
-All `elliptic` consumers use the CVE-2025-14505 nonce-length backport shipped in
+Yarn-resolved `elliptic` package dependencies use the CVE-2025-14505
+nonce-length backport shipped in
 [Debian's `node-elliptic` source package, version `6.6.1+dfsg+~6.4.18-2`](https://deb.debian.org/debian/pool/main/n/node-elliptic/node-elliptic_6.6.1+dfsg+~6.4.18-2.debian.tar.xz).
 The Yarn patch copies `debian/patches/CVE-2025-14505.patch`; its origin is
 [upstream PR 345](https://github.com/indutny/elliptic/pull/345).
@@ -54,13 +55,56 @@ Custom nonce callbacks and signing input validation are unchanged.
 The dependency security suite exercises a deterministic P-521 leading-zero
 case against the wallet's independent Noble implementation and a fixed expected
 signature. It also compares 256 secp256k1 and 256 P-256 cases with Noble, including
-the actual ethers signing consumer, checks custom nonce retries, and preserves
+the CommonJS ethers signing consumer, checks custom nonce retries, and preserves
 rejection of malformed messages. Elliptic's unmodified v6.6.1 upstream test suite
 passes all 226 tests with the backport applied.
 
+### Browser bundle coverage
+
+Package resolutions do not rewrite libraries embedded inside another package.
+The published Firefox release
+[`wallet-72a67cb805e8`](https://github.com/EpixZone/epix-wallet/releases/tag/wallet-72a67cb805e8)
+contained both the patched external elliptic implementation in `605.bundle.js`
+and an embedded elliptic 6.5.4 implementation from
+`@ethersproject/signing-key` 5.7.0 in `895.bundle.js`. The archive SHA-256 is
+`0a6358d37c04540898ed02072920926c1f4f4baa828a66c889bfbe3ba363fa30`.
+The earlier CommonJS consumer tests did not cover this browser ESM entry.
+The old implementation is reached through ethers public-key recovery and
+conversion helpers used by transaction code; the inspected wrapper selects
+`secp256k1`, not P-521.
+
+The signing-key resolution now uses 5.8.0 with a packaging-only Yarn patch to its
+browser ESM `lib.esm/index.js` entry. That entry imports the same external,
+patched `elliptic` package as the upstream CommonJS entry and uses its `ec`
+constructor. The upstream vendored `lib.esm/elliptic.js` file remains in the
+installed package, but the entry no longer imports it. Upgrading to unmodified
+signing-key 5.8.0 alone would not fix this gap: its browser entry still imports
+that file, which embeds unpatched elliptic 6.6.1. The packaging change preserves
+the signing-key API and changes no cryptographic algorithm. Browser-entry
+regression tests and a production-bundle guard against the vendored file are
+necessary checks in addition to CommonJS tests and lockfile scans.
+
+The browser regression builds a minified web-target fixture using the ESM entry.
+It checks signing against Noble and CommonJS, public-key recovery/conversion,
+ECDH, point addition, and malformed inputs. It also exercises the P-521 nonce
+case through the bundled external dependency. Negative controls reject the
+upstream vendored copy and an external copy with the nonce backport removed.
+The production webpack guard rejects those implementations before emission.
+The local Firefox production build passed with one recognized EC implementation
+across all 35 emitted JavaScript files: the patched external dependency. The old
+embedded implementation was absent. Immutable install, extension typecheck,
+all 14 dependency-security tests, and lint/format checks also passed.
+
+SecretJS 1.6.0 also ships a prebuilt browser bundle containing elliptic. Its
+installed bundle is not rewritten by the elliptic Yarn patch. The repository
+uses SecretJS in the separate `cosmjs-test` integration workspace; it was not
+identified in the inspected production wallet release. The signing-key fix
+does not establish coverage of that prebuilt SecretJS bundle. Any future
+production import or SDK upgrade needs a separate bundle audit.
+
 ### Review and migration limits
 
-As of September 29, 2026, upstream PR 345 remains unmerged and has no public
+As of September 30, 2026, upstream PR 345 remains unmerged and has no public
 maintainer approval. A
 [contributor disputes the change](https://github.com/indutny/elliptic/pull/345#issuecomment-4054096022)
 and links an [alternative implementation](https://github.com/drzippie/elliptic/pull/1/files).
@@ -93,7 +137,7 @@ audit.
 
 The package retains its real name and version, `elliptic@6.6.1`. Upstream has
 not published a patched npm release. The complete Trivy scan still reports
-the advisory by version despite the installed code fix; do not dismiss or
+the advisory by version despite the external package code fix; do not dismiss or
 suppress that finding. Removing the dependency through supported replacements
 remains the longer-term path to clearing the version-based alert.
 
@@ -123,7 +167,10 @@ contains one finding. No vulnerability IDs are suppressed or excluded:
 | `elliptic@6.6.1` | [CVE-2025-14505](https://github.com/advisories/GHSA-848j-6mx2-7j84) | The Debian nonce-length backport is applied through Yarn with the review and migration limits above. The npm version remains affected according to the advisory. Ethereum signing dependencies, browser crypto shims, and the CosmJS test workspace still depend on this package. |
 
 Of the 293 dependency alerts in the original GitHub code-scanning snapshot,
-292 are removed by the updated dependency tree. The remaining original alert is
-`elliptic` alert 121, reported at a new lockfile location as alert 343 on the
-backport pull request. The code fix is applied as documented above. The
-documentation lockfile has no findings.
+292 are removed by the updated dependency tree. The original elliptic alert
+121 is now marked fixed by GitHub, while the same advisory remains open as
+[alert 343](https://github.com/EpixZone/epix-wallet/security/code-scanning/343)
+at the changed lockfile location. On September 30, the latest main analysis at
+`72a67cb805e81f5b62c02b6b29cb59d25731a622` still reports that one open alert.
+Neither the backport nor the browser packaging correction clears the affected
+npm version. The documentation lockfile has no findings.
