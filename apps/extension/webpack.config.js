@@ -7,6 +7,9 @@ const CopyWebpackPlugin = require("copy-webpack-plugin");
 const BundleAnalyzerPlugin =
   require("webpack-bundle-analyzer").BundleAnalyzerPlugin;
 const fs = require("fs");
+const {
+  EllipticBuildGuardPlugin,
+} = require("../../scripts/elliptic-build-guard.cjs");
 
 const analyticsEnvironmentKeys = [
   "KEPLR_EXT_AMPLITUDE_API_KEY",
@@ -204,6 +207,7 @@ module.exports = {
     ],
   },
   plugins: [
+    new EllipticBuildGuardPlugin(),
     {
       apply(compiler) {
         compiler.hooks.thisCompilation.tap(
