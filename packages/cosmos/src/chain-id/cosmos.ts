@@ -35,7 +35,7 @@ export class ChainIdHelper {
       };
     }
 
-    return { identifier, version: parseInt(version, 10) };
+    return { identifier, version: Number.parseInt(version, 10) };
   }
 
   static hasChainVersion(chainId: string): boolean {

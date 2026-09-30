@@ -2,13 +2,14 @@
 // Figma Icons → Generate React components directly (no intermediate SVG files)
 // Requires: FIGMA_ACCESS_TOKEN environment variable
 
-import https from "https";
-import http from "http";
-import fs from "fs";
+import https from "node:https";
+import http from "node:http";
+import fs from "node:fs";
 import { iconFilePath } from "./files.mjs";
+import { forEachBatch } from "./batches.mjs";
 import { generateComponent, MAX_SVG_BYTES } from "./svg-component.mjs";
-import path from "path";
-import { fileURLToPath } from "url";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -99,10 +100,6 @@ function toComponentName(name) {
   );
 }
 
-function toKebabFileName(name) {
-  return name + "-icon";
-}
-
 // ── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -148,47 +145,63 @@ async function main() {
   console.log(`  Generating ${toDownload.length} new icon component(s):`);
   toDownload.forEach(({ name }) => console.log(`    + ${name}`));
 
-  // Request SVG export URLs (batched in groups of 100)
+  // Figma accepts 100 IDs per export request. Limit concurrent requests and
+  // retained SVG bodies to four, then write each batch in the original order.
   const BATCH_SIZE = 100;
+  const CONCURRENCY = 4;
+  const exportRequests = Array.from(
+    { length: Math.ceil(toDownload.length / BATCH_SIZE) },
+    (_, index) => {
+      const ids = toDownload
+        .slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE)
+        .map((component) => component.id)
+        .join(",");
+      return `https://api.figma.com/v1/images/${FILE_KEY}?ids=${ids}&format=svg`;
+    }
+  );
   const svgUrls = {};
-  for (let i = 0; i < toDownload.length; i += BATCH_SIZE) {
-    const batch = toDownload.slice(i, i + BATCH_SIZE);
-    const ids = batch.map((c) => c.id).join(",");
-    const imgData = await apiGet(
-      `https://api.figma.com/v1/images/${FILE_KEY}?ids=${ids}&format=svg`
-    );
-    Object.assign(svgUrls, imgData.images || {});
-  }
+  await forEachBatch(exportRequests, CONCURRENCY, async (urls) => {
+    const responses = await Promise.all(urls.map(apiGet));
+    for (const response of responses) {
+      Object.assign(svgUrls, response.images || {});
+    }
+  });
 
   // Download SVGs → generate React components directly in memory
   fs.mkdirSync(COMPONENTS_DIR, { recursive: true });
   let successCount = 0;
   let failCount = 0;
-  const newComponents = [];
 
-  for (const { id, name } of toDownload) {
-    const svgUrl = svgUrls[id];
-    if (!svgUrl) {
-      console.warn(`  ⚠ No export URL for: ${name}`);
-      failCount++;
-      continue;
+  await forEachBatch(toDownload, CONCURRENCY, async (batch) => {
+    const results = await Promise.allSettled(
+      batch.map(({ id }) =>
+        svgUrls[id] ? downloadSvg(svgUrls[id]) : Promise.resolve(null)
+      )
+    );
+    for (const [index, { id, name }] of batch.entries()) {
+      if (!svgUrls[id]) {
+        console.warn(`  ⚠ No export URL for: ${name}`);
+        failCount++;
+        continue;
+      }
+      try {
+        const result = results[index];
+        if (result.status === "rejected") throw result.reason;
+        const componentCode = generateComponent(
+          toComponentName(name),
+          result.value
+        );
+        fs.writeFileSync(iconFilePath(COMPONENTS_DIR, name), componentCode, {
+          encoding: "utf8",
+          flag: "wx",
+        });
+        successCount++;
+      } catch (error) {
+        console.warn(`  ⚠ Failed: ${name} - ${error.message}`);
+        failCount++;
+      }
     }
-    try {
-      const svgContent = await downloadSvg(svgUrl);
-      const componentName = toComponentName(name);
-      const componentCode = generateComponent(componentName, svgContent);
-      const kebabName = toKebabFileName(name);
-      fs.writeFileSync(iconFilePath(COMPONENTS_DIR, name), componentCode, {
-        encoding: "utf8",
-        flag: "wx",
-      });
-      newComponents.push({ componentName, kebabName });
-      successCount++;
-    } catch (error) {
-      console.warn(`  ⚠ Failed: ${name} — ${error.message}`);
-      failCount++;
-    }
-  }
+  });
 
   // Regenerate barrel index.ts (all existing + new components)
   const allComponents = fs

@@ -6,12 +6,12 @@
 // Phase 4: Sync icons → React components (additive-only)
 // Requires FIGMA_USE_EXECUTABLE: absolute path to the installed figma-use CLI.
 
-import { execFileSync } from "child_process";
-import fs from "fs";
-import os from "os";
-import path from "path";
-import { fileURLToPath } from "url";
-import { createRequire } from "module";
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 import { configuredExecutable } from "./files.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

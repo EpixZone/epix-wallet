@@ -85,97 +85,107 @@ export interface ProxyRequestResponse {
   result: Result | undefined;
 }
 
+function requestViaProxy<T = unknown>(
+  request: Pick<
+    ProxyRequest,
+    "method" | "ethereumProviderMethod" | "bitcoinProviderMethod"
+  >,
+  args: any[] | Record<string, any>,
+  toError: (error: any) => Error = (error) => new Error(error)
+): Promise<T> {
+  const isMobile = "ReactNativeWebView" in window;
+  const postMessage: (message: any) => void = isMobile
+    ? (message) => {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        window.ReactNativeWebView.postMessage(JSON.stringify(message));
+      }
+    : (message) => {
+        window.postMessage(message, window.location.origin);
+      };
+  const parseMessage: (message: any) => any = isMobile
+    ? (message) => {
+        if (message && typeof message === "string") {
+          try {
+            return JSON.parse(message);
+          } catch {
+            // noop
+          }
+        }
+
+        return message;
+      }
+    : (message) => {
+        return message;
+      };
+
+  const bytes = new Uint8Array(8);
+  const id: string = Array.from(crypto.getRandomValues(bytes))
+    .map((value) => {
+      return value.toString(16);
+    })
+    .join("");
+  const proxyRequestType = !(window as any).keplrRequestMetaIdSupport
+    ? "proxy-request"
+    : `proxy-request${metaId ? `-${metaId}` : ""}`;
+
+  const proxyMessage: ProxyRequest = {
+    type: proxyRequestType,
+    id,
+    ...request,
+    args: JSONUint8Array.wrap(args),
+  };
+
+  return new Promise((resolve, reject) => {
+    const receiveResponse = (e: MessageEvent) => {
+      // Native WebView responses are synthetic events without an origin or source.
+      const isNativeResponse = isMobile && e.origin === "" && e.source === null;
+      if (
+        !isNativeResponse &&
+        (e.origin !== window.location.origin || e.source !== window)
+      ) {
+        return;
+      }
+
+      const proxyResponse: ProxyRequestResponse = parseMessage(e.data);
+
+      if (!proxyResponse || proxyResponse.type !== "proxy-request-response") {
+        return;
+      }
+
+      if (proxyResponse.id !== id) {
+        return;
+      }
+
+      window.removeEventListener("message", receiveResponse);
+
+      const result = JSONUint8Array.unwrap(proxyResponse.result);
+
+      if (!result) {
+        reject(new Error("Result is null"));
+        return;
+      }
+
+      if (result.error) {
+        reject(toError(result.error));
+        return;
+      }
+
+      resolve(result.return);
+    };
+
+    window.addEventListener("message", receiveResponse);
+
+    postMessage(proxyMessage);
+  });
+}
+
 export class Keplr implements IKeplr {
   protected static staticRequestMethod(
     method: keyof IKeplr,
     args: any[]
   ): Promise<any> {
-    const isMobile = "ReactNativeWebView" in window;
-    const postMessage: (message: any) => void = isMobile
-      ? (message) => {
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore
-          window.ReactNativeWebView.postMessage(JSON.stringify(message));
-        }
-      : (message) => {
-          window.postMessage(message, window.location.origin);
-        };
-    const parseMessage: (message: any) => any = isMobile
-      ? (message) => {
-          if (message && typeof message === "string") {
-            try {
-              return JSON.parse(message);
-            } catch {
-              // noop
-            }
-          }
-
-          return message;
-        }
-      : (message) => {
-          return message;
-        };
-
-    const bytes = new Uint8Array(8);
-    const id: string = Array.from(crypto.getRandomValues(bytes))
-      .map((value) => {
-        return value.toString(16);
-      })
-      .join("");
-    const proxyRequestType = !(window as any).keplrRequestMetaIdSupport
-      ? "proxy-request"
-      : `proxy-request${metaId ? `-${metaId}` : ""}`;
-
-    const proxyMessage: ProxyRequest = {
-      type: proxyRequestType,
-      id,
-      method,
-      args: JSONUint8Array.wrap(args),
-    };
-
-    return new Promise((resolve, reject) => {
-      const receiveResponse = (e: MessageEvent) => {
-        // Native WebView responses are synthetic events without an origin or source.
-        const isNativeResponse =
-          isMobile && e.origin === "" && e.source === null;
-        if (
-          !isNativeResponse &&
-          (e.origin !== window.location.origin || e.source !== window)
-        ) {
-          return;
-        }
-
-        const proxyResponse: ProxyRequestResponse = parseMessage(e.data);
-
-        if (!proxyResponse || proxyResponse.type !== "proxy-request-response") {
-          return;
-        }
-
-        if (proxyResponse.id !== id) {
-          return;
-        }
-
-        window.removeEventListener("message", receiveResponse);
-
-        const result = JSONUint8Array.unwrap(proxyResponse.result);
-
-        if (!result) {
-          reject(new Error("Result is null"));
-          return;
-        }
-
-        if (result.error) {
-          reject(new Error(result.error));
-          return;
-        }
-
-        resolve(result.return);
-      };
-
-      window.addEventListener("message", receiveResponse);
-
-      postMessage(proxyMessage);
-    });
+    return requestViaProxy({ method }, args);
   }
 
   protected requestMethod(method: keyof IKeplr, args: any[]): Promise<any> {
@@ -793,7 +803,7 @@ export class Keplr implements IKeplr {
     return await this.requestMethod("__core__webpageClosed" as any, []);
   }
 
-  public readonly ethereum = new EthereumProvider(this);
+  public readonly ethereum = EthereumProvider.create(this);
 
   // TODO: 이거 마지막에 꼭 구현해야한다.
   //       일단은 다른게 더 급해서 일단 any로 처리
@@ -843,13 +853,21 @@ class EthereumProvider extends EventEmitter implements IEthereumProvider {
   protected _isConnected = false;
   protected _currentChainId: string | null = null;
 
-  constructor(protected readonly keplr: Keplr) {
-    super();
+  protected announceProvider?: () => void;
 
-    this._initProviderState().catch(() => {
-      // Initial discovery is best effort. A later request retries while disconnected.
+  static create(keplr: Keplr): EthereumProvider {
+    const provider = new EthereumProvider(keplr);
+    // Start discovery only after construction has installed the event handlers.
+    // Initial discovery is best effort. A later request retries while disconnected.
+    provider._initProviderState().catch(() => {
       console.error("Failed to initialize Ethereum provider state");
     });
+    provider.announceProvider?.();
+    return provider;
+  }
+
+  protected constructor(protected readonly keplr: Keplr) {
+    super();
 
     window.addEventListener("keplr_keystorechange", async () => {
       if (this._currentChainId) {
@@ -917,10 +935,10 @@ class EthereumProvider extends EventEmitter implements IEthereumProvider {
           }),
         }
       );
-      window.addEventListener(EIP6963EventNames.Request, () =>
-        window.dispatchEvent(announceEvent)
-      );
-      window.dispatchEvent(announceEvent);
+      this.announceProvider = () => {
+        window.dispatchEvent(announceEvent);
+      };
+      window.addEventListener(EIP6963EventNames.Request, this.announceProvider);
     }
   }
 
@@ -928,102 +946,14 @@ class EthereumProvider extends EventEmitter implements IEthereumProvider {
     method: keyof IEthereumProvider,
     args: Record<string, any>
   ): Promise<T> {
-    const isMobile = "ReactNativeWebView" in window;
-    const postMessage: (message: any) => void = isMobile
-      ? (message) => {
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore
-          window.ReactNativeWebView.postMessage(JSON.stringify(message));
-        }
-      : (message) => {
-          window.postMessage(message, window.location.origin);
-        };
-    const parseMessage: (message: any) => any = isMobile
-      ? (message) => {
-          if (message && typeof message === "string") {
-            try {
-              return JSON.parse(message);
-            } catch {
-              // noop
-            }
-          }
-
-          return message;
-        }
-      : (message) => {
-          return message;
-        };
-
-    const bytes = new Uint8Array(8);
-    const id: string = Array.from(crypto.getRandomValues(bytes))
-      .map((value) => {
-        return value.toString(16);
-      })
-      .join("");
-    const proxyRequestType = !(window as any).keplrRequestMetaIdSupport
-      ? "proxy-request"
-      : `proxy-request${metaId ? `-${metaId}` : ""}`;
-
-    const proxyMessage: ProxyRequest = {
-      type: proxyRequestType,
-      id,
-      method: "ethereum",
-      args: JSONUint8Array.wrap(args),
-      ethereumProviderMethod: method,
-    };
-
-    return new Promise((resolve, reject) => {
-      const receiveResponse = (e: MessageEvent) => {
-        // Native WebView responses are synthetic events without an origin or source.
-        const isNativeResponse =
-          isMobile && e.origin === "" && e.source === null;
-        if (
-          !isNativeResponse &&
-          (e.origin !== window.location.origin || e.source !== window)
-        ) {
-          return;
-        }
-
-        const proxyResponse: ProxyRequestResponse = parseMessage(e.data);
-
-        if (!proxyResponse || proxyResponse.type !== "proxy-request-response") {
-          return;
-        }
-
-        if (proxyResponse.id !== id) {
-          return;
-        }
-
-        window.removeEventListener("message", receiveResponse);
-
-        const result = JSONUint8Array.unwrap(proxyResponse.result);
-
-        if (!result) {
-          reject(new Error("Result is null"));
-          return;
-        }
-
-        if (result.error) {
-          const error = result.error;
-          reject(
-            error.code && !error.module
-              ? new EthereumProviderRpcError(
-                  error.code,
-                  error.message,
-                  error.data
-                )
-              : new Error(error)
-          );
-          return;
-        }
-
-        resolve(result.return);
-      };
-
-      window.addEventListener("message", receiveResponse);
-
-      postMessage(proxyMessage);
-    });
+    return requestViaProxy<T>(
+      { method: "ethereum", ethereumProviderMethod: method },
+      args,
+      (error) =>
+        error.code && !error.module
+          ? new EthereumProviderRpcError(error.code, error.message, error.data)
+          : new Error(error)
+    );
   }
 
   protected _initProviderState = async () => {
@@ -1228,93 +1158,10 @@ export class BitcoinProvider extends EventEmitter implements IBitcoinProvider {
     method: keyof IBitcoinProvider,
     args: Record<string, any>
   ): Promise<any> {
-    const isMobile = "ReactNativeWebView" in window;
-    const postMessage: (message: any) => void = isMobile
-      ? (message) => {
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore
-          window.ReactNativeWebView.postMessage(JSON.stringify(message));
-        }
-      : (message) => {
-          window.postMessage(message, window.location.origin);
-        };
-    const parseMessage: (message: any) => any = isMobile
-      ? (message) => {
-          if (message && typeof message === "string") {
-            try {
-              return JSON.parse(message);
-            } catch {
-              // noop
-            }
-          }
-
-          return message;
-        }
-      : (message) => {
-          return message;
-        };
-
-    const bytes = new Uint8Array(8);
-    const id: string = Array.from(crypto.getRandomValues(bytes))
-      .map((value) => {
-        return value.toString(16);
-      })
-      .join("");
-    const proxyRequestType = !(window as any).keplrRequestMetaIdSupport
-      ? "proxy-request"
-      : `proxy-request${metaId ? `-${metaId}` : ""}`;
-
-    const proxyMessage: ProxyRequest = {
-      type: proxyRequestType,
-      id,
-      method: "bitcoin",
-      args: JSONUint8Array.wrap(args),
-      bitcoinProviderMethod: method,
-    };
-
-    return new Promise((resolve, reject) => {
-      const receiveResponse = (e: MessageEvent) => {
-        // Native WebView responses are synthetic events without an origin or source.
-        const isNativeResponse =
-          isMobile && e.origin === "" && e.source === null;
-        if (
-          !isNativeResponse &&
-          (e.origin !== window.location.origin || e.source !== window)
-        ) {
-          return;
-        }
-
-        const proxyResponse: ProxyRequestResponse = parseMessage(e.data);
-
-        if (!proxyResponse || proxyResponse.type !== "proxy-request-response") {
-          return;
-        }
-
-        if (proxyResponse.id !== id) {
-          return;
-        }
-
-        window.removeEventListener("message", receiveResponse);
-
-        const result = JSONUint8Array.unwrap(proxyResponse.result);
-
-        if (!result) {
-          reject(new Error("Result is null"));
-          return;
-        }
-
-        if (result.error) {
-          reject(new Error(result.error));
-          return;
-        }
-
-        resolve(result.return);
-      };
-
-      window.addEventListener("message", receiveResponse);
-
-      postMessage(proxyMessage);
-    });
+    return requestViaProxy(
+      { method: "bitcoin", bitcoinProviderMethod: method },
+      args
+    );
   }
 
   getAccounts(): Promise<string[]> {

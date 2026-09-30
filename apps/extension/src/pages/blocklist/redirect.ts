@@ -3,7 +3,7 @@ export function validateBlocklistRedirect(
   allowed: unknown
 ): void {
   if (typeof allowed !== "string") {
-    throw new Error("Invalid allowed URL");
+    throw new TypeError("Invalid allowed URL");
   }
 
   const url = new URL(expected);

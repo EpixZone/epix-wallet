@@ -141,7 +141,7 @@ function parseSvg(content) {
       );
     }
     if (stack.length) {
-      stack[stack.length - 1].children.push(node);
+      stack.at(-1).children.push(node);
     } else {
       if (root || name !== "svg") rejectMarkup();
       root = node;
@@ -158,8 +158,8 @@ function stringLiteral(value) {
   // TypeScript's TSX parser still treats these valid JSON characters as source
   // line separators, so escape them along with JSON's quotes and backslashes.
   return JSON.stringify(value)
-    .replaceAll("\u2028", "\\u2028")
-    .replaceAll("\u2029", "\\u2029");
+    .replaceAll("\u2028", String.raw`\u2028`)
+    .replaceAll("\u2029", String.raw`\u2029`);
 }
 
 function renderElement(node, depth = 2) {

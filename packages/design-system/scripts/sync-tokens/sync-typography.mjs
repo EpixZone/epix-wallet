@@ -2,10 +2,10 @@
 // Fetch Figma text styles into the specified output or a private temporary directory.
 // Requires: FIGMA_ACCESS_TOKEN environment variable
 
-import https from "https";
-import fs from "fs";
-import os from "os";
-import path from "path";
+import https from "node:https";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { writeFileAtomic } from "./files.mjs";
 
 const FILE_KEY = "nhxLa3t70UV80DEjPWMz3Z";
