@@ -1,4 +1,4 @@
-describe("mobile localStorage hydration", () => {
+describe("mobile browser shim", () => {
   let host: any;
   let requests: Array<{ id: number; op: { cmd: string; key?: string } }>;
   const globals = globalThis as any;
@@ -10,6 +10,7 @@ describe("mobile localStorage hydration", () => {
       location: { href: "http://localhost/wallet/mobile.html" },
       webkit: {
         messageHandlers: {
+          epixClose: { postMessage: jest.fn() },
           epixStore: {
             postMessage: (request: string) =>
               requests.push(JSON.parse(request)),
@@ -25,6 +26,25 @@ describe("mobile localStorage hydration", () => {
     delete globals.window;
     delete globals.browser;
     delete globals.chrome;
+  });
+
+  it("closes the registration document through the native sheet bridge", async () => {
+    const { closeRegistrationPage } = await import(
+      "./pages/register/utils/close-page"
+    );
+    host.close = jest.fn(() => {
+      throw new Error("Scripts may only close windows opened by a script");
+    });
+
+    await closeRegistrationPage();
+
+    expect(
+      host.webkit.messageHandlers.epixClose.postMessage
+    ).toHaveBeenCalledWith("");
+    expect(
+      host.webkit.messageHandlers.epixClose.postMessage
+    ).toHaveBeenCalledTimes(1);
+    expect(host.close).not.toHaveBeenCalled();
   });
 
   async function replyToRead(): Promise<void> {
