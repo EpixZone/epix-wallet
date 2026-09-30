@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 // Figma Variables JSON → generate color.ts (single file: DSColor + theme values)
-// Input: /tmp/figma-vars.json (generated after running figma-extract-vars.mjs)
+// Pass the input JSON path from figma-extract-vars.mjs as the first argument.
 
 import fs from "fs";
-import os from "os";
+import { writeFileAtomic } from "./files.mjs";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const inputPath = process.argv[2] || "/tmp/figma-vars.json";
+const inputPath = process.argv[2];
+if (!inputPath) {
+  console.error("Error: An input JSON path is required");
+  process.exit(1);
+}
 const outputPath =
   process.argv[3] ||
   path.join(__dirname, "../../src/foundation/color/color.ts");
@@ -350,9 +354,7 @@ if (fs.existsSync(outputPath)) {
 }
 
 // Atomic write
-const tmpPath = path.join(os.tmpdir(), `color_${Date.now()}.ts.tmp`);
-fs.writeFileSync(tmpPath, newContent, "utf8");
-fs.renameSync(tmpPath, outputPath);
+writeFileAtomic(outputPath, newContent);
 
 const alphaCount = Object.values(alphasByBase).reduce(
   (sum, arr) => sum + arr.length,

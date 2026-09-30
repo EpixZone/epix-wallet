@@ -31,6 +31,9 @@ export const addGlobalEventListener = (
 ): (() => void) => {
   const callback = (event: MessageEvent<any>) => {
     if (
+      event.origin !== window.location.origin ||
+      (event.source !== null &&
+        !browser.extension.getViews().includes(event.source as Window)) ||
       !event.data ||
       event.data.type !== "__global_event_except_self" ||
       event.data.eventName !== eventName ||

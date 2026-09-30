@@ -36,11 +36,13 @@ import { version } from "../../../package.json";
 import { useIntl } from "react-intl";
 import { HeaderLayout } from "../../layouts/header";
 import { BackButton } from "../../layouts/header/components";
+import { useNotification } from "../../hooks/notification";
 
 export const SettingPage: FunctionComponent = observer(() => {
   const navigate = useNavigate();
   const theme = useTheme();
   const intl = useIntl();
+  const notification = useNotification();
 
   const { keyRingStore, uiConfigStore } = useStore();
 
@@ -60,11 +62,16 @@ export const SettingPage: FunctionComponent = observer(() => {
         setSidePanelSupported(res.supported);
 
         const msg = new GetSidePanelEnabledMsg();
-        new InExtensionMessageRequester()
-          .sendMessage(BACKGROUND_PORT, msg)
-          .then((res) => {
-            setSidePanelEnabled(res.enabled);
-          });
+        return new InExtensionMessageRequester().sendMessage(
+          BACKGROUND_PORT,
+          msg
+        );
+      })
+      .then((res) => {
+        setSidePanelEnabled(res.enabled);
+      })
+      .catch(() => {
+        setSidePanelSupported(false);
       });
   }, []);
 
@@ -100,6 +107,7 @@ export const SettingPage: FunctionComponent = observer(() => {
     },
     {
       key: "link-keplr-mobile",
+      searches: ["QR", "Android", "desktop", "import", "export"],
       icon: IconLinkKeplrMobile,
       title: intl.formatMessage({
         id: "page.setting.general.link-kpelr-mobile-title",
@@ -261,6 +269,18 @@ export const SettingPage: FunctionComponent = observer(() => {
                           setIsOpen: () => {
                             toggleSidePanelMode(!sidePanelEnabled, (res) => {
                               setSidePanelEnabled(res);
+                            }).catch(() => {
+                              notification.show(
+                                "failed",
+                                intl.formatMessage({
+                                  id: "page.setting.general.side-panel-title",
+                                }),
+                                intl.formatMessage({
+                                  id: "page.setting.general.side-panel-error",
+                                  defaultMessage:
+                                    "Could not change side panel mode. Please try again.",
+                                })
+                              );
                             });
                           },
                         },

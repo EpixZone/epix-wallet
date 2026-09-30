@@ -1,9 +1,10 @@
-import React, { FunctionComponent, useLayoutEffect } from "react";
+import React, { FunctionComponent, useLayoutEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { Box } from "../../components/box";
 import styled from "styled-components";
 import { ColorPalette, GlobalStyle } from "../../styles";
 import { AppThemeProvider } from "../../theme";
+import { validateBlocklistRedirect } from "./redirect";
 
 const Styles = {
   Inner: styled.div`
@@ -87,21 +88,31 @@ export const BlocklistPage: FunctionComponent = () => {
   const origin =
     new URLSearchParams(window.location.search).get("origin") || "";
 
+  const redirectRequested = useRef(false);
+
   useLayoutEffect(() => {
-    const onRedirectMessage = (e: any) => {
+    const onRedirectMessage = (e: MessageEvent) => {
+      if (
+        e.origin !== window.location.origin ||
+        e.source !== window ||
+        !redirectRequested.current ||
+        e.data?.type !== "blocklist-url-temp-allowed"
+      ) {
+        return;
+      }
+
       try {
-        if (e.data.type !== "blocklist-url-temp-allowed") {
+        const allowed = e.data.origin;
+        validateBlocklistRedirect(origin, allowed);
+        const redirectUrl = new URL(allowed);
+        if (
+          redirectUrl.protocol !== "https:" &&
+          redirectUrl.protocol !== "http:"
+        ) {
           return;
         }
-        const redirectUrl = new URL(e.data.origin);
-
-        // Validate url
-        const url = new URL(origin);
-        if (redirectUrl.origin !== url.origin) {
-          throw new Error("origin unmatched");
-        }
-
-        window.location.replace(origin);
+        redirectRequested.current = false;
+        window.location.replace(redirectUrl.href);
       } catch (e) {
         console.log(e);
         alert(e.message || e.toString());
@@ -134,6 +145,7 @@ export const BlocklistPage: FunctionComponent = () => {
               onClick={(e) => {
                 e.preventDefault();
 
+                redirectRequested.current = true;
                 window.postMessage(
                   {
                     type: "allow-temp-blocklist-url",

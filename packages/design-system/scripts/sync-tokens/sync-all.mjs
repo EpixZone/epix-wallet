@@ -4,16 +4,21 @@
 // Phase 2: Generate TS files to staging directory
 // Phase 3: Commit staged files to final locations (atomic)
 // Phase 4: Sync icons → React components (additive-only)
+// Requires FIGMA_USE_EXECUTABLE: absolute path to the installed figma-use CLI.
 
-import { execSync } from "child_process";
-import fs from "fs";
-import os from "os";
-import path from "path";
-import { fileURLToPath } from "url";
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+import { configuredExecutable } from "./files.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const cwd = path.join(__dirname, "../..");
 const foundationDir = path.join(cwd, "src/foundation");
+const require = createRequire(import.meta.url);
+const prettierCli = require.resolve("prettier/bin-prettier.js");
 
 const FINAL_COLOR = path.join(foundationDir, "color/color.ts");
 const FINAL_TYPO = path.join(foundationDir, "typography/typography-tokens.ts");
@@ -22,7 +27,10 @@ const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), "sync-tokens-"));
 const STAGED_COLOR = path.join(stagingDir, "color.ts");
 const STAGED_TYPO = path.join(stagingDir, "typography.ts");
 
-const forceFlag = process.argv.includes("--force") ? " --force" : "";
+const forceArgs = process.argv.includes("--force") ? ["--force"] : [];
+const variablesPath = path.join(stagingDir, "figma-vars.json");
+const typographyPath = path.join(stagingDir, "figma-typography.json");
+const options = { stdio: "inherit", cwd, shell: false };
 
 function cleanup() {
   try {
@@ -30,30 +38,47 @@ function cleanup() {
   } catch {}
 }
 
-function run(cmd, opts = {}) {
-  execSync(cmd, { stdio: "inherit", cwd, ...opts });
-}
-
 try {
   // ── Phase 1: Fetch all data from Figma ──────────────────────────────────────
   console.log("═══ Phase 1: Fetching data from Figma ═══\n");
 
-  run(
-    'figma-use eval "$(cat scripts/sync-tokens/figma-extract-vars.mjs)" > /tmp/figma-vars.json',
-    { shell: true }
+  const variables = execFileSync(
+    configuredExecutable(process.env.FIGMA_USE_EXECUTABLE),
+    [
+      "eval",
+      fs.readFileSync(path.join(__dirname, "figma-extract-vars.mjs"), "utf8"),
+    ],
+    { ...options, stdio: ["ignore", "pipe", "inherit"] }
+  );
+  fs.writeFileSync(variablesPath, variables, { flag: "wx", mode: 0o600 });
+
+  execFileSync(
+    process.execPath,
+    [path.join(__dirname, "sync-typography.mjs"), typographyPath],
+    options
   );
 
-  run("node scripts/sync-tokens/sync-typography.mjs");
-
-  // ── Phase 2: Generate TS files to staging ───────────────────────────────────
-  console.log("\n═══ Phase 2: Generating TS files (staging) ═══\n");
-
-  run(
-    `node scripts/sync-tokens/generate-color-ts.mjs /tmp/figma-vars.json "${STAGED_COLOR}"${forceFlag}`
+  // Generate TS files inside the private staging directory.
+  console.log("\nGenerating TS files (staging)\n");
+  execFileSync(
+    process.execPath,
+    [
+      path.join(__dirname, "generate-color-ts.mjs"),
+      variablesPath,
+      STAGED_COLOR,
+      ...forceArgs,
+    ],
+    options
   );
-
-  run(
-    `node scripts/sync-tokens/generate-typography-ts.mjs /tmp/figma-typography.json "${STAGED_TYPO}"${forceFlag}`
+  execFileSync(
+    process.execPath,
+    [
+      path.join(__dirname, "generate-typography-ts.mjs"),
+      typographyPath,
+      STAGED_TYPO,
+      ...forceArgs,
+    ],
+    options
   );
 
   // ── Phase 3: Commit staged files ────────────────────────────────────────────
@@ -68,7 +93,11 @@ try {
   console.log("\n═══ Phase 4: Syncing icons ═══\n");
 
   try {
-    run("node scripts/sync-tokens/sync-icons.mjs");
+    execFileSync(
+      process.execPath,
+      [path.join(__dirname, "sync-icons.mjs")],
+      options
+    );
   } catch (iconError) {
     console.warn(`\n⚠ Icon sync failed (color/typography were saved)`);
     console.warn(`  ${iconError.message}`);
@@ -76,7 +105,11 @@ try {
 
   // ── Format generated files ──────────────────────────────────────────────────
   console.log("\n═══ Formatting generated files ═══\n");
-  run('npx prettier --write "src/**/*.{ts,tsx}"');
+  execFileSync(
+    process.execPath,
+    [prettierCli, "--write", "src/**/*.{ts,tsx}"],
+    options
+  );
 
   console.log("\n✓ All sync steps completed successfully");
 } catch (error) {

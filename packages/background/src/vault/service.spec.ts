@@ -1,20 +1,15 @@
 import { VaultService } from "./service";
 import { KVStore, MemoryKVStore } from "@keplr-wallet/common";
+import { webcrypto } from "crypto";
 
 describe("Test vault service", () => {
-  // Add polyfill for `getRandomValues`
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  global.crypto = {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    getRandomValues: (arr: Uint8Array) => {
-      for (let i = 0, l = arr.length; i < l; i++) {
-        arr[i] = Math.floor(Math.random() * 256);
-      }
-      return arr;
-    },
-  };
+  // Use native Web Crypto without replacing Node's read-only global accessor.
+  if (!globalThis.crypto) {
+    Object.defineProperty(globalThis, "crypto", {
+      value: webcrypto,
+      configurable: true,
+    });
+  }
 
   let kvStore: KVStore;
   let service: VaultService;

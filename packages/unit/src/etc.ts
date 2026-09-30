@@ -1,5 +1,5 @@
 const regexIntString = /^-?\d+$/;
-const regexDecString = /^-?\d+.?\d*$/;
+const regexDecString = /^-?\d+(?:\.\d*)?$/;
 const regexExponentDecString = /^(-?)([\d.]+)e([-+])([\d]+)$/;
 
 export function isValidIntegerString(str: string): boolean {
@@ -7,7 +7,8 @@ export function isValidIntegerString(str: string): boolean {
 }
 
 export function isValidDecimalString(str: string): boolean {
-  return regexDecString.test(str);
+  const match = regexDecString.exec(str);
+  return match !== null && match[0] === str;
 }
 
 export function isExponentDecString(str: string): boolean {

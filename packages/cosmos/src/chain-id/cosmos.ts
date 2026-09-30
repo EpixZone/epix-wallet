@@ -1,7 +1,7 @@
 export class ChainIdHelper {
   // VersionFormatRegExp checks if a chainID is in the format required for parsing versions
   // The chainID should be in the form: `{identifier}-{version}`
-  static readonly VersionFormatRegExp = /(.+)-([\d]+)/;
+  static readonly VersionFormatRegExp = /^(.+)-(\d+)$/;
 
   static parse(chainId: string): {
     identifier: string;
@@ -19,17 +19,23 @@ export class ChainIdHelper {
       };
     }
 
-    const split = chainId
-      .split(ChainIdHelper.VersionFormatRegExp)
-      .filter(Boolean);
-    if (split.length !== 2) {
+    // Split at the final separator so invalid, long IDs are scanned only once.
+    const separator = chainId.lastIndexOf("-");
+    const identifier = chainId.slice(0, separator);
+    const version = chainId.slice(separator + 1);
+    if (
+      separator <= 0 ||
+      version.length === 0 ||
+      /\D/.test(version) ||
+      /[\r\n\u2028\u2029]/.test(identifier)
+    ) {
       return {
         identifier: chainId,
         version: 0,
       };
-    } else {
-      return { identifier: split[0], version: parseInt(split[1]) };
     }
+
+    return { identifier, version: Number.parseInt(version, 10) };
   }
 
   static hasChainVersion(chainId: string): boolean {

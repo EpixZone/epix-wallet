@@ -12,54 +12,47 @@ import {
 } from "@keplr-wallet/types";
 import { SupportedChainFeatures } from "./feature";
 
-import Joi, { ObjectSchema } from "joi";
+import Joi from "joi";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
 
-export const CurrencySchema = Joi.object<
-  Currency & {
-    type?: undefined;
-  }
->({
+const BaseCurrencySchema = Joi.object<Currency>({
   coinDenom: Joi.string().required(),
   coinMinimalDenom: Joi.string().required(),
   coinDecimals: Joi.number().strict().integer().min(0).max(18).required(),
   coinGeckoId: Joi.string(),
   coinImageUrl: Joi.string().uri(),
   nonTransferable: Joi.boolean(),
-}).keys({
+});
+
+export const CurrencySchema = BaseCurrencySchema.append<
+  Currency & { type?: undefined }
+>({
   type: Joi.forbidden(),
 });
 
-export const CW20CurrencySchema = (CurrencySchema as ObjectSchema<CW20Currency>)
-  .keys({
-    type: Joi.string().equal("cw20").required(),
-    contractAddress: Joi.string().required(),
-  })
-  .custom((value: CW20Currency) => {
-    if (
-      value.coinMinimalDenom.startsWith(
-        `${value.type}:${value.contractAddress}:`
-      )
-    ) {
-      return value;
-    } else {
-      return {
-        ...value,
-        coinMinimalDenom:
-          `${value.type}:${value.contractAddress}:` + value.coinMinimalDenom,
-      };
-    }
-  });
+export const CW20CurrencySchema = BaseCurrencySchema.append<CW20Currency>({
+  type: Joi.string().equal("cw20").required(),
+  contractAddress: Joi.string().required(),
+}).custom((value: CW20Currency) => {
+  if (
+    value.coinMinimalDenom.startsWith(`${value.type}:${value.contractAddress}:`)
+  ) {
+    return value;
+  } else {
+    return {
+      ...value,
+      coinMinimalDenom:
+        `${value.type}:${value.contractAddress}:` + value.coinMinimalDenom,
+    };
+  }
+});
 
-export const Secret20CurrencySchema = (
-  CurrencySchema as ObjectSchema<Secret20Currency>
-)
-  .keys({
+export const Secret20CurrencySchema =
+  BaseCurrencySchema.append<Secret20Currency>({
     type: Joi.string().equal("secret20").required(),
     contractAddress: Joi.string().required(),
     viewingKey: Joi.string().required(),
-  })
-  .custom((value: Secret20Currency) => {
+  }).custom((value: Secret20Currency) => {
     if (
       value.coinMinimalDenom.startsWith(
         `${value.type}:${value.contractAddress}:`
@@ -75,29 +68,23 @@ export const Secret20CurrencySchema = (
     }
   });
 
-export const ERC20CurrencySchema = (
-  CurrencySchema as ObjectSchema<ERC20Currency>
-)
-  .keys({
-    type: Joi.string().equal("erc20").required(),
-    contractAddress: Joi.string()
-      .pattern(/(^(0x)[0-9a-fA-F]{40}$)|(^(0x)[0-9a-fA-F]{63,64}$)/)
-      .required(),
-  })
-  .custom((value: Secret20Currency) => {
-    if (
-      value.coinMinimalDenom.startsWith(
-        `${value.type}:${value.contractAddress}:`
-      )
-    ) {
-      return value;
-    } else {
-      return {
-        ...value,
-        coinMinimalDenom: `${value.type}:${value.contractAddress}`,
-      };
-    }
-  });
+export const ERC20CurrencySchema = BaseCurrencySchema.append<ERC20Currency>({
+  type: Joi.string().equal("erc20").required(),
+  contractAddress: Joi.string()
+    .pattern(/(^(0x)[0-9a-fA-F]{40}$)|(^(0x)[0-9a-fA-F]{63,64}$)/)
+    .required(),
+}).custom((value: ERC20Currency) => {
+  if (
+    value.coinMinimalDenom.startsWith(`${value.type}:${value.contractAddress}:`)
+  ) {
+    return value;
+  } else {
+    return {
+      ...value,
+      coinMinimalDenom: `${value.type}:${value.contractAddress}`,
+    };
+  }
+});
 
 const GasPriceStepSchema = Joi.object<{
   readonly low: number;

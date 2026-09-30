@@ -21,10 +21,10 @@ export interface FormDataNamePassword {
   confirmPassword: string;
 }
 
-export const useFormNamePassword = () => {
+export const useFormNamePassword = (name = "") => {
   return useForm<FormDataNamePassword>({
     defaultValues: {
-      name: "",
+      name,
       password: "",
       confirmPassword: "",
     },

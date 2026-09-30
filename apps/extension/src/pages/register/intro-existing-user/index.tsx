@@ -68,6 +68,16 @@ export const RegisterIntroExistingUserScene: FunctionComponent = () => {
                 sceneTransition.push("recover-mnemonic");
               }}
             />
+            <Gutter size="0.75rem" />
+            <Button
+              text={intl.formatMessage({
+                id: "wallet-transfer.import-title",
+                defaultMessage: "Scan desktop QR",
+              })}
+              size="large"
+              color="secondary"
+              onClick={() => sceneTransition.push("import-wallet-qr")}
+            />
           </Box>
         }
         right={
