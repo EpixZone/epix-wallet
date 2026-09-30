@@ -121,8 +121,8 @@ export function useEpixStatus(pollMs = 5000): UseEpixStatus {
     listeners.add(forceRender);
     subscriberCount++;
     if (subscriberCount === 1) {
-      refreshShared();
-      pollTimer = setInterval(refreshShared, pollMs);
+      void refreshShared();
+      pollTimer = setInterval(() => void refreshShared(), pollMs);
     } else {
       // A later subscriber may mount between ticks; sync it immediately.
       forceRender();

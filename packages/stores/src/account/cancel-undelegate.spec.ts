@@ -116,3 +116,14 @@ test("cancellation rejects overdrawn, missing and completed entries", () => {
     account.makeCancelUndelegateTx("1", validator, "9007199254740993")
   ).toThrow();
 });
+
+test("cancellation revalidates the balance when its messages are requested", async () => {
+  const { account, make, query } = setup();
+  make.mockRestore();
+  const tx = account.makeCancelUndelegateTx("1", validator, "9007199254740993");
+  query.unbondings[0].entries[0].balance = "1";
+
+  await expect(tx.msgs()).rejects.toThrow(
+    "Amount exceeds the remaining unbonding balance"
+  );
+});

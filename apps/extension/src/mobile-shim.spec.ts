@@ -62,4 +62,33 @@ describe("mobile localStorage hydration", () => {
       ])
     );
   });
+
+  it("keeps in-memory storage usable when native key enumeration fails", async () => {
+    const keys = requests.find((request) => request.op.cmd === "keys");
+    host.__epixStoreReply(keys?.id, undefined, "storage unavailable");
+    await new Promise(setImmediate);
+
+    host.localStorage.setItem("preference", "new value");
+    expect(host.localStorage.getItem("preference")).toBe("new value");
+  });
+
+  it("preserves concurrent writes while another initial read fails", async () => {
+    const keys = requests.find((request) => request.op.cmd === "keys");
+    host.__epixStoreReply(keys?.id, ["epix-ls/failed", "epix-ls/preference"]);
+    await Promise.resolve();
+    const failed = requests.find(
+      (request) => request.op.key === "epix-ls/failed"
+    );
+    const pending = requests.find(
+      (request) => request.op.key === "epix-ls/preference"
+    );
+    host.__epixStoreReply(failed?.id, undefined, "read failed");
+    await new Promise(setImmediate);
+
+    host.localStorage.setItem("preference", "new value");
+    host.__epixStoreReply(pending?.id, "old value");
+    await new Promise(setImmediate);
+    expect(host.localStorage.getItem("preference")).toBe("new value");
+    expect(host.localStorage.getItem("failed")).toBeNull();
+  });
 });

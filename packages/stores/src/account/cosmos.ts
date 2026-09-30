@@ -896,7 +896,9 @@ export class CosmosAccountImpl {
 
   makeTx(
     defaultType: string | "unknown",
-    msgs: ProtoMsgsOrWithAminoMsgs | (() => Promise<ProtoMsgsOrWithAminoMsgs>),
+    msgs:
+      | ProtoMsgsOrWithAminoMsgs
+      | (() => Promise<ProtoMsgsOrWithAminoMsgs> | ProtoMsgsOrWithAminoMsgs),
     preOnTxEvents?:
       | ((tx: any) => void)
       | {
@@ -2043,7 +2045,7 @@ export class CosmosAccountImpl {
     validateEntry();
     return this.makeTx(
       "cancelUndelegate",
-      async () => {
+      () => {
         validateEntry();
         const value = {
           delegator_address: this.base.bech32Address,

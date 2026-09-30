@@ -88,7 +88,7 @@ export class SetSidePanelOverlayDisabledMsg extends Message<void> {
 
   validateBasic(): void {
     if (typeof this.disabled !== "boolean") {
-      throw new Error("disabled must be boolean");
+      throw new TypeError("disabled must be boolean");
     }
   }
 
