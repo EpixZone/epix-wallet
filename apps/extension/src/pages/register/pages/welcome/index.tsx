@@ -14,6 +14,7 @@ import { useStore } from "../../../../stores";
 import { Button } from "../../../../components/button";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useTheme } from "styled-components";
+import { closeRegistrationPage } from "../../utils/close-page";
 
 export const WelcomePage: FunctionComponent = observer(() => {
   const { chainStore } = useStore();
@@ -122,7 +123,9 @@ export const WelcomePage: FunctionComponent = observer(() => {
                   padding: "0.75rem",
                 }}
                 onClick={() => {
-                  window.close();
+                  void closeRegistrationPage().catch(() => {
+                    console.error("Unable to close the registration page");
+                  });
                 }}
               />
 
