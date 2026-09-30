@@ -17276,7 +17276,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"elliptic@npm:^6.6.1":
+"elliptic@npm:6.6.1":
   version: 6.6.1
   resolution: "elliptic@npm:6.6.1"
   dependencies:
@@ -17288,6 +17288,21 @@ __metadata:
     minimalistic-assert: ^1.0.1
     minimalistic-crypto-utils: ^1.0.1
   checksum: 27b14a52f68bbbc0720da259f712cb73e953f6d2047958cd02fb0d0ade2e83849dc39fb4af630889c67df8817e24237428cf59c4f4c07700f755b401149a7375
+  languageName: node
+  linkType: hard
+
+"elliptic@patch:elliptic@npm%3A6.6.1#./.yarn/patches/elliptic-6.6.1-cve-2025-14505.patch::locator=keplr%40workspace%3A.":
+  version: 6.6.1
+  resolution: "elliptic@patch:elliptic@npm%3A6.6.1#./.yarn/patches/elliptic-6.6.1-cve-2025-14505.patch::version=6.6.1&hash=3ede55&locator=keplr%40workspace%3A."
+  dependencies:
+    bn.js: ^4.11.9
+    brorand: ^1.1.0
+    hash.js: ^1.0.0
+    hmac-drbg: ^1.0.1
+    inherits: ^2.0.4
+    minimalistic-assert: ^1.0.1
+    minimalistic-crypto-utils: ^1.0.1
+  checksum: 007f03656d61d0d0a4afcf999fa9cf85bbef3ca7d4234ce4fb92096b3d36b2e89aa4c43a71f0df394b41a03663d9c5dd57919dd99b3ac8c439f43c70aa0972eb
   languageName: node
   linkType: hard
 
