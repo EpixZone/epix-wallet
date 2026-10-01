@@ -1,0 +1,487 @@
+import React from "react";
+import styled from "styled-components";
+import { DSColor, DSTypography } from "@keplr-wallet/design-system";
+import { MainHeaderLayout } from "../main/layouts/header";
+import { Box } from "../../components/box";
+import { Button } from "../../components/button";
+import { TextInput } from "../../components/input";
+export type TranslateProgress = (
+  key: string,
+  values?: Record<string, string>
+) => string;
+
+export type MainSwapSelection = {
+  amount: string;
+  outputDenom: string;
+  slippageBps: number;
+  feeDenom: string;
+};
+export type MainSwapTokenOption = {
+  denom: string;
+  label: string;
+};
+export type MainSwapQuoteView = {
+  expectedOutput: string;
+  minimumOutput: string;
+  epixNetworkFee?: string;
+  osmosisNetworkFeeLimit?: string;
+  approvalExpiresAt?: number;
+};
+export type MainSwapWorkflowView = {
+  id: string;
+  statusText: string;
+  steps: ReadonlyArray<{
+    id: string;
+    title: string;
+    state: "waiting" | "active" | "complete" | "failed";
+    detail?: string;
+    explorerUrl?: string;
+  }>;
+  error?: string;
+  canResume: boolean;
+  checking: boolean;
+};
+export type EpixMainSwapViewProps = Readonly<{
+  t: TranslateProgress;
+  selection: MainSwapSelection;
+  outputOptions: ReadonlyArray<MainSwapTokenOption>;
+  feeOptions: ReadonlyArray<MainSwapTokenOption>;
+  /** Exact human-readable EPIX balance, including its symbol. */
+  availableBalance?: string;
+  inputFiat?: string;
+  osmosisAddress: string;
+  osmosisEnabled: boolean;
+  quoteState: "idle" | "loading" | "ready" | "error";
+  quote?: MainSwapQuoteView;
+  quoteError?: string;
+  /** Quote estimation remains visible when fees or another prerequisite block execution. */
+  blockReason?: string;
+  restoredDraft: boolean;
+  recoveryError?: string;
+  controlsDisabled: boolean;
+  selectionLocked?: boolean;
+  canConfirm: boolean;
+  confirming: boolean;
+  workflow?: MainSwapWorkflowView;
+  onSelectionChange: (update: Partial<MainSwapSelection>) => void;
+  onConfirm: () => void;
+  onRefresh: () => void;
+}>;
+
+/** Presentation only. The adapter owns quotes, enablement, approval and the background workflow. */
+export function EpixMainSwapView(props: EpixMainSwapViewProps) {
+  const { t, restoredDraft, recoveryError, workflow } = props;
+  return (
+    <MainHeaderLayout>
+      <Box padding="1rem" style={{ gap: "1rem", paddingBottom: "5rem" }}>
+        <DSTypography as="h1" size="displayXxs">
+          {t("main-title")}
+        </DSTypography>
+        <DSTypography as="p" size="textSm" color={DSColor.typography.secondary}>
+          {t("main-description")}
+        </DSTypography>
+        {restoredDraft && (
+          <DSTypography as="p" size="textSm" role="status">
+            {t("draft-restored")}
+          </DSTypography>
+        )}
+        {recoveryError && (
+          <DSTypography as="p" size="textSm" role="alert">
+            {recoveryError}
+          </DSTypography>
+        )}
+        <SwapAmountCards {...props} />
+        <SwapQuoteDetails {...props} />
+        <SwapSubmitSection {...props} />
+        {workflow && (
+          <SwapWorkflowProgress
+            t={t}
+            workflow={workflow}
+            onRefresh={props.onRefresh}
+          />
+        )}
+      </Box>
+    </MainHeaderLayout>
+  );
+}
+
+function SwapAmountCards({
+  t,
+  selection,
+  outputOptions,
+  availableBalance,
+  inputFiat,
+  quoteState,
+  quote,
+  controlsDisabled,
+  selectionLocked = false,
+  onSelectionChange,
+}: EpixMainSwapViewProps) {
+  let estimatedOutput = t("enter-amount");
+  if (quoteState === "loading") estimatedOutput = t("estimating");
+  else if (quote) estimatedOutput = quote.expectedOutput;
+  return (
+    <React.Fragment>
+      <Panel>
+        <Box
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "0.5rem",
+          }}
+        >
+          <DSTypography size="textSm" color={DSColor.typography.secondary}>
+            {t("you-pay")}
+          </DSTypography>
+          <DSTypography size="textSm">EPIX · Epix</DSTypography>
+        </Box>
+        <TextInput
+          label={t("amount")}
+          value={selection.amount}
+          placeholder="0.0"
+          inputMode="decimal"
+          disabled={controlsDisabled || selectionLocked}
+          onChange={(event) =>
+            onSelectionChange({ amount: event.target.value })
+          }
+        />
+        {inputFiat && (
+          <DSTypography size="textSm" color={DSColor.typography.secondary}>
+            {inputFiat}
+          </DSTypography>
+        )}
+        <DSTypography size="textXs" color={DSColor.typography.secondary}>
+          {availableBalance
+            ? t("balance", { amount: availableBalance })
+            : t("loading")}
+        </DSTypography>
+      </Panel>
+      <Panel>
+        <DSTypography size="textSm" color={DSColor.typography.secondary}>
+          {t("receive-on-osmosis")}
+        </DSTypography>
+        <TokenSelect
+          label={t("receive-token")}
+          value={selection.outputDenom}
+          options={outputOptions}
+          disabled={controlsDisabled || selectionLocked}
+          onChange={(outputDenom) => onSelectionChange({ outputDenom })}
+        />
+        <DSTypography
+          as="p"
+          size="displayXxs"
+          role="status"
+          aria-live="polite"
+          style={{ overflowWrap: "anywhere" }}
+        >
+          {estimatedOutput}
+        </DSTypography>
+      </Panel>
+    </React.Fragment>
+  );
+}
+
+function SwapQuoteDetails({
+  t,
+  selection,
+  feeOptions,
+  quote,
+  quoteError,
+  osmosisAddress,
+  osmosisEnabled,
+  controlsDisabled,
+  selectionLocked = false,
+  onSelectionChange,
+}: EpixMainSwapViewProps) {
+  return (
+    <Panel>
+      <Box style={{ flexDirection: "row", alignItems: "end", gap: "0.75rem" }}>
+        <TokenSelect
+          label={t("slippage")}
+          value={String(selection.slippageBps)}
+          options={[
+            { denom: "50", label: "0.5%" },
+            { denom: "100", label: "1%" },
+            { denom: "300", label: "3%" },
+          ]}
+          disabled={controlsDisabled || selectionLocked}
+          onChange={(value) =>
+            onSelectionChange({ slippageBps: Number(value) })
+          }
+        />
+        <TokenSelect
+          label={t("fee-token")}
+          value={selection.feeDenom}
+          options={feeOptions}
+          disabled={controlsDisabled || selectionLocked}
+          onChange={(feeDenom) => onSelectionChange({ feeDenom })}
+        />
+      </Box>
+      {quote && <QuoteAmounts t={t} quote={quote} />}
+      {quoteError && (
+        <DSTypography as="p" size="textSm" role="alert">
+          {quoteError}
+        </DSTypography>
+      )}
+      <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
+        {t("fee-help")}
+      </DSTypography>
+      <DSTypography
+        as="p"
+        size="textXs"
+        color={DSColor.typography.secondary}
+        style={{ overflowWrap: "anywhere" }}
+      >
+        {t("recipient")}: {osmosisAddress || "..."}
+      </DSTypography>
+      {osmosisEnabled && (
+        <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
+          {t("destination-enabled")}
+        </DSTypography>
+      )}
+    </Panel>
+  );
+}
+
+function QuoteAmounts({
+  t,
+  quote,
+}: Readonly<{ t: TranslateProgress; quote: MainSwapQuoteView }>) {
+  const expiresAt = quote.approvalExpiresAt;
+  const approvalMinutes =
+    typeof expiresAt === "number" && Number.isFinite(expiresAt)
+      ? Math.ceil(Math.max(0, expiresAt - Date.now()) / 60_000)
+      : undefined;
+  return (
+    <React.Fragment>
+      <QuoteLine label={t("minimum-received")} value={quote.minimumOutput} />
+      <QuoteLine
+        label={t("epix-network-fee")}
+        value={quote.epixNetworkFee ?? "..."}
+      />
+      <QuoteLine
+        label={t("osmosis-network-fee")}
+        value={quote.osmosisNetworkFeeLimit ?? "..."}
+      />
+      {approvalMinutes !== undefined && (
+        <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
+          {t("approval-duration", { minutes: String(approvalMinutes) })}
+        </DSTypography>
+      )}
+    </React.Fragment>
+  );
+}
+
+function SwapSubmitSection({
+  t,
+  blockReason,
+  canConfirm,
+  confirming,
+  controlsDisabled,
+  osmosisEnabled,
+  quoteState,
+  quote,
+  onConfirm,
+  onRefresh,
+  workflow,
+}: EpixMainSwapViewProps) {
+  return (
+    <React.Fragment>
+      {blockReason && (
+        <DSTypography as="p" size="textSm" role="status">
+          {blockReason}
+        </DSTypography>
+      )}
+      <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
+        {t("swap-once-help")}
+      </DSTypography>
+      <Button
+        text={t(workflow?.canResume ? "resume" : "swap")}
+        disabled={
+          confirming ||
+          !canConfirm ||
+          !quote?.epixNetworkFee ||
+          !quote?.osmosisNetworkFeeLimit ||
+          !osmosisEnabled ||
+          controlsDisabled ||
+          quoteState !== "ready"
+        }
+        isLoading={confirming}
+        onClick={onConfirm}
+      />
+      <Button
+        text={t("refresh-quote")}
+        mode="ghost"
+        disabled={confirming || quoteState === "loading"}
+        onClick={onRefresh}
+      />
+    </React.Fragment>
+  );
+}
+
+function TokenSelect({
+  label,
+  value,
+  options,
+  disabled,
+  onChange,
+}: Readonly<{
+  label: string;
+  value: string;
+  options: ReadonlyArray<MainSwapTokenOption>;
+  disabled: boolean;
+  onChange: (value: string) => void;
+}>) {
+  return (
+    <label style={{ flex: 1, minWidth: 0 }}>
+      <DSTypography
+        as="span"
+        size="textXs"
+        color={DSColor.typography.secondary}
+      >
+        {label}
+      </DSTypography>
+      <Select
+        aria-label={label}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {options.map((option) => (
+          <option key={option.denom} value={option.denom}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
+    </label>
+  );
+}
+
+function QuoteLine({
+  label,
+  value,
+}: Readonly<{ label: string; value: string }>) {
+  return (
+    <Box
+      style={{
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "baseline",
+        gap: "0.75rem",
+      }}
+    >
+      <DSTypography size="textXs" color={DSColor.typography.secondary}>
+        {label}
+      </DSTypography>
+      <DSTypography
+        size="textSm"
+        style={{ textAlign: "right", overflowWrap: "anywhere" }}
+      >
+        {value}
+      </DSTypography>
+    </Box>
+  );
+}
+
+export function SwapWorkflowProgress({
+  t,
+  workflow,
+  onRefresh,
+}: Readonly<{
+  t: TranslateProgress;
+  workflow: MainSwapWorkflowView;
+  onRefresh: () => void;
+}>) {
+  const completed = workflow.steps.filter(
+    (step) => step.state === "complete"
+  ).length;
+  return (
+    <Panel>
+      <DSTypography as="h2" size="textLg">
+        {t("workflow-progress")}
+      </DSTypography>
+      <Progress
+        value={completed}
+        max={Math.max(1, workflow.steps.length)}
+        aria-label={t("workflow-progress")}
+        aria-valuetext={workflow.statusText}
+      />
+      <DSTypography as="p" size="textSm" role="status" aria-live="polite">
+        {workflow.statusText}
+      </DSTypography>
+      <ol style={{ margin: 0, paddingInlineStart: "1.25rem" }}>
+        {workflow.steps.map((step) => (
+          <li
+            key={step.id}
+            aria-current={step.state === "active" ? "step" : undefined}
+            style={{ marginBlock: "0.5rem" }}
+          >
+            <DSTypography size="textSm">{step.title}</DSTypography>
+            {step.detail && (
+              <DSTypography
+                as="p"
+                size="textXs"
+                color={DSColor.typography.secondary}
+              >
+                {step.detail}
+              </DSTypography>
+            )}
+            {step.explorerUrl && (
+              <a
+                href={step.explorerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: DSColor.typography.brand }}
+              >
+                {t("view-transaction")}
+              </a>
+            )}
+          </li>
+        ))}
+      </ol>
+      {workflow.error && (
+        <DSTypography as="p" size="textSm" role="alert">
+          {workflow.error}
+        </DSTypography>
+      )}
+      <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
+        {t("recovery-help")}
+      </DSTypography>
+      <Button
+        text={t("check-status")}
+        mode="ghost"
+        disabled={workflow.checking}
+        isLoading={workflow.checking}
+        onClick={onRefresh}
+      />
+    </Panel>
+  );
+}
+
+const Panel = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid ${DSColor.stroke.separator.primary};
+  border-radius: 0.75rem;
+  background: ${DSColor.background.surface.surface};
+`;
+const Select = styled.select`
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin-top: 0.375rem;
+  padding: 0.5rem;
+  border: 1px solid ${DSColor.stroke.input.default};
+  border-radius: 0.375rem;
+  color: ${DSColor.typography.primary};
+  background: ${DSColor.background.surface.surface};
+`;
+const Progress = styled.progress`
+  display: block;
+  width: 100%;
+  height: 0.4rem;
+  accent-color: ${DSColor.typography.brand};
+`;

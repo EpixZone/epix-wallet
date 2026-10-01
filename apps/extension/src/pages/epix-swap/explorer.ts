@@ -1,5 +1,5 @@
 import { EPIX_TX_EXPLORER } from "../../config.ui";
-import { EPIX_CHAIN_ID, OSMOSIS_CHAIN_ID } from "./bridge";
+import { EPIX_CHAIN_ID, OSMOSIS_CHAIN_ID } from "./tokens";
 
 // Cosmos chain-registry/osmosis/chain.json lists this Mintscan transaction route.
 const OSMOSIS_TX_EXPLORER =

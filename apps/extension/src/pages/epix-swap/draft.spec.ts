@@ -2,8 +2,6 @@ import { MemoryKVStore } from "@keplr-wallet/common";
 import { SwapDraft, SwapDraftStore, validateSwapDraft } from "./draft";
 
 const draft: SwapDraft = {
-  stage: "deposit",
-  inputIndex: 0,
   outputIndex: 1,
   amount: "1.000000000000000001",
   slippage: 100,

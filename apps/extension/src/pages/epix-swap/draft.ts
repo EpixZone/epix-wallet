@@ -1,28 +1,19 @@
 import { KVStore } from "@keplr-wallet/common";
 
 export type SwapDraft = {
-  stage: "deposit" | "swap" | "withdraw";
-  inputIndex: number;
   outputIndex: number;
   amount: string;
   slippage: number;
   feeIndex: number;
 };
 
-const draftKeys = [
-  "stage",
-  "inputIndex",
-  "outputIndex",
-  "amount",
-  "slippage",
-  "feeIndex",
-];
+const draftKeys = new Set(["outputIndex", "amount", "slippage", "feeIndex"]);
 
 function validTokenIndex(value: unknown): value is number {
   return (
     typeof value === "number" &&
     Number.isInteger(value) &&
-    value >= 0 &&
+    value >= 1 &&
     value <= 3
   );
 }
@@ -31,14 +22,12 @@ export function validateSwapDraft(value: unknown): value is SwapDraft {
   if (typeof value !== "object" || value === null || Array.isArray(value))
     return false;
   if (
-    Object.keys(value).length !== draftKeys.length ||
-    !Object.keys(value).every((key) => draftKeys.includes(key))
+    Object.keys(value).length !== draftKeys.size ||
+    !Object.keys(value).every((key) => draftKeys.has(key))
   )
     return false;
   const draft = value as Partial<SwapDraft>;
   return (
-    ["deposit", "swap", "withdraw"].includes(draft.stage ?? "") &&
-    validTokenIndex(draft.inputIndex) &&
     validTokenIndex(draft.outputIndex) &&
     typeof draft.amount === "string" &&
     draft.amount.length <= 100 &&

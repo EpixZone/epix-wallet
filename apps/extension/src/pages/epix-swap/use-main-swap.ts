@@ -1,0 +1,344 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useIntl } from "react-intl";
+import {
+  EpixSwapReview,
+  PrepareEpixSwapMsg,
+  StartEpixSwapMsg,
+} from "@keplr-wallet/background";
+import { BACKGROUND_PORT } from "@keplr-wallet/router";
+import { CoinPretty } from "@keplr-wallet/unit";
+import { useStore } from "../../stores";
+import { EPIX_CHAIN_ID, EPIX_CURRENCY, OSMOSIS_CHAIN_ID } from "./tokens";
+import { OSMOSIS_SWAP_TOKENS } from "./tokens";
+import { parseAmountToMinimal } from "./amount";
+import { useSwapDraft } from "./use-draft";
+import { swapRequester, useSwapOperations } from "./use-operations";
+import { isRouteFinished, quoteView, workflowView } from "./flow-view";
+import { EpixMainSwapViewProps, MainSwapSelection } from "./main-swap-view";
+
+function inputAmount(value: string): string | undefined {
+  if (!value || value === ".") return undefined;
+  const withZero = value.startsWith(".") ? `0${value}` : value;
+  const normalized = withZero.endsWith(".") ? withZero.slice(0, -1) : withZero;
+  try {
+    return parseAmountToMinimal(normalized, 18);
+  } catch {
+    return undefined;
+  }
+}
+
+export function useMainSwap(): EpixMainSwapViewProps {
+  const intl = useIntl();
+  const t = useCallback(
+    (key: string, values?: Record<string, string>) =>
+      intl.formatMessage({ id: `page.epix-swap.${key}` }, values),
+    [intl]
+  );
+  const { chainStore, accountStore, queriesStore, keyRingStore, priceStore } =
+    useStore();
+  const vaultId = keyRingStore.selectedKeyInfo?.id;
+  const epixAccount = accountStore.getAccount(EPIX_CHAIN_ID);
+  const osmoAccount = accountStore.getAccount(OSMOSIS_CHAIN_ID);
+  const owner = JSON.stringify([
+    vaultId,
+    epixAccount.bech32Address,
+    osmoAccount.bech32Address,
+  ]);
+  const ownerReady =
+    !!vaultId &&
+    keyRingStore.status === "unlocked" &&
+    epixAccount.isReadyToSendTx &&
+    osmoAccount.isReadyToSendTx &&
+    !!epixAccount.bech32Address &&
+    !!osmoAccount.bech32Address;
+  const draft = useSwapDraft(
+    ownerReady ? `main-swap/${owner}` : undefined,
+    {
+      amount: "",
+      outputIndex: 1,
+      slippage: 100,
+      feeIndex: 3,
+    },
+    true
+  );
+  const operations = useSwapOperations(ownerReady ? vaultId : undefined, owner);
+  const ordered = [...operations.operations].sort(
+    (a, b) => b.createdAt - a.createdAt
+  );
+  const operation =
+    ordered.find((item) => !isRouteFinished(item)) ?? ordered[0];
+  const unfinished =
+    operation && !isRouteFinished(operation) ? operation : undefined;
+  const resumeId = unfinished?.status === "paused" ? unfinished.id : undefined;
+  const routeRunning = !!unfinished && !resumeId;
+  const draftOutput = OSMOSIS_SWAP_TOKENS[draft.draft.outputIndex];
+  const draftFee = OSMOSIS_SWAP_TOKENS[draft.draft.feeIndex];
+  const selection: MainSwapSelection = unfinished
+    ? {
+        amount: new CoinPretty(EPIX_CURRENCY, unfinished.amountIn)
+          .toDec()
+          .toString(),
+        outputDenom: unfinished.outputDenom,
+        feeDenom: unfinished.feeDenom,
+        slippageBps: unfinished.slippageBps,
+      }
+    : {
+        amount: draft.draft.amount,
+        outputDenom:
+          draftOutput?.coinMinimalDenom ??
+          OSMOSIS_SWAP_TOKENS[1].coinMinimalDenom,
+        feeDenom: draftFee?.coinMinimalDenom ?? "uosmo",
+        slippageBps: draft.draft.slippage,
+      };
+  const amountMinimal = inputAmount(selection.amount);
+  const [retry, setRetry] = useState(0);
+  const [enabled, setEnabled] = useState({ owner, ready: false, error: "" });
+  useEffect(() => {
+    if (!ownerReady || !vaultId) return;
+    let disposed = false;
+    setEnabled({ owner, ready: false, error: "" });
+    void (async () => {
+      try {
+        chainStore
+          .getModularChain(OSMOSIS_CHAIN_ID)
+          .addCurrencies(...OSMOSIS_SWAP_TOKENS);
+        await chainStore.enableChainInfoInUIWithVaultId(
+          vaultId,
+          OSMOSIS_CHAIN_ID
+        );
+        if (!disposed) setEnabled({ owner, ready: true, error: "" });
+      } catch (error) {
+        if (!disposed)
+          setEnabled({
+            owner,
+            ready: false,
+            error: error instanceof Error ? error.message : t("unsupported"),
+          });
+      }
+    })();
+    return () => {
+      disposed = true;
+    };
+  }, [ownerReady, vaultId, owner, chainStore, retry, t]);
+  const isEnabled = ownerReady && enabled.owner === owner && enabled.ready;
+  const canPrepare =
+    isEnabled &&
+    draft.ready &&
+    !draft.error &&
+    operations.ready &&
+    !operations.error &&
+    !routeRunning;
+  const requestKey = JSON.stringify([
+    owner,
+    amountMinimal,
+    selection.outputDenom,
+    selection.feeDenom,
+    selection.slippageBps,
+    resumeId,
+  ]);
+  const currentRequest = useRef(requestKey);
+  currentRequest.current = requestKey;
+  const [quote, setQuote] = useState<{
+    key: string;
+    review?: EpixSwapReview;
+    loading: boolean;
+    error?: string;
+  }>({ key: requestKey, loading: false });
+  const [refreshQuote, setRefreshQuote] = useState(0);
+  const prepare = useCallback(async () => {
+    if (!vaultId || !amountMinimal) return undefined;
+    return swapRequester.sendMessage(
+      BACKGROUND_PORT,
+      new PrepareEpixSwapMsg(
+        vaultId,
+        amountMinimal,
+        selection.outputDenom,
+        selection.slippageBps,
+        selection.feeDenom,
+        resumeId
+      )
+    );
+  }, [
+    vaultId,
+    amountMinimal,
+    selection.outputDenom,
+    selection.slippageBps,
+    selection.feeDenom,
+    resumeId,
+  ]);
+  useEffect(() => {
+    let disposed = false;
+    setQuote({ key: requestKey, loading: !!amountMinimal && canPrepare });
+    if (!amountMinimal || !canPrepare) return;
+    const timer = setTimeout(() => {
+      void prepare()
+        .then((review) => {
+          if (!disposed) setQuote({ key: requestKey, review, loading: false });
+        })
+        .catch((error) => {
+          if (!disposed)
+            setQuote({
+              key: requestKey,
+              loading: false,
+              error: error instanceof Error ? error.message : t("unsupported"),
+            });
+        });
+    }, 500);
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+    };
+  }, [requestKey, amountMinimal, canPrepare, prepare, refreshQuote, t]);
+  useEffect(() => {
+    if (!canPrepare || !amountMinimal || quote.loading) return;
+    const timer = setInterval(
+      () => setRefreshQuote((value) => value + 1),
+      20_000
+    );
+    return () => clearInterval(timer);
+  }, [canPrepare, amountMinimal, quote.loading]);
+  const boundReview =
+    ownerReady &&
+    quote.key === requestKey &&
+    quote.review?.sourceAddress === epixAccount.bech32Address &&
+    quote.review?.destinationAddress === osmoAccount.bech32Address
+      ? quote.review
+      : undefined;
+  const [confirmation, setConfirmation] = useState({
+    owner,
+    busy: false,
+    error: "",
+  });
+  const confirmingRef = useRef(false);
+  const confirming = confirmation.owner === owner && confirmation.busy;
+  const canConfirm =
+    !!boundReview?.canStart &&
+    Date.now() < boundReview.expiresAt &&
+    canPrepare &&
+    !quote.loading &&
+    !confirming;
+  const confirm = async () => {
+    if (!canConfirm || !boundReview || confirmingRef.current) return;
+    confirmingRef.current = true;
+    setConfirmation({ owner, busy: true, error: "" });
+    try {
+      await draft.save();
+      if (
+        currentRequest.current !== requestKey ||
+        keyRingStore.status !== "unlocked" ||
+        keyRingStore.selectedKeyInfo?.id !== vaultId
+      )
+        return;
+      await swapRequester.sendMessage(
+        BACKGROUND_PORT,
+        new StartEpixSwapMsg(boundReview.id)
+      );
+      setQuote({ key: requestKey, loading: false });
+      await operations.load();
+    } catch (error) {
+      if (currentRequest.current === requestKey) {
+        setConfirmation({
+          owner,
+          busy: false,
+          error: error instanceof Error ? error.message : t("unsupported"),
+        });
+        setQuote({ key: requestKey, loading: false });
+        await operations.load();
+        setRefreshQuote((value) => value + 1);
+      }
+    } finally {
+      confirmingRef.current = false;
+      setConfirmation((previous) =>
+        previous.owner === owner ? { ...previous, busy: false } : previous
+      );
+    }
+  };
+  const balanceQuery = queriesStore
+    .get(EPIX_CHAIN_ID)
+    .queryBalances.getQueryBech32Address(epixAccount.bech32Address)
+    .getBalance(EPIX_CURRENCY);
+  const refresh = async () => {
+    if (!draft.ready || draft.error) draft.retry();
+    if (!isEnabled) setRetry((value) => value + 1);
+    await operations.refresh(unfinished?.id);
+    await balanceQuery?.waitFreshResponse();
+    setRefreshQuote((value) => value + 1);
+  };
+  const changeSelection = (update: Partial<MainSwapSelection>) => {
+    if (unfinished) return;
+    const next = { ...selection, ...update };
+    draft.update({
+      amount: next.amount,
+      slippage: next.slippageBps,
+      outputIndex: OSMOSIS_SWAP_TOKENS.findIndex(
+        (token) => token.coinMinimalDenom === next.outputDenom
+      ),
+      feeIndex: OSMOSIS_SWAP_TOKENS.findIndex(
+        (token) => token.coinMinimalDenom === next.feeDenom
+      ),
+    });
+    setConfirmation({ owner, busy: false, error: "" });
+  };
+  let quoteState: EpixMainSwapViewProps["quoteState"] = "idle";
+  if (quote.key === requestKey && quote.loading) quoteState = "loading";
+  else if (boundReview) quoteState = "ready";
+  else if (quote.key === requestKey && quote.error) quoteState = "error";
+  let recoveryError: string | undefined;
+  if (draft.error) recoveryError = t("storage-unavailable");
+  else if (operations.error) recoveryError = t("tracking-unavailable");
+  else if (enabled.owner === owner && enabled.error)
+    recoveryError = enabled.error;
+  let quoteError = quote.key === requestKey ? quote.error : undefined;
+  if (confirmation.owner === owner && confirmation.error)
+    quoteError = confirmation.error;
+  const inputPrice =
+    ownerReady && amountMinimal
+      ? priceStore.calculatePrice(new CoinPretty(EPIX_CURRENCY, amountMinimal))
+      : undefined;
+  return {
+    t,
+    selection,
+    outputOptions: OSMOSIS_SWAP_TOKENS.slice(1).map((token) => ({
+      denom: token.coinMinimalDenom,
+      label: token.coinDenom === "BTC" ? "BTC (allBTC)" : token.coinDenom,
+    })),
+    feeOptions: [3, 1, 2].map((index) => ({
+      denom: OSMOSIS_SWAP_TOKENS[index].coinMinimalDenom,
+      label: OSMOSIS_SWAP_TOKENS[index].coinDenom,
+    })),
+    availableBalance:
+      ownerReady && balanceQuery?.balance.isReady
+        ? balanceQuery.balance.trim(true).toString()
+        : undefined,
+    inputFiat: inputPrice?.toString(),
+    osmosisAddress: ownerReady ? osmoAccount.bech32Address : "",
+    osmosisEnabled: isEnabled,
+    quoteState,
+    quote: boundReview ? quoteView(boundReview) : undefined,
+    quoteError,
+    blockReason: boundReview?.blockReason,
+    restoredDraft: draft.restored,
+    recoveryError,
+    controlsDisabled:
+      !ownerReady || !draft.ready || !isEnabled || routeRunning || confirming,
+    selectionLocked: !!unfinished,
+    canConfirm,
+    confirming,
+    workflow: operation
+      ? workflowView(operation, operations.checking, t)
+      : undefined,
+    onSelectionChange: changeSelection,
+    onConfirm: () => {
+      void confirm();
+    },
+    onRefresh: () => {
+      void refresh().catch((error) =>
+        setConfirmation({
+          owner,
+          busy: false,
+          error: error instanceof Error ? error.message : t("loading"),
+        })
+      );
+    },
+  };
+}
