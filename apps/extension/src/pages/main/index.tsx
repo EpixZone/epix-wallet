@@ -10,7 +10,6 @@ import { observer } from "mobx-react-lite";
 import { useStore } from "../../stores";
 import {
   IBCTransferView,
-  BuyCryptoModal,
   UpdateNoteModal,
   UpdateNotePageData,
   SpendableCard,
@@ -39,7 +38,6 @@ import { amountToAmbiguousAverage } from "../../utils";
 import { InExtensionMessageRequester } from "@keplr-wallet/router-extension";
 import { LogAnalyticsEventMsg } from "@keplr-wallet/background";
 import { BACKGROUND_PORT } from "@keplr-wallet/router";
-import { useBuySupportServiceInfos } from "../../hooks/use-buy-support-service-infos";
 import { MainH1 } from "../../components/typography/main-h1";
 import { LockIcon } from "../../components/icon/lock";
 import { DepositModal } from "./components/deposit-modal";
@@ -208,9 +206,6 @@ export const MainPage: FunctionComponent<{
   ]);
 
   const [isOpenDepositModal, setIsOpenDepositModal] = React.useState(false);
-  const [isOpenBuy, setIsOpenBuy] = React.useState(false);
-
-  const buySupportServiceInfos = useBuySupportServiceInfos();
 
   const totalPriceSectionRef = useRef<HTMLDivElement | null>(null);
   const [isTotalPriceVisible, setIsTotalPriceVisible] = useState(true);
@@ -373,9 +368,6 @@ export const MainPage: FunctionComponent<{
             onClickGetStarted={() => {
               setIsOpenDepositModal(true);
             }}
-            onClickBuy={() => {
-              setIsOpenBuy(true);
-            }}
             onMoreTokensClosed={() => {
               // token list가 접히면서 scroll height가 작아지게 된다.
               // scroll height가 작아지는 것은 위로 스크롤 하는 것과 같은 효과를 내기 때문에
@@ -403,17 +395,6 @@ export const MainPage: FunctionComponent<{
         forceNotUseSimplebar={true}
       >
         <DepositModal close={() => setIsOpenDepositModal(false)} />
-      </Modal>
-
-      <Modal
-        isOpen={isOpenBuy}
-        align="bottom"
-        close={() => setIsOpenBuy(false)}
-      >
-        <BuyCryptoModal
-          close={() => setIsOpenBuy(false)}
-          buySupportServiceInfos={buySupportServiceInfos}
-        />
       </Modal>
 
       <Modal

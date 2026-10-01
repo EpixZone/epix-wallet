@@ -153,13 +153,6 @@ export const ENSInfo = {
   chainId: "eip155:1",
 };
 
-export interface FiatOnRampServiceInfo {
-  serviceId: string;
-  serviceName: string;
-  buyOrigin: string;
-  buySupportCoinDenomsByChainId: Record<string, string[] | undefined>;
-}
-
 export const SwapVenues: {
   name: string;
   chainId: string;

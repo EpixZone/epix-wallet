@@ -9,7 +9,6 @@ import React, {
 } from "react";
 import {
   BottomTagType,
-  BuyButtonWhenFirstTime,
   LookingForChains,
   MainEmptyView,
   ReceiveButtonWhenFirstTime,
@@ -347,16 +346,9 @@ export const SpendableAssetView: FunctionComponent<{
   onClickGetStarted: () => void;
   onMoreTokensClosed: () => void;
 
-  onClickBuy: () => void;
   hideNumInTitle: boolean;
 }> = observer(
-  ({
-    isNotReady,
-    onClickGetStarted,
-    onMoreTokensClosed,
-    onClickBuy,
-    hideNumInTitle,
-  }) => {
+  ({ isNotReady, onClickGetStarted, onMoreTokensClosed, hideNumInTitle }) => {
     const { chainStore, uiConfigStore, keyRingStore } = useStore();
     const intl = useIntl();
     const theme = useTheme();
@@ -865,10 +857,6 @@ export const SpendableAssetView: FunctionComponent<{
                   <ReceiveButtonWhenFirstTime
                     key={"receive-button"}
                     onClick={onClickGetStarted}
-                  />,
-                  <BuyButtonWhenFirstTime
-                    key={"buy-button"}
-                    onClick={onClickBuy}
                   />,
                 ]}
               />

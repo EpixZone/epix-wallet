@@ -21,8 +21,6 @@ import { useNavigate } from "react-router";
 import { TokenInfos } from "./token-info";
 import { RenderMessages } from "./messages";
 import { Modal } from "../../../components/modal";
-import { BuyCryptoModal } from "../components";
-import { useBuySupportServiceInfos } from "../../../hooks/use-buy-support-service-infos";
 import { CoinPretty, Dec, DecUtils } from "@keplr-wallet/unit";
 import { CircleButton } from "./circle-button";
 import { AddressChip, QRCodeChip } from "./address-chip";
@@ -116,15 +114,6 @@ export const TokenDetailModal: FunctionComponent<{
   const isNonTransferable = !!currency.nonTransferable;
 
   const [isReceiveOpen, setIsReceiveOpen] = React.useState(false);
-  const [isOpenBuy, setIsOpenBuy] = React.useState(false);
-
-  const buySupportServiceInfos = useBuySupportServiceInfos({
-    chainId,
-    currency,
-  });
-  const isSomeBuySupport = buySupportServiceInfos.some(
-    (serviceInfo) => !!serviceInfo.getBuyUrl
-  );
   const balance = (() => {
     const u = modularChainInfo.unwrapped;
     if (u.type === "cosmos" || u.type === "ethermint") {
@@ -216,30 +205,6 @@ export const TokenDetailModal: FunctionComponent<{
     onClick: () => void;
     disabled?: boolean;
   }[] = [
-    {
-      icon: (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="20"
-          height="20"
-          fill="none"
-          viewBox="0 0 20 20"
-        >
-          <path
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="1.556"
-            d="M10 3.75v12.5M16.25 10H3.75"
-          />
-        </svg>
-      ),
-      text: "Buy",
-      onClick: () => {
-        setIsOpenBuy(true);
-      },
-      disabled: !isSomeBuySupport,
-    },
     {
       icon: (
         <svg
@@ -877,17 +842,6 @@ export const TokenDetailModal: FunctionComponent<{
           })()}
         </SimpleBar>
       </Styles.Body>
-
-      <Modal
-        isOpen={isOpenBuy}
-        align="bottom"
-        close={() => setIsOpenBuy(false)}
-      >
-        <BuyCryptoModal
-          close={() => setIsOpenBuy(false)}
-          buySupportServiceInfos={buySupportServiceInfos}
-        />
-      </Modal>
 
       <Modal
         isOpen={isReceiveOpen}
