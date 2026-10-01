@@ -91,6 +91,81 @@ it("keeps the estimate visible when missing fee funds block confirmation", () =>
   expect(html).toContain('<button disabled="">swap</button>');
 });
 
+const routedQuote = {
+  ...props.quote,
+  expectedOutput: "0.00007 USDC",
+  minimumOutput: "0.00006 USDC",
+  routes: [
+    {
+      poolId: "2143",
+      tokenIn: "EPIX",
+      tokenOut: "OSMO",
+      tokenInDenom: "ibc/epix",
+      tokenOutDenom: "uosmo",
+    },
+    {
+      poolId: "678",
+      tokenIn: "OSMO",
+      tokenOut: "USDC",
+      tokenInDenom: "uosmo",
+      tokenOutDenom: "ibc/usdc",
+    },
+  ],
+};
+
+it("shows the bridge and exact quoted pools in order even when fees block the swap", () => {
+  const html = renderToStaticMarkup(
+    <EpixMainSwapView
+      {...props}
+      t={(key, values) => [key, ...Object.values(values ?? {})].join(" ")}
+      quote={routedQuote}
+      canConfirm={false}
+      blockReason="Add OSMO before swapping"
+    />
+  );
+  expect(html).toContain("estimated-route");
+  expect(html).toContain("route-ibc-bridge");
+  expect(html).toContain("route-preview-help");
+  expect(html.indexOf("route-pool 2143")).toBeLessThan(
+    html.indexOf("route-pool 678")
+  );
+  expect(html).toContain('title="uosmo">OSMO');
+  expect(html).toContain('title="ibc/usdc">USDC');
+});
+
+it.each(["loading", "error", "idle"] as const)(
+  "hides a stale route when the current quote is %s",
+  (quoteState) => {
+    const html = renderToStaticMarkup(
+      <EpixMainSwapView
+        {...props}
+        quote={routedQuote}
+        quoteState={quoteState}
+      />
+    );
+    expect(html).not.toContain("estimated-route");
+    expect(html).not.toContain("route-pool");
+    if (quoteState === "loading") {
+      expect(html).toContain("estimating");
+      expect(html).toContain("route-search-detail");
+      expect(html).toContain('role="status" aria-live="polite"');
+      expect(html).not.toContain("0.00007 USDC");
+    }
+  }
+);
+
+it("marks an already completed bridge when reviewing only the remaining swap", () => {
+  const html = renderToStaticMarkup(
+    <EpixMainSwapView
+      {...props}
+      quote={{ ...routedQuote, bridgeComplete: true }}
+    />
+  );
+  expect(html).toContain("route-ibc-complete");
+  expect(html).toContain("route-resume-preview-help");
+  expect(html).not.toContain("route-preview-help");
+});
+
 it.each([
   { osmosisEnabled: false },
   { quote: undefined },

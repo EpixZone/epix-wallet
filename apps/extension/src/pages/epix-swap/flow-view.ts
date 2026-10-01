@@ -13,6 +13,7 @@ import {
   TranslateProgress,
 } from "./main-swap-view";
 import { transactionExplorerUrl } from "./explorer";
+import { quoteRouteView } from "./quote-route";
 
 export function isRouteFinished(operation: EpixSwapOperation): boolean {
   return operation.status === "complete" || operation.status === "failed";
@@ -42,12 +43,15 @@ export function quoteView(
     (item) => item.coinMinimalDenom === review.outputDenom
   );
   if (!currency) return undefined;
+  const routes = quoteRouteView(review.routes);
   return {
     expectedOutput: displayAmount(currency, review.estimatedAmountOut),
     minimumOutput: displayAmount(currency, review.minimumAmountOut),
     epixNetworkFee: displayFee(review.bridgeFee),
     osmosisNetworkFeeLimit: displayFee(review.swapFeeCap),
     approvalExpiresAt: review.executionExpiresAt,
+    ...(routes ? { routes } : {}),
+    ...(review.bridgeComplete ? { bridgeComplete: true } : {}),
   };
 }
 

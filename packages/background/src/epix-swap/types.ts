@@ -19,6 +19,9 @@ export interface EpixSwapReview {
   outputDenom: string;
   estimatedAmountOut: string;
   minimumAmountOut: string;
+  /** Preview from the current quote. Execution fetches a fresh bounded quote. */
+  routes?: ReadonlyArray<{ poolId: string; tokenOutDenom: string }>;
+  bridgeComplete?: boolean;
   bridgeFee: StdFee;
   swapFeeCap: StdFee;
   canStart: boolean;

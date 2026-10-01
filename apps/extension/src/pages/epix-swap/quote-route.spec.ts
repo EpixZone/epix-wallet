@@ -1,0 +1,83 @@
+import { quoteRouteView } from "./quote-route";
+import { OSMOSIS_SWAP_TOKENS } from "./tokens";
+
+const epix = OSMOSIS_SWAP_TOKENS[0].coinMinimalDenom;
+const usdc = OSMOSIS_SWAP_TOKENS[1].coinMinimalDenom;
+
+it("maps a direct route from exact Osmosis EPIX and preserves a uint64 pool ID", () => {
+  expect(
+    quoteRouteView([{ poolId: "18446744073709551615", tokenOutDenom: "uosmo" }])
+  ).toEqual([
+    {
+      poolId: "18446744073709551615",
+      tokenIn: "EPIX",
+      tokenOut: "OSMO",
+      tokenInDenom: epix,
+      tokenOutDenom: "uosmo",
+    },
+  ]);
+});
+
+it("carries each exact output into the next hop without changing the quoted path", () => {
+  const routes = Object.freeze([
+    Object.freeze({ poolId: "3351", tokenOutDenom: "uosmo" }),
+    Object.freeze({ poolId: "3567", tokenOutDenom: usdc }),
+  ]);
+  expect(quoteRouteView(routes)).toEqual([
+    {
+      poolId: "3351",
+      tokenIn: "EPIX",
+      tokenOut: "OSMO",
+      tokenInDenom: epix,
+      tokenOutDenom: "uosmo",
+    },
+    {
+      poolId: "3567",
+      tokenIn: "OSMO",
+      tokenOut: "USDC",
+      tokenInDenom: "uosmo",
+      tokenOutDenom: usdc,
+    },
+  ]);
+});
+
+it("uses an honest shortened denomination for unknown intermediates and retains the full value", () => {
+  const unknown = `ibc/${"0123456789ABCDEF".repeat(4)}`;
+  const routes = quoteRouteView([
+    { poolId: "1", tokenOutDenom: unknown },
+    { poolId: "2", tokenOutDenom: usdc },
+  ]);
+  expect(routes?.[0].tokenOut).toBe("ibc/01234567…89ABCDEF");
+  expect(routes?.[1].tokenIn).toBe("ibc/01234567…89ABCDEF");
+  expect(routes?.[0].tokenOutDenom).toBe(unknown);
+  expect(routes?.[1].tokenInDenom).toBe(unknown);
+  expect(routes?.[1].tokenOut).toBe("USDC");
+});
+
+it("does not guess known symbols from an unmatched or differently cased denomination", () => {
+  expect(
+    quoteRouteView([{ poolId: "1", tokenOutDenom: "UOSMO" }])?.[0].tokenOut
+  ).toBe("UOSMO");
+  expect(
+    quoteRouteView([{ poolId: "1", tokenOutDenom: "aepix" }])?.[0].tokenOut
+  ).toBe("aepix");
+});
+
+it("keeps absent routes compatible and never displays a partial overlong path", () => {
+  expect(quoteRouteView()).toBeUndefined();
+  expect(quoteRouteView([])).toBeUndefined();
+  const maximum = Array.from({ length: 8 }, (_, index) => ({
+    poolId: String(index + 1),
+    tokenOutDenom: `unknown-${index + 1}`,
+  }));
+  const result = quoteRouteView(maximum);
+  expect(result).toHaveLength(8);
+  expect(result?.[7]).toMatchObject({
+    poolId: "8",
+    tokenInDenom: "unknown-7",
+    tokenOutDenom: "unknown-8",
+  });
+  expect(
+    quoteRouteView([...maximum, { poolId: "9", tokenOutDenom: usdc }])
+  ).toBeUndefined();
+});

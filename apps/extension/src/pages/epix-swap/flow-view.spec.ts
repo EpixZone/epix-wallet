@@ -58,6 +58,38 @@ it("preserves tiny output, approved minimum and fee-cap units exactly", () => {
   );
 });
 
+it("includes the validated quote path with exact pool IDs and denomination metadata", () => {
+  const view = quoteView({
+    ...review,
+    routes: [
+      { poolId: "9007199254740993", tokenOutDenom: "uosmo" },
+      { poolId: "3567", tokenOutDenom: review.outputDenom },
+    ],
+  });
+  expect(view?.routes).toEqual([
+    {
+      poolId: "9007199254740993",
+      tokenIn: "EPIX",
+      tokenOut: "OSMO",
+      tokenInDenom: OSMOSIS_SWAP_TOKENS[0].coinMinimalDenom,
+      tokenOutDenom: "uosmo",
+    },
+    {
+      poolId: "3567",
+      tokenIn: "OSMO",
+      tokenOut: "USDC",
+      tokenInDenom: "uosmo",
+      tokenOutDenom: review.outputDenom,
+    },
+  ]);
+  expect(view?.minimumOutput).toBe("0.000001 USDC");
+});
+
+it("omits route visualization for reviews from a sender that has no route metadata", () => {
+  expect(quoteView(review)).not.toHaveProperty("routes");
+  expect(quoteView({ ...review, routes: [] })).not.toHaveProperty("routes");
+});
+
 it("formats the smallest BTC output and an alternative fee without rounding to zero", () => {
   const btc = OSMOSIS_SWAP_TOKENS[2];
   expect(
@@ -76,6 +108,16 @@ it("formats the smallest BTC output and an alternative fee without rounding to z
     minimumOutput: "0.00000001 BTC",
     osmosisNetworkFeeLimit: "0.00000001 BTC",
   });
+});
+
+it("passes confirmed bridge completion to the route preview without inferring it from fees", () => {
+  expect(quoteView({ ...review, bridgeComplete: true })?.bridgeComplete).toBe(
+    true
+  );
+  expect(
+    quoteView({ ...review, bridgeFee: { gas: "0", amount: [] } })
+      ?.bridgeComplete
+  ).toBeUndefined();
 });
 
 it("does not invent a display value for unsupported output or fee denominations", () => {

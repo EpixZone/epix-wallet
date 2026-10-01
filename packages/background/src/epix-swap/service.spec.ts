@@ -183,6 +183,46 @@ it("one approval deposits exactly once, waits for receipt, then swaps the exact 
   );
 });
 
+it("copies the validated quote route for display and executes the fresh route after deposit", async () => {
+  const f = await fixture();
+  const quote = {
+    amountOut: "1000",
+    minimumAmountOut: "990",
+    routes: [
+      { poolId: "18446744073709551615", tokenOutDenom: "intermediate" },
+      { poolId: "2", tokenOutDenom: "uosmo" },
+    ],
+    expiresAt: Date.now() + 30000,
+  };
+  f.api.fetchSwapQuote.mockResolvedValueOnce(quote);
+  const review = await f.service.prepare(env, request());
+  expect(review.bridgeComplete).toBe(false);
+  expect(review.routes).toEqual(quote.routes);
+  expect(review.routes).not.toBe(quote.routes);
+  expect(review.routes?.[0]).not.toBe(quote.routes[0]);
+  if (!review.routes) throw new Error("Missing preview route");
+  review.routes[0].poolId = "999";
+  review.routes[0].tokenOutDenom = "changed";
+  expect(quote.routes[0]).toEqual({
+    poolId: "18446744073709551615",
+    tokenOutDenom: "intermediate",
+  });
+
+  await f.service.start(env, review.id);
+  await advance(0);
+  f.api.packetAck.mockResolvedValue("received" as never);
+  await advance(5000);
+  expect(f.api.fetchSwapQuote).toHaveBeenCalledTimes(2);
+  const swap = MsgSwapExactAmountIn.decode(
+    f.transactions.sign.mock.calls[1][2].value
+  );
+  expect(swap.routes).toEqual([{ poolId: "1", tokenOutDenom: "uosmo" }]);
+  expect(swap.tokenOutMinAmount).toBe("990");
+  expect(await f.store.get("operations")).toEqual([
+    expect.not.objectContaining({ routes: expect.anything() }),
+  ]);
+});
+
 it("rejects external callers and cannot start from a client-modified review", async () => {
   const f = await fixture();
   await expect(
@@ -205,6 +245,7 @@ it("shows the quote but blocks a deposit without pre-existing Osmosis fee funds"
   );
   const review = await f.service.prepare(env, request());
   expect(review.estimatedAmountOut).toBe("1000");
+  expect(review.routes).toEqual([{ poolId: "1", tokenOutDenom: "uosmo" }]);
   expect(review.canStart).toBe(false);
   await expect(f.service.start(env, review.id)).rejects.toThrow();
   expect(f.transactions.sign).not.toHaveBeenCalled();
@@ -268,6 +309,7 @@ it("a restart requires fresh consent before swapping a verified deposit", async 
   await restarted.refresh(env, op.id);
   expect(f.transactions.sign).toHaveBeenCalledTimes(1);
   const review = await restarted.prepare(env, request(op.id));
+  expect(review.bridgeComplete).toBe(true);
   expect(review.bridgeFee.gas).toBe("0");
   await restarted.start(env, review.id);
   await advance(0);

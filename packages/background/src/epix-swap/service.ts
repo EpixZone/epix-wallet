@@ -189,6 +189,8 @@ export class EpixSwapService {
       outputDenom: operation.outputDenom,
       estimatedAmountOut: quote.amountOut,
       minimumAmountOut: quote.minimumAmountOut,
+      routes: quote.routes,
+      bridgeComplete: operation.depositConfirmed,
       bridgeFee: operation.bridgeFee,
       swapFeeCap: swapFee.fee,
       canStart: !blockReason,

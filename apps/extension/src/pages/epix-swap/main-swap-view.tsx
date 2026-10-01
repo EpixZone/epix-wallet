@@ -5,6 +5,8 @@ import { MainHeaderLayout } from "../main/layouts/header";
 import { Box } from "../../components/box";
 import { Button } from "../../components/button";
 import { TextInput } from "../../components/input";
+import { SwapQuoteRoute, SwapRouteSearch } from "./swap-quote-route";
+import type { QuoteRouteHop } from "./quote-route";
 export type TranslateProgress = (
   key: string,
   values?: Record<string, string>
@@ -26,6 +28,8 @@ export type MainSwapQuoteView = {
   epixNetworkFee?: string;
   osmosisNetworkFeeLimit?: string;
   approvalExpiresAt?: number;
+  routes?: ReadonlyArray<QuoteRouteHop>;
+  bridgeComplete?: boolean;
 };
 export type MainSwapWorkflowView = {
   id: string;
@@ -120,9 +124,10 @@ function SwapAmountCards({
   selectionLocked = false,
   onSelectionChange,
 }: EpixMainSwapViewProps) {
-  let estimatedOutput = t("enter-amount");
-  if (quoteState === "loading") estimatedOutput = t("estimating");
-  else if (quote) estimatedOutput = quote.expectedOutput;
+  const estimatedOutput = quote?.expectedOutput ?? t("enter-amount");
+  const outputToken = outputOptions.find(
+    (option) => option.denom === selection.outputDenom
+  )?.label;
   return (
     <React.Fragment>
       <Panel>
@@ -171,15 +176,26 @@ function SwapAmountCards({
           disabled={controlsDisabled || selectionLocked}
           onChange={(outputDenom) => onSelectionChange({ outputDenom })}
         />
-        <DSTypography
-          as="p"
-          size="displayXxs"
-          role="status"
-          aria-live="polite"
-          style={{ overflowWrap: "anywhere" }}
-        >
-          {estimatedOutput}
-        </DSTypography>
+        {quoteState === "loading" ? (
+          <SwapRouteSearch t={t} outputToken={outputToken} />
+        ) : (
+          <DSTypography
+            as="p"
+            size="displayXxs"
+            role="status"
+            aria-live="polite"
+            style={{ overflowWrap: "anywhere" }}
+          >
+            {estimatedOutput}
+          </DSTypography>
+        )}
+        {quoteState === "ready" && quote?.routes && (
+          <SwapQuoteRoute
+            t={t}
+            routes={quote.routes}
+            bridgeComplete={quote.bridgeComplete}
+          />
+        )}
       </Panel>
     </React.Fragment>
   );
