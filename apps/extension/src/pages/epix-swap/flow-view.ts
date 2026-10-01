@@ -1,10 +1,17 @@
 import { EpixSwapOperation, EpixSwapReview } from "@keplr-wallet/background";
 import { CoinPretty } from "@keplr-wallet/unit";
 import { Currency, StdFee } from "@keplr-wallet/types";
-import { EPIX_CURRENCY, EPIX_CHAIN_ID, OSMOSIS_CHAIN_ID } from "./tokens";
-import { OSMOSIS_SWAP_TOKENS } from "./tokens";
-import { MainSwapQuoteView, MainSwapWorkflowView } from "./main-swap-view";
-import { TranslateProgress } from "./main-swap-view";
+import {
+  EPIX_CURRENCY,
+  EPIX_CHAIN_ID,
+  OSMOSIS_CHAIN_ID,
+  OSMOSIS_SWAP_TOKENS,
+} from "./tokens";
+import {
+  MainSwapQuoteView,
+  MainSwapWorkflowView,
+  TranslateProgress,
+} from "./main-swap-view";
 import { transactionExplorerUrl } from "./explorer";
 
 export function isRouteFinished(operation: EpixSwapOperation): boolean {

@@ -51,7 +51,7 @@ function errorText(error: unknown): string {
     : "Unable to continue. Review the swap again.";
 }
 function gasWithMargin(gasUsed: string): string {
-  if (!/^[1-9][0-9]{0,15}$/.test(gasUsed))
+  if (!/^[1-9]\d{0,15}$/.test(gasUsed))
     throw new TypeError("Invalid simulated gas");
   return ((BigInt(gasUsed) * BigInt(13) + BigInt(9)) / BigInt(10)).toString();
 }
@@ -131,7 +131,7 @@ export class EpixSwapService {
       throw new Error(
         "Swap recovery data is unavailable. Restore access before starting."
       );
-    const other = [...this.operations.values()].find(
+    const other = [...this.operations.values()].some(
       (op) =>
         op.vaultId === vaultId &&
         op.id !== exceptId &&

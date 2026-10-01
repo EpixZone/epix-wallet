@@ -1,19 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useIntl } from "react-intl";
-import {
-  EpixSwapReview,
-  PrepareEpixSwapMsg,
-  StartEpixSwapMsg,
-} from "@keplr-wallet/background";
+import { PrepareEpixSwapMsg, StartEpixSwapMsg } from "@keplr-wallet/background";
 import { BACKGROUND_PORT } from "@keplr-wallet/router";
 import { CoinPretty } from "@keplr-wallet/unit";
 import { useStore } from "../../stores";
-import { EPIX_CHAIN_ID, EPIX_CURRENCY, OSMOSIS_CHAIN_ID } from "./tokens";
-import { OSMOSIS_SWAP_TOKENS } from "./tokens";
+import {
+  EPIX_CHAIN_ID,
+  EPIX_CURRENCY,
+  OSMOSIS_CHAIN_ID,
+  OSMOSIS_SWAP_TOKENS,
+} from "./tokens";
 import { parseAmountToMinimal } from "./amount";
 import { useSwapDraft } from "./use-draft";
 import { swapRequester, useSwapOperations } from "./use-operations";
-import { isRouteFinished, quoteView, workflowView } from "./flow-view";
+import { quoteView, workflowView } from "./flow-view";
+import {
+  currentOperation,
+  swapSelection,
+  boundAccountReview,
+  quoteDisplayState,
+  recoveryMessage,
+  quoteMessage,
+  SwapQuoteState,
+} from "./main-swap-state";
 import { EpixMainSwapViewProps, MainSwapSelection } from "./main-swap-view";
 
 function inputAmount(value: string): string | undefined {
@@ -62,34 +71,11 @@ export function useMainSwap(): EpixMainSwapViewProps {
     true
   );
   const operations = useSwapOperations(ownerReady ? vaultId : undefined, owner);
-  const ordered = [...operations.operations].sort(
-    (a, b) => b.createdAt - a.createdAt
+  const { operation, unfinished, resumeId } = currentOperation(
+    operations.operations
   );
-  const operation =
-    ordered.find((item) => !isRouteFinished(item)) ?? ordered[0];
-  const unfinished =
-    operation && !isRouteFinished(operation) ? operation : undefined;
-  const resumeId = unfinished?.status === "paused" ? unfinished.id : undefined;
   const routeRunning = !!unfinished && !resumeId;
-  const draftOutput = OSMOSIS_SWAP_TOKENS[draft.draft.outputIndex];
-  const draftFee = OSMOSIS_SWAP_TOKENS[draft.draft.feeIndex];
-  const selection: MainSwapSelection = unfinished
-    ? {
-        amount: new CoinPretty(EPIX_CURRENCY, unfinished.amountIn)
-          .toDec()
-          .toString(),
-        outputDenom: unfinished.outputDenom,
-        feeDenom: unfinished.feeDenom,
-        slippageBps: unfinished.slippageBps,
-      }
-    : {
-        amount: draft.draft.amount,
-        outputDenom:
-          draftOutput?.coinMinimalDenom ??
-          OSMOSIS_SWAP_TOKENS[1].coinMinimalDenom,
-        feeDenom: draftFee?.coinMinimalDenom ?? "uosmo",
-        slippageBps: draft.draft.slippage,
-      };
+  const selection = swapSelection(draft.draft, unfinished);
   const amountMinimal = inputAmount(selection.amount);
   const [retry, setRetry] = useState(0);
   const [enabled, setEnabled] = useState({ owner, ready: false, error: "" });
@@ -99,9 +85,6 @@ export function useMainSwap(): EpixMainSwapViewProps {
     setEnabled({ owner, ready: false, error: "" });
     void (async () => {
       try {
-        chainStore
-          .getModularChain(OSMOSIS_CHAIN_ID)
-          .addCurrencies(...OSMOSIS_SWAP_TOKENS);
         await chainStore.enableChainInfoInUIWithVaultId(
           vaultId,
           OSMOSIS_CHAIN_ID
@@ -138,15 +121,13 @@ export function useMainSwap(): EpixMainSwapViewProps {
   ]);
   const currentRequest = useRef(requestKey);
   currentRequest.current = requestKey;
-  const [quote, setQuote] = useState<{
-    key: string;
-    review?: EpixSwapReview;
-    loading: boolean;
-    error?: string;
-  }>({ key: requestKey, loading: false });
+  const [quote, setQuote] = useState<SwapQuoteState>({
+    key: requestKey,
+    loading: false,
+  });
   const [refreshQuote, setRefreshQuote] = useState(0);
-  const prepare = useCallback(async () => {
-    if (!vaultId || !amountMinimal) return undefined;
+  const prepare = useCallback(() => {
+    if (!vaultId || !amountMinimal) return Promise.resolve(undefined);
     return swapRequester.sendMessage(
       BACKGROUND_PORT,
       new PrepareEpixSwapMsg(
@@ -197,13 +178,13 @@ export function useMainSwap(): EpixMainSwapViewProps {
     );
     return () => clearInterval(timer);
   }, [canPrepare, amountMinimal, quote.loading]);
-  const boundReview =
-    ownerReady &&
-    quote.key === requestKey &&
-    quote.review?.sourceAddress === epixAccount.bech32Address &&
-    quote.review?.destinationAddress === osmoAccount.bech32Address
-      ? quote.review
-      : undefined;
+  const boundReview = boundAccountReview(
+    quote,
+    requestKey,
+    ownerReady,
+    epixAccount.bech32Address,
+    osmoAccount.bech32Address
+  );
   const [confirmation, setConfirmation] = useState({
     owner,
     busy: false,
@@ -279,18 +260,15 @@ export function useMainSwap(): EpixMainSwapViewProps {
     });
     setConfirmation({ owner, busy: false, error: "" });
   };
-  let quoteState: EpixMainSwapViewProps["quoteState"] = "idle";
-  if (quote.key === requestKey && quote.loading) quoteState = "loading";
-  else if (boundReview) quoteState = "ready";
-  else if (quote.key === requestKey && quote.error) quoteState = "error";
-  let recoveryError: string | undefined;
-  if (draft.error) recoveryError = t("storage-unavailable");
-  else if (operations.error) recoveryError = t("tracking-unavailable");
-  else if (enabled.owner === owner && enabled.error)
-    recoveryError = enabled.error;
-  let quoteError = quote.key === requestKey ? quote.error : undefined;
-  if (confirmation.owner === owner && confirmation.error)
-    quoteError = confirmation.error;
+  const quoteState = quoteDisplayState(quote, requestKey, boundReview);
+  const recoveryError = recoveryMessage(
+    draft.error,
+    operations.error,
+    enabled,
+    owner,
+    t
+  );
+  const quoteError = quoteMessage(quote, requestKey, confirmation, owner);
   const inputPrice =
     ownerReady && amountMinimal
       ? priceStore.calculatePrice(new CoinPretty(EPIX_CURRENCY, amountMinimal))

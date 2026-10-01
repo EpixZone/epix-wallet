@@ -73,7 +73,10 @@ export function EpixMainSwapView(props: EpixMainSwapViewProps) {
   const { t, restoredDraft, recoveryError, workflow } = props;
   return (
     <MainHeaderLayout>
-      <Box padding="1rem" style={{ gap: "1rem", paddingBottom: "5rem" }}>
+      <SwapContent
+        padding="1rem"
+        style={{ gap: "1rem", paddingBottom: "5rem" }}
+      >
         <DSTypography as="h1" size="displayXxs">
           {t("main-title")}
         </DSTypography>
@@ -100,7 +103,7 @@ export function EpixMainSwapView(props: EpixMainSwapViewProps) {
             onRefresh={props.onRefresh}
           />
         )}
-      </Box>
+      </SwapContent>
     </MainHeaderLayout>
   );
 }
@@ -484,4 +487,12 @@ const Progress = styled.progress`
   width: 100%;
   height: 0.4rem;
   accent-color: ${DSColor.typography.brand};
+`;
+
+const SwapContent = styled(Box)`
+  h1,
+  h2,
+  p {
+    margin: 0;
+  }
 `;

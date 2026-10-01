@@ -24,7 +24,7 @@ export class PrepareEpixSwapMsg extends Message<EpixSwapReview> {
   }
   validateBasic(): void {
     requireId(this.vaultId);
-    if (!/^[1-9][0-9]{0,77}$/.test(this.amountMinimal))
+    if (!/^[1-9]\d{0,77}$/.test(this.amountMinimal))
       throw new TypeError("Invalid swap amount");
     if (
       !Number.isInteger(this.slippageBps) ||

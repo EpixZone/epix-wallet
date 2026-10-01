@@ -22,7 +22,7 @@ export function assertSelection(
   feeDenom: string
 ): void {
   if (
-    !/^[1-9][0-9]{0,77}$/.test(amount) ||
+    !/^[1-9]\d{0,77}$/.test(amount) ||
     BigInt(amount) >=
       BigInt(
         "115792089237316195423570985008687907853269984665640564039457584007913129639936"
@@ -111,7 +111,7 @@ export function matchingPacketSequence(
       data["denom"] !== "aepix" ||
       data["amount"] !== operation.amountIn ||
       a["packet_timeout_timestamp"] !== operation.packetTimeoutTimestamp ||
-      !/^[1-9][0-9]*$/.test(a["packet_sequence"])
+      !/^[1-9]\d*$/.test(a["packet_sequence"])
     )
       continue;
     return a["packet_sequence"];
@@ -122,5 +122,5 @@ export function matchingPacketSequence(
 }
 
 export function publicCopy<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
+  return structuredClone(value);
 }

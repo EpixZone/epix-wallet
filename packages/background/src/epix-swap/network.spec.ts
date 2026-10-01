@@ -178,7 +178,7 @@ it("rejects a stale fee quote after a delayed request and invalid gas bounds", a
 it("validates both IBC channel ends and active opposite-chain clients", async () => {
   mockJSON((url) => {
     if (url.includes("client_status")) return { status: "Active" };
-    const epix = url.startsWith("https://epix.example");
+    const epix = new URL(url).origin === "https://epix.example";
     if (url.endsWith("client_state"))
       return {
         identified_client_state: {

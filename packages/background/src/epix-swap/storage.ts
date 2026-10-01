@@ -93,14 +93,14 @@ function validateProgress(value: EpixSwapOperation): void {
 
 function validatePacketAndOutput(value: EpixSwapOperation): void {
   for (const amount of [value.minimumAmountOut, value.estimatedAmountOut]) {
-    if (typeof amount !== "string" || !/^[1-9][0-9]{0,77}$/.test(amount))
+    if (typeof amount !== "string" || !/^[1-9]\d{0,77}$/.test(amount))
       throw new TypeError("Invalid swap output");
   }
   for (const count of [value.packetSequence, value.packetTimeoutTimestamp]) {
     if (
       count !== undefined &&
       (typeof count !== "string" ||
-        !/^[1-9][0-9]{0,19}$/.test(count) ||
+        !/^[1-9]\d{0,19}$/.test(count) ||
         BigInt(count) > BigInt("18446744073709551615"))
     )
       throw new TypeError("Invalid packet reference");
@@ -115,7 +115,7 @@ function validatePacketAndOutput(value: EpixSwapOperation): void {
 function validateFee(fee: StdFee): void {
   if (
     !fee ||
-    !/^(?:0|[1-9][0-9]{0,15})$/.test(fee.gas) ||
+    !/^(?:0|[1-9]\d{0,15})$/.test(fee.gas) ||
     fee.amount?.length !== 1
   )
     throw new TypeError("Invalid public fee");
@@ -126,7 +126,7 @@ function validateFee(fee: StdFee): void {
     throw new TypeError("Invalid public coin fields");
   if (
     typeof coin.denom !== "string" ||
-    !/^(?:0|[1-9][0-9]{0,77})$/.test(coin.amount)
+    !/^(?:0|[1-9]\d{0,77})$/.test(coin.amount)
   )
     throw new TypeError("Invalid public fee amount");
 }

@@ -1,4 +1,4 @@
-import { MemoryKVStore } from "@keplr-wallet/common";
+import { KVStore } from "@keplr-wallet/common";
 import { Env } from "@keplr-wallet/router";
 import { webcrypto } from "crypto";
 import { sha256 } from "@noble/hashes/sha256";
@@ -24,8 +24,28 @@ const bridgeHash = bytesToHex(sha256(new Uint8Array([1]))).toUpperCase();
 const request = (resume?: string) =>
   new PrepareEpixSwapMsg("vault", amount, "uosmo", 100, "uosmo", resume);
 
+// Model extension storage's serialized boundary. Native structuredClone returns
+// Node-realm objects in Jest; MemoryKVStore's constructor identity check rejects
+// those valid records even though browser storage accepts them.
+class SerializedStore implements KVStore {
+  private readonly values = new Map<string, string>();
+  prefix(): string {
+    return "swap-test";
+  }
+  get<T>(key: string): Promise<T | undefined> {
+    const encoded = this.values.get(key);
+    return Promise.resolve(
+      encoded === undefined ? undefined : (JSON.parse(encoded) as T)
+    );
+  }
+  set<T>(key: string, value: T | null): Promise<void> {
+    this.values.set(key, JSON.stringify(value));
+    return Promise.resolve();
+  }
+}
+
 async function fixture() {
-  const store = new MemoryKVStore("swap-test");
+  const store = new SerializedStore();
   const transactions: jest.Mocked<SwapTransactions> = {
     context: jest.fn().mockResolvedValue({
       sourceAddress: "epix1source",
