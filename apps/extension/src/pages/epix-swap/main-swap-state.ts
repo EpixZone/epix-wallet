@@ -70,14 +70,55 @@ export function boundAccountReview(
   return quote.review;
 }
 
+export function beginQuoteRefresh(
+  previous: SwapQuoteState,
+  key: string,
+  ready: boolean
+): SwapQuoteState {
+  if (!ready || previous.key !== key) return { key, loading: ready };
+  return { ...previous, loading: true };
+}
+
+export function failQuoteRefresh(
+  previous: SwapQuoteState,
+  key: string,
+  error: string
+): SwapQuoteState {
+  return {
+    key,
+    review: previous.key === key ? previous.review : undefined,
+    loading: false,
+    error,
+  };
+}
+
+export function isQuoteConfirmable(
+  quote: SwapQuoteState,
+  key: string,
+  review: EpixSwapReview | undefined,
+  ready: boolean,
+  now: number
+): boolean {
+  return (
+    ready &&
+    quote.key === key &&
+    !!review?.canStart &&
+    quote.review?.id === review.id &&
+    !quote.loading &&
+    !quote.error &&
+    now < review.expiresAt
+  );
+}
+
 export function quoteDisplayState(
   quote: SwapQuoteState,
   key: string,
   review?: EpixSwapReview
 ): EpixMainSwapViewProps["quoteState"] {
-  if (quote.key === key && quote.loading) return "loading";
+  if (quote.key !== key) return "idle";
+  if (quote.loading) return review ? "refreshing" : "loading";
+  if (quote.error) return review ? "stale" : "error";
   if (review) return "ready";
-  if (quote.key === key && quote.error) return "error";
   return "idle";
 }
 

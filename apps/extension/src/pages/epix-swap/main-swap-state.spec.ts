@@ -2,7 +2,10 @@ import { EpixSwapOperation, EpixSwapReview } from "@keplr-wallet/background";
 import { SwapDraft } from "./draft";
 import {
   boundAccountReview,
+  beginQuoteRefresh,
   currentOperation,
+  failQuoteRefresh,
+  isQuoteConfirmable,
   quoteDisplayState,
   quoteMessage,
   recoveryMessage,
@@ -114,6 +117,160 @@ test("shows the completed quote only for its ready source and destination accoun
   expect(quoteDisplayState(quote, quote.key, bound)).toBe("ready");
   expect(quoteDisplayState({ key: quote.key, loading: true }, quote.key)).toBe(
     "loading"
+  );
+});
+
+test("keeps the same selection's route, fees, and block reason through refresh and failure", () => {
+  const blockedReview = {
+    ...review,
+    canStart: false,
+    blockReason: "Add a supported fee token",
+    routes: [{ poolId: "3351", tokenOutDenom: "uosmo" }],
+  };
+  const initial = { ...quote, review: blockedReview };
+  const refreshing = beginQuoteRefresh(initial, quote.key, true);
+  expect(refreshing.review).toBe(blockedReview);
+  expect(quoteDisplayState(refreshing, quote.key, blockedReview)).toBe(
+    "refreshing"
+  );
+
+  const failed = failQuoteRefresh(refreshing, quote.key, "Network unavailable");
+  expect(failed.review).toBe(blockedReview);
+  expect(quoteDisplayState(failed, quote.key, blockedReview)).toBe("stale");
+
+  const retrying = beginQuoteRefresh(failed, quote.key, true);
+  expect(retrying.review).toBe(blockedReview);
+  expect(retrying.error).toBe("Network unavailable");
+  expect(quoteDisplayState(retrying, quote.key, blockedReview)).toBe(
+    "refreshing"
+  );
+  expect(
+    quoteMessage(
+      retrying,
+      quote.key,
+      { owner: "wallet-a", error: "" },
+      "wallet-a"
+    )
+  ).toBe("Network unavailable");
+
+  const replacement = { ...review, id: "review-b", minimumAmountOut: "2000" };
+  const completed = { key: quote.key, review: replacement, loading: false };
+  expect(quoteDisplayState(completed, quote.key, replacement)).toBe("ready");
+  expect(
+    quoteMessage(
+      completed,
+      quote.key,
+      { owner: "wallet-a", error: "" },
+      "wallet-a"
+    )
+  ).toBeUndefined();
+});
+
+test.each([
+  ["vault", "wallet-b", "epix-a", "osmosis-a", "1000000000000000000", "uosmo"],
+  [
+    "source address",
+    "wallet-a",
+    "epix-b",
+    "osmosis-a",
+    "1000000000000000000",
+    "uosmo",
+  ],
+  [
+    "destination address",
+    "wallet-a",
+    "epix-a",
+    "osmosis-b",
+    "1000000000000000000",
+    "uosmo",
+  ],
+  ["amount", "wallet-a", "epix-a", "osmosis-a", "2000000000000000000", "uosmo"],
+  [
+    "output token",
+    "wallet-a",
+    "epix-a",
+    "osmosis-a",
+    "1000000000000000000",
+    "usdc",
+  ],
+])(
+  "discards cached review and error when the %s request changes",
+  (_name, ...values) => {
+    const key = JSON.stringify([
+      "wallet-a",
+      "epix-a",
+      "osmosis-a",
+      "1000000000000000000",
+      "uosmo",
+    ]);
+    const nextKey = JSON.stringify(values);
+    const previous = { ...quote, key, error: "Previous selection failed" };
+    const next = beginQuoteRefresh(previous, nextKey, true);
+    expect(next).toEqual({ key: nextKey, loading: true });
+    expect(quoteDisplayState(next, nextKey)).toBe("loading");
+    expect(failQuoteRefresh(previous, nextKey, "New failure")).toEqual({
+      key: nextKey,
+      review: undefined,
+      loading: false,
+      error: "New failure",
+    });
+  }
+);
+
+test("clears the cached quote when locking or preparation becomes unavailable", () => {
+  const failed = failQuoteRefresh(quote, quote.key, "Offline");
+  const stopped = beginQuoteRefresh(failed, quote.key, false);
+  expect(stopped).toEqual({ key: quote.key, loading: false });
+  expect(beginQuoteRefresh(stopped, quote.key, true).review).toBeUndefined();
+  expect(
+    boundAccountReview(
+      failed,
+      quote.key,
+      false,
+      review.sourceAddress,
+      review.destinationAddress
+    )
+  ).toBeUndefined();
+});
+
+test("refreshing and failed retained estimates never authorize a swap", () => {
+  expect(isQuoteConfirmable(quote, quote.key, review, true, 1)).toBe(true);
+  const refreshing = beginQuoteRefresh(quote, quote.key, true);
+  expect(isQuoteConfirmable(refreshing, quote.key, review, true, 1)).toBe(
+    false
+  );
+  const failed = failQuoteRefresh(refreshing, quote.key, "Offline");
+  expect(isQuoteConfirmable(failed, quote.key, review, true, 1)).toBe(false);
+  expect(
+    isQuoteConfirmable(
+      beginQuoteRefresh(failed, quote.key, true),
+      quote.key,
+      review,
+      true,
+      1
+    )
+  ).toBe(false);
+});
+
+test("approval revalidation rejects a replacement, expiry, account change, or unavailable preparation", () => {
+  const replacement = { ...quote, review: { ...review, id: "review-b" } };
+  expect(isQuoteConfirmable(replacement, quote.key, review, true, 1)).toBe(
+    false
+  );
+  expect(
+    isQuoteConfirmable(quote, quote.key, review, true, review.expiresAt)
+  ).toBe(false);
+  expect(isQuoteConfirmable(quote, "new-owner", review, true, 1)).toBe(false);
+  expect(isQuoteConfirmable(quote, quote.key, review, false, 1)).toBe(false);
+  const mismatchedAccount = boundAccountReview(
+    quote,
+    quote.key,
+    true,
+    "different-source-address",
+    review.destinationAddress
+  );
+  expect(isQuoteConfirmable(quote, quote.key, mismatchedAccount, true, 1)).toBe(
+    false
   );
 });
 

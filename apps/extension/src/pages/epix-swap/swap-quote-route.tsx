@@ -1,13 +1,69 @@
-import React from "react";
+import React, { useState } from "react";
 import styled, { keyframes } from "styled-components";
 import {
   ArrowRightIcon,
   ArrowRouteIcon,
+  ChevronDownIcon,
+  LoadingIcon,
   DSColor,
   DSTypography,
 } from "@keplr-wallet/design-system";
 import type { TranslateProgress } from "./main-swap-view";
 import type { QuoteRouteHop } from "./quote-route";
+import { OSMOSIS_SWAP_TOKENS } from "./tokens";
+
+// Match the verified display-only intermediate in quote-route.ts, never its suffix.
+const ALLETH_DENOM =
+  "factory/osmo1k6c8jln7ejuqwtqmay3yvzrg3kueaczl96pk067ldg8u835w0yhsw27twm/alloyed/allETH";
+// Bundled registry icons include pinned source attribution and CC-BY-4.0 terms.
+const bundledTokenImages = new Map<string, string>([
+  [
+    OSMOSIS_SWAP_TOKENS[0].coinMinimalDenom,
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require("../../public/assets/logo-256.png"),
+  ],
+  [
+    OSMOSIS_SWAP_TOKENS[1].coinMinimalDenom,
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require("../../public/assets/img/route-usdc.svg"),
+  ],
+  [
+    OSMOSIS_SWAP_TOKENS[2].coinMinimalDenom,
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require("../../public/assets/img/route-btc.svg"),
+  ],
+  [
+    OSMOSIS_SWAP_TOKENS[3].coinMinimalDenom,
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require("../../public/assets/img/route-osmo.svg"),
+  ],
+  [
+    ALLETH_DENOM,
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require("../../public/assets/img/ethereum.svg"),
+  ],
+]);
+
+/** This row stays mounted across refreshes so the estimate and route never collapse. */
+export function SwapQuoteRefreshStatus({
+  t,
+  refreshing,
+  stale,
+}: Readonly<{ t: TranslateProgress; refreshing: boolean; stale: boolean }>) {
+  let label = "quote-live";
+  if (refreshing) label = "quote-updating";
+  else if (stale) label = "quote-stale";
+  return (
+    <RefreshStatus role="status" aria-live="polite">
+      <RefreshSpinner $active={refreshing} aria-hidden="true">
+        <LoadingIcon size={14} />
+      </RefreshSpinner>
+      <DSTypography size="textXs" color={DSColor.typography.secondary}>
+        {t(label)}
+      </DSTypography>
+    </RefreshStatus>
+  );
+}
 
 export function SwapRouteSearch({
   t,
@@ -55,51 +111,140 @@ export function SwapQuoteRoute({
         <DSTypography as="h2" size="textSm">
           {t("estimated-route")}
         </DSTypography>
-      </RouteHeading>
-      <RouteList>
-        <RouteStep>
+        <RouteCount>
           <DSTypography size="textXs" color={DSColor.typography.secondary}>
-            {t(bridgeComplete ? "route-ibc-complete" : "route-ibc-bridge")}
+            {t("route-count")}
           </DSTypography>
-          <TokenPair>
-            <DSTypography size="textSm">EPIX · Epix</DSTypography>
-            <ArrowRightIcon size={16} aria-hidden />
-            <DSTypography size="textSm">EPIX · Osmosis</DSTypography>
-          </TokenPair>
-        </RouteStep>
-        {routes.map((hop) => (
-          <RouteStep
-            key={`${hop.poolId}-${hop.tokenInDenom}-${hop.tokenOutDenom}`}
-          >
-            <DSTypography
-              size="textXs"
-              color={DSColor.typography.secondary}
-              style={{ overflowWrap: "anywhere" }}
+        </RouteCount>
+      </RouteHeading>
+      <BridgeRow>
+        <DSTypography size="textXs" color={DSColor.typography.secondary}>
+          {t(bridgeComplete ? "route-ibc-complete" : "route-ibc-bridge")}
+        </DSTypography>
+        <TokenPair>
+          <DSTypography size="textXs">Epix</DSTypography>
+          <ArrowRightIcon size={14} aria-hidden />
+          <DSTypography size="textXs">Osmosis</DSTypography>
+        </TokenPair>
+      </BridgeRow>
+      <RouteViewport tabIndex={0} role="region" aria-label={t("route-path")}>
+        <RoutePath>
+          <RouteNode>
+            <RouteToken
+              label={routes[0].tokenIn}
+              denom={routes[0].tokenInDenom}
+            />
+          </RouteNode>
+          {routes.map((hop) => (
+            <RouteNode
+              key={`${hop.poolId}-${hop.tokenInDenom}-${hop.tokenOutDenom}`}
             >
-              {t("route-pool", { pool: hop.poolId })}
-            </DSTypography>
-            <TokenPair>
-              <DSTypography size="textSm" title={hop.tokenInDenom}>
-                {hop.tokenIn}
+              <RouteToken label={hop.tokenOut} denom={hop.tokenOutDenom} />
+            </RouteNode>
+          ))}
+        </RoutePath>
+      </RouteViewport>
+      <PoolDetails>
+        <PoolSummary>
+          <DSTypography size="textXs" color={DSColor.typography.secondary}>
+            {t("route-details")}
+          </DSTypography>
+          <ChevronDownIcon size={16} aria-hidden />
+        </PoolSummary>
+        <PoolList>
+          {routes.map((hop) => (
+            <PoolStep
+              key={`${hop.poolId}-${hop.tokenInDenom}-${hop.tokenOutDenom}`}
+            >
+              <DSTypography
+                size="textXs"
+                color={DSColor.typography.secondary}
+                style={{ overflowWrap: "anywhere" }}
+              >
+                {t("route-pool", { pool: hop.poolId })}
               </DSTypography>
-              <ArrowRightIcon size={16} aria-hidden />
-              <DSTypography size="textSm" title={hop.tokenOutDenom}>
-                {hop.tokenOut}
-              </DSTypography>
-            </TokenPair>
-          </RouteStep>
-        ))}
-      </RouteList>
-      <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
-        {t(bridgeComplete ? "route-resume-preview-help" : "route-preview-help")}
-      </DSTypography>
+              <TokenPair>
+                <DSTypography size="textXs" title={hop.tokenInDenom}>
+                  {hop.tokenIn}
+                </DSTypography>
+                <ArrowRightIcon size={14} aria-hidden />
+                <DSTypography size="textXs" title={hop.tokenOutDenom}>
+                  {hop.tokenOut}
+                </DSTypography>
+              </TokenPair>
+            </PoolStep>
+          ))}
+        </PoolList>
+        <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
+          {t(
+            bridgeComplete ? "route-resume-preview-help" : "route-preview-help"
+          )}
+        </DSTypography>
+      </PoolDetails>
     </RouteSection>
+  );
+}
+
+function RouteToken({
+  label,
+  denom,
+}: Readonly<{ label: string; denom: string }>) {
+  const [failedSource, setFailedSource] = useState<string>();
+  const currency = OSMOSIS_SWAP_TOKENS.find(
+    (token) => token.coinMinimalDenom === denom
+  );
+  const src = bundledTokenImages.get(denom) ?? currency?.coinImageUrl;
+  const imageVisible = !!src && failedSource !== src;
+  const fallback = (currency?.coinDenom ?? label).slice(0, 2).toUpperCase();
+  return (
+    <TokenNode>
+      <TokenMark aria-hidden="true">
+        {imageVisible ? (
+          <TokenImage
+            src={src}
+            alt=""
+            $monochrome={denom === ALLETH_DENOM}
+            referrerPolicy="no-referrer"
+            onError={() => setFailedSource(src)}
+          />
+        ) : (
+          <DSTypography size="textXs" weight="semibold">
+            {fallback}
+          </DSTypography>
+        )}
+      </TokenMark>
+      <TokenLabel size="textXs" weight="medium" title={denom}>
+        {label}
+      </TokenLabel>
+    </TokenNode>
   );
 }
 
 const pulse = keyframes`
   0%, 70%, 100% { opacity: 0.3; transform: scale(0.8); }
   35% { opacity: 1; transform: scale(1.25); }
+`;
+const spin = keyframes`
+  to { transform: rotate(360deg); }
+`;
+const RefreshStatus = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 1.25rem;
+`;
+const RefreshSpinner = styled.span<{ $active: boolean }>`
+  display: inline-flex;
+  flex: 0 0 0.875rem;
+  width: 0.875rem;
+  height: 0.875rem;
+  color: ${DSColor.typography.brand};
+  visibility: ${({ $active }) => ($active ? "visible" : "hidden")};
+  animation: ${spin} 1s linear infinite;
+  animation-play-state: ${({ $active }) => ($active ? "running" : "paused")};
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 `;
 const SearchStatus = styled.div`
   display: flex;
@@ -149,7 +294,9 @@ const SearchDot = styled.span`
 const RouteSection = styled.section`
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.625rem;
+  min-width: 0;
+  max-width: 100%;
   padding-top: 1rem;
   border-top: 1px solid ${DSColor.stroke.separator.primary};
 `;
@@ -157,24 +304,142 @@ const RouteHeading = styled.div`
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-wrap: wrap;
   h2 {
     margin: 0;
   }
 `;
-const RouteList = styled.ol`
+const RouteCount = styled.span`
+  margin-left: auto;
+`;
+const BridgeRow = styled.div`
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.375rem 0.75rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+  background: ${DSColor.fill.neutral.high_10};
+`;
+const RouteViewport = styled.div`
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-block: 0.5rem;
+  border-radius: 0.5rem;
+  &:focus-visible {
+    outline: 2px solid ${DSColor.typography.brand};
+    outline-offset: 2px;
+  }
+`;
+const RoutePath = styled.ol`
+  display: flex;
+  width: max-content;
+  min-width: 100%;
   list-style: none;
   margin: 0;
   padding: 0;
 `;
-const RouteStep = styled.li`
+const RouteNode = styled.li`
+  position: relative;
+  flex: 1 0 6.5rem;
+  min-width: 6.5rem;
+  &:last-child {
+    flex: 0 0 5rem;
+    min-width: 5rem;
+  }
+  &:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 1.25rem;
+    left: 4rem;
+    right: -1rem;
+    border-top: 1px dashed ${DSColor.typography.tertiary};
+  }
+`;
+const TokenNode = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding-left: 0.75rem;
-  border-left: 2px solid ${DSColor.stroke.separator.primary};
+  align-items: center;
+  gap: 0.375rem;
+  width: 5rem;
+  text-align: center;
+  overflow-wrap: anywhere;
+`;
+const TokenMark = styled.span`
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid ${DSColor.stroke.input.default};
+  border-radius: 50%;
+  overflow: hidden;
+  background: ${DSColor.fill.neutral.high_10};
+  color: ${DSColor.typography.brand};
+`;
+const TokenLabel = styled(DSTypography)`
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+const TokenImage = styled.img<{ $monochrome: boolean }>`
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  object-fit: contain;
+  ${({ $monochrome }) =>
+    $monochrome &&
+    `background: ${DSColor.fill.neutral.strong}; padding: 0.375rem;`}
+`;
+const PoolDetails = styled.details`
+  min-width: 0;
+  &[open] > summary > svg {
+    transform: rotate(180deg);
+  }
+  p {
+    margin: 0.625rem 0 0;
+  }
+`;
+const PoolSummary = styled.summary`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  cursor: pointer;
+  list-style: none;
+  color: ${DSColor.typography.secondary};
+  &::-webkit-details-marker {
+    display: none;
+  }
+  &:focus-visible {
+    outline: 2px solid ${DSColor.typography.brand};
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+`;
+const PoolList = styled.ol`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+`;
+const PoolStep = styled.li`
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
 `;
 const TokenPair = styled.div`
   display: flex;

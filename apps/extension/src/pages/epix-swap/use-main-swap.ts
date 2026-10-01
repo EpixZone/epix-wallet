@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useIntl } from "react-intl";
-import { PrepareEpixSwapMsg, StartEpixSwapMsg } from "@keplr-wallet/background";
+import {
+  EpixSwapReview,
+  PrepareEpixSwapMsg,
+  StartEpixSwapMsg,
+} from "@keplr-wallet/background";
 import { BACKGROUND_PORT } from "@keplr-wallet/router";
 import { CoinPretty } from "@keplr-wallet/unit";
 import { useStore } from "../../stores";
@@ -22,6 +26,9 @@ import {
   recoveryMessage,
   quoteMessage,
   SwapQuoteState,
+  beginQuoteRefresh,
+  failQuoteRefresh,
+  isQuoteConfirmable,
 } from "./main-swap-state";
 import { EpixMainSwapViewProps, MainSwapSelection } from "./main-swap-view";
 
@@ -125,7 +132,25 @@ export function useMainSwap(): EpixMainSwapViewProps {
     key: requestKey,
     loading: false,
   });
+  const currentQuote = useRef(quote);
+  const preparationReady = useRef(canPrepare);
+  preparationReady.current = canPrepare;
+  const updateQuote = useCallback((next: SwapQuoteState) => {
+    // Close the approval gate before React commits a refresh or replacement.
+    currentQuote.current = next;
+    setQuote(next);
+  }, []);
   const [refreshQuote, setRefreshQuote] = useState(0);
+  const requestQuoteRefresh = useCallback(() => {
+    updateQuote(
+      beginQuoteRefresh(
+        currentQuote.current,
+        requestKey,
+        !!amountMinimal && canPrepare
+      )
+    );
+    setRefreshQuote((value) => value + 1);
+  }, [requestKey, amountMinimal, canPrepare, updateQuote]);
   const prepare = useCallback(() => {
     if (!vaultId || !amountMinimal) return Promise.resolve(undefined);
     return swapRequester.sendMessage(
@@ -149,39 +174,53 @@ export function useMainSwap(): EpixMainSwapViewProps {
   ]);
   useEffect(() => {
     let disposed = false;
-    setQuote({ key: requestKey, loading: !!amountMinimal && canPrepare });
+    updateQuote(
+      beginQuoteRefresh(
+        currentQuote.current,
+        requestKey,
+        !!amountMinimal && canPrepare
+      )
+    );
     if (!amountMinimal || !canPrepare) return;
     const timer = setTimeout(() => {
       void prepare()
         .then((review) => {
-          if (!disposed) setQuote({ key: requestKey, review, loading: false });
+          if (!disposed)
+            updateQuote({ key: requestKey, review, loading: false });
         })
         .catch((error) => {
           if (!disposed)
-            setQuote({
-              key: requestKey,
-              loading: false,
-              error: error instanceof Error ? error.message : t("unsupported"),
-            });
+            updateQuote(
+              failQuoteRefresh(
+                currentQuote.current,
+                requestKey,
+                error instanceof Error ? error.message : t("unsupported")
+              )
+            );
         });
     }, 500);
     return () => {
       disposed = true;
       clearTimeout(timer);
     };
-  }, [requestKey, amountMinimal, canPrepare, prepare, refreshQuote, t]);
+  }, [
+    requestKey,
+    amountMinimal,
+    canPrepare,
+    prepare,
+    refreshQuote,
+    t,
+    updateQuote,
+  ]);
   useEffect(() => {
     if (!canPrepare || !amountMinimal || quote.loading) return;
-    const timer = setInterval(
-      () => setRefreshQuote((value) => value + 1),
-      20_000
-    );
+    const timer = setInterval(requestQuoteRefresh, 20_000);
     return () => clearInterval(timer);
-  }, [canPrepare, amountMinimal, quote.loading]);
+  }, [canPrepare, amountMinimal, quote.loading, requestQuoteRefresh]);
   const boundReview = boundAccountReview(
     quote,
     requestKey,
-    ownerReady,
+    canPrepare,
     epixAccount.bech32Address,
     osmoAccount.bech32Address
   );
@@ -193,28 +232,58 @@ export function useMainSwap(): EpixMainSwapViewProps {
   const confirmingRef = useRef(false);
   const confirming = confirmation.owner === owner && confirmation.busy;
   const canConfirm =
-    !!boundReview?.canStart &&
-    Date.now() < boundReview.expiresAt &&
-    canPrepare &&
-    !quote.loading &&
-    !confirming;
+    isQuoteConfirmable(
+      quote,
+      requestKey,
+      boundReview,
+      canPrepare,
+      Date.now()
+    ) && !confirming;
+  const isCurrentApproval = (expected: EpixSwapReview) => {
+    const source = accountStore.getAccount(EPIX_CHAIN_ID);
+    const destination = accountStore.getAccount(OSMOSIS_CHAIN_ID);
+    const ready =
+      preparationReady.current &&
+      currentRequest.current === requestKey &&
+      keyRingStore.status === "unlocked" &&
+      keyRingStore.selectedKeyInfo?.id === vaultId &&
+      source.isReadyToSendTx &&
+      destination.isReadyToSendTx;
+    const currentReview = boundAccountReview(
+      currentQuote.current,
+      requestKey,
+      ready,
+      source.bech32Address,
+      destination.bech32Address
+    );
+    return (
+      currentReview?.id === expected.id &&
+      isQuoteConfirmable(
+        currentQuote.current,
+        requestKey,
+        currentReview,
+        ready,
+        Date.now()
+      )
+    );
+  };
   const confirm = async () => {
-    if (!canConfirm || !boundReview || confirmingRef.current) return;
+    if (
+      !boundReview ||
+      confirmingRef.current ||
+      !isCurrentApproval(boundReview)
+    )
+      return;
     confirmingRef.current = true;
     setConfirmation({ owner, busy: true, error: "" });
     try {
       await draft.save();
-      if (
-        currentRequest.current !== requestKey ||
-        keyRingStore.status !== "unlocked" ||
-        keyRingStore.selectedKeyInfo?.id !== vaultId
-      )
-        return;
+      if (!isCurrentApproval(boundReview)) return;
       await swapRequester.sendMessage(
         BACKGROUND_PORT,
         new StartEpixSwapMsg(boundReview.id)
       );
-      setQuote({ key: requestKey, loading: false });
+      updateQuote({ key: requestKey, loading: false });
       await operations.load();
     } catch (error) {
       if (currentRequest.current === requestKey) {
@@ -223,7 +292,7 @@ export function useMainSwap(): EpixMainSwapViewProps {
           busy: false,
           error: error instanceof Error ? error.message : t("unsupported"),
         });
-        setQuote({ key: requestKey, loading: false });
+        updateQuote({ key: requestKey, loading: false });
         await operations.load();
         setRefreshQuote((value) => value + 1);
       }
@@ -241,9 +310,9 @@ export function useMainSwap(): EpixMainSwapViewProps {
   const refresh = async () => {
     if (!draft.ready || draft.error) draft.retry();
     if (!isEnabled) setRetry((value) => value + 1);
+    requestQuoteRefresh();
     await operations.refresh(unfinished?.id);
     await balanceQuery?.waitFreshResponse();
-    setRefreshQuote((value) => value + 1);
   };
   const changeSelection = (update: Partial<MainSwapSelection>) => {
     if (unfinished) return;

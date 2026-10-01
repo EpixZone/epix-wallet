@@ -6,6 +6,12 @@ import {
   SwapWorkflowProgress,
 } from "./main-swap-view";
 
+jest.mock("../../public/assets/logo-256.png", () => "epix.png");
+jest.mock("../../public/assets/img/ethereum.svg", () => "ethereum.svg");
+jest.mock("../../public/assets/img/route-usdc.svg", () => "route-usdc.svg");
+jest.mock("../../public/assets/img/route-btc.svg", () => "route-btc.svg");
+jest.mock("../../public/assets/img/route-osmo.svg", () => "route-osmo.svg");
+
 jest.mock("../main/layouts/header", () => ({
   MainHeaderLayout: ({ children }: { children: React.ReactNode }) => (
     <main>{children}</main>
@@ -166,6 +172,30 @@ it("marks an already completed bridge when reviewing only the remaining swap", (
   expect(html).not.toContain("route-preview-help");
 });
 
+it.each(["refreshing", "stale"] as const)(
+  "keeps the previous output, route and fee details visible while %s but prevents swapping",
+  (quoteState) => {
+    const html = renderToStaticMarkup(
+      <EpixMainSwapView
+        {...props}
+        quote={routedQuote}
+        quoteState={quoteState}
+      />
+    );
+    expect(html).toContain("0.00007 USDC");
+    expect(html).toContain("0.00006 USDC");
+    expect(html).toContain("0.03 OSMO");
+    expect(html).toContain("estimated-route");
+    expect(html).not.toContain("route-search-detail");
+    expect(html).toContain(
+      quoteState === "refreshing" ? "quote-updating" : "quote-stale"
+    );
+    expect(html).toContain('<button disabled="">swap</button>');
+    if (quoteState === "refreshing")
+      expect(html).toContain('<button disabled="">refresh-quote</button>');
+  }
+);
+
 it.each([
   { osmosisEnabled: false },
   { quote: undefined },
@@ -179,6 +209,8 @@ it.each([
   },
   { controlsDisabled: true },
   { quoteState: "loading" as const },
+  { quoteState: "refreshing" as const },
+  { quoteState: "stale" as const },
   { quoteState: "error" as const },
 ])(
   "blocks the CTA until the adapter has a ready enabled workflow",

@@ -5,7 +5,11 @@ import { MainHeaderLayout } from "../main/layouts/header";
 import { Box } from "../../components/box";
 import { Button } from "../../components/button";
 import { TextInput } from "../../components/input";
-import { SwapQuoteRoute, SwapRouteSearch } from "./swap-quote-route";
+import {
+  SwapQuoteRoute,
+  SwapRouteSearch,
+  SwapQuoteRefreshStatus,
+} from "./swap-quote-route";
 import type { QuoteRouteHop } from "./quote-route";
 export type TranslateProgress = (
   key: string,
@@ -55,7 +59,7 @@ export type EpixMainSwapViewProps = Readonly<{
   inputFiat?: string;
   osmosisAddress: string;
   osmosisEnabled: boolean;
-  quoteState: "idle" | "loading" | "ready" | "error";
+  quoteState: "idle" | "loading" | "ready" | "refreshing" | "stale" | "error";
   quote?: MainSwapQuoteView;
   quoteError?: string;
   /** Quote estimation remains visible when fees or another prerequisite block execution. */
@@ -128,6 +132,8 @@ function SwapAmountCards({
   const outputToken = outputOptions.find(
     (option) => option.denom === selection.outputDenom
   )?.label;
+  const showQuote =
+    !!quote && ["ready", "refreshing", "stale"].includes(quoteState);
   return (
     <React.Fragment>
       <Panel>
@@ -189,7 +195,14 @@ function SwapAmountCards({
             {estimatedOutput}
           </DSTypography>
         )}
-        {quoteState === "ready" && quote?.routes && (
+        {showQuote && (
+          <SwapQuoteRefreshStatus
+            t={t}
+            refreshing={quoteState === "refreshing"}
+            stale={quoteState === "stale"}
+          />
+        )}
+        {showQuote && quote?.routes && (
           <SwapQuoteRoute
             t={t}
             routes={quote.routes}
@@ -332,7 +345,9 @@ function SwapSubmitSection({
       <Button
         text={t("refresh-quote")}
         mode="ghost"
-        disabled={confirming || quoteState === "loading"}
+        disabled={
+          confirming || quoteState === "loading" || quoteState === "refreshing"
+        }
         onClick={onRefresh}
       />
     </React.Fragment>
