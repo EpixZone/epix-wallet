@@ -3,6 +3,8 @@ import { OSMOSIS_SWAP_TOKENS } from "./tokens";
 
 const epix = OSMOSIS_SWAP_TOKENS[0].coinMinimalDenom;
 const usdc = OSMOSIS_SWAP_TOKENS[1].coinMinimalDenom;
+const allEth =
+  "factory/osmo1k6c8jln7ejuqwtqmay3yvzrg3kueaczl96pk067ldg8u835w0yhsw27twm/alloyed/allETH";
 
 it("maps a direct route from exact Osmosis EPIX and preserves a uint64 pool ID", () => {
   expect(
@@ -53,6 +55,39 @@ it("uses an honest shortened denomination for unknown intermediates and retains 
   expect(routes?.[1].tokenInDenom).toBe(unknown);
   expect(routes?.[1].tokenOut).toBe("USDC");
 });
+
+it("labels the verified allETH intermediate without changing its denomination or adding a selectable asset", () => {
+  const routes = quoteRouteView([
+    { poolId: "3351", tokenOutDenom: allEth },
+    { poolId: "1980", tokenOutDenom: OSMOSIS_SWAP_TOKENS[2].coinMinimalDenom },
+  ]);
+  expect(routes?.[0]).toMatchObject({
+    tokenIn: "EPIX",
+    tokenOut: "ETH (allETH)",
+    tokenOutDenom: allEth,
+  });
+  expect(routes?.[1]).toMatchObject({
+    tokenIn: "ETH (allETH)",
+    tokenInDenom: allEth,
+    tokenOut: "BTC",
+  });
+  expect(
+    OSMOSIS_SWAP_TOKENS.some((token) => token.coinMinimalDenom === allEth)
+  ).toBe(false);
+});
+
+it.each([
+  allEth.replace("osmo1k6c8", "osmo1other"),
+  allEth.replace("allETH", "alleth"),
+])(
+  "does not apply the verified allETH label to a different exact denomination",
+  (denom) => {
+    const hop = quoteRouteView([{ poolId: "1", tokenOutDenom: denom }])?.[0];
+    expect(hop?.tokenOut).not.toBe("ETH (allETH)");
+    expect(hop?.tokenOut).toBe(`${denom.slice(0, 12)}…${denom.slice(-8)}`);
+    expect(hop?.tokenOutDenom).toBe(denom);
+  }
+);
 
 it("does not guess known symbols from an unmatched or differently cased denomination", () => {
   expect(
