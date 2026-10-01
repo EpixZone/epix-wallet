@@ -5,6 +5,10 @@ const epix = OSMOSIS_SWAP_TOKENS[0].coinMinimalDenom;
 const usdc = OSMOSIS_SWAP_TOKENS[1].coinMinimalDenom;
 const allEth =
   "factory/osmo1k6c8jln7ejuqwtqmay3yvzrg3kueaczl96pk067ldg8u835w0yhsw27twm/alloyed/allETH";
+const allUsdt =
+  "factory/osmo1em6xs47hd82806f5cxgyufguxrrc7l0aqx7nzzptjuqgswczk8csavdxek/alloyed/allUSDT";
+const allUsdc =
+  "factory/osmo147h5x9pcj7lm0cttlaefx6sqq5vdfnmwfcqxkmjd7exqm9gc7grqhr75m0/alloyed/allUSDC";
 
 it("maps a direct route from exact Osmosis EPIX and preserves a uint64 pool ID", () => {
   expect(
@@ -88,6 +92,40 @@ it.each([
     expect(hop?.tokenOutDenom).toBe(denom);
   }
 );
+
+it.each([
+  [allUsdt, "USDT (allUSDT)"],
+  [allUsdc, "USDC (allUSDC)"],
+])("labels only the verified alloyed stablecoin %s", (denom, label) => {
+  const route = quoteRouteView([
+    { poolId: "3486", tokenOutDenom: denom },
+    { poolId: "3502", tokenOutDenom: OSMOSIS_SWAP_TOKENS[2].coinMinimalDenom },
+  ]);
+  expect(route?.[0]).toMatchObject({
+    tokenIn: "EPIX",
+    tokenOut: label,
+    tokenOutDenom: denom,
+  });
+  expect(route?.[1]).toMatchObject({
+    tokenIn: label,
+    tokenInDenom: denom,
+    tokenOut: "BTC",
+  });
+  expect(
+    OSMOSIS_SWAP_TOKENS.some((token) => token.coinMinimalDenom === denom)
+  ).toBe(false);
+});
+
+it.each([
+  allUsdt.replace("osmo1em6", "osmo1other"),
+  allUsdt.replace("allUSDT", "allusdt"),
+  allUsdc.replace("osmo147h", "osmo1other"),
+  allUsdc.replace("allUSDC", "allusdc"),
+])("keeps an unverified stablecoin denomination unknown: %s", (denom) => {
+  const hop = quoteRouteView([{ poolId: "1", tokenOutDenom: denom }])?.[0];
+  expect(hop?.tokenOut).toBe(`${denom.slice(0, 12)}…${denom.slice(-8)}`);
+  expect(hop?.tokenOutDenom).toBe(denom);
+});
 
 it("does not guess known symbols from an unmatched or differently cased denomination", () => {
   expect(

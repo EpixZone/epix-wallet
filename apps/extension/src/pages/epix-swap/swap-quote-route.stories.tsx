@@ -102,3 +102,27 @@ export const LongRoute = () => (
     }
   />
 );
+
+export const AlloyedStablecoins = () => (
+  <SwapQuoteRoute
+    t={t}
+    routes={
+      quoteRouteView([
+        {
+          poolId: "3486",
+          tokenOutDenom:
+            "factory/osmo1em6xs47hd82806f5cxgyufguxrrc7l0aqx7nzzptjuqgswczk8csavdxek/alloyed/allUSDT",
+        },
+        {
+          poolId: "3507",
+          tokenOutDenom:
+            "factory/osmo147h5x9pcj7lm0cttlaefx6sqq5vdfnmwfcqxkmjd7exqm9gc7grqhr75m0/alloyed/allUSDC",
+        },
+        {
+          poolId: "3502",
+          tokenOutDenom: OSMOSIS_SWAP_TOKENS[2].coinMinimalDenom,
+        },
+      ]) ?? []
+    }
+  />
+);

@@ -9,12 +9,9 @@ import {
   DSTypography,
 } from "@keplr-wallet/design-system";
 import type { TranslateProgress } from "./main-swap-view";
-import type { QuoteRouteHop } from "./quote-route";
+import { OSMOSIS_ROUTE_INTERMEDIATES, QuoteRouteHop } from "./quote-route";
 import { OSMOSIS_SWAP_TOKENS } from "./tokens";
 
-// Match the verified display-only intermediate in quote-route.ts, never its suffix.
-const ALLETH_DENOM =
-  "factory/osmo1k6c8jln7ejuqwtqmay3yvzrg3kueaczl96pk067ldg8u835w0yhsw27twm/alloyed/allETH";
 // Bundled registry icons include pinned source attribution and CC-BY-4.0 terms.
 const bundledTokenImages = new Map<string, string>([
   [
@@ -38,9 +35,19 @@ const bundledTokenImages = new Map<string, string>([
     require("../../public/assets/img/route-osmo.svg"),
   ],
   [
-    ALLETH_DENOM,
+    OSMOSIS_ROUTE_INTERMEDIATES.allETH.denom,
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     require("../../public/assets/img/ethereum.svg"),
+  ],
+  [
+    OSMOSIS_ROUTE_INTERMEDIATES.allUSDT.denom,
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require("../../public/assets/img/route-usdt.svg"),
+  ],
+  [
+    OSMOSIS_ROUTE_INTERMEDIATES.allUSDC.denom,
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require("../../public/assets/img/route-usdc.svg"),
   ],
 ]);
 
@@ -193,9 +200,13 @@ function RouteToken({
   const currency = OSMOSIS_SWAP_TOKENS.find(
     (token) => token.coinMinimalDenom === denom
   );
+  const intermediate = Object.values(OSMOSIS_ROUTE_INTERMEDIATES).find(
+    (token) => token.denom === denom
+  );
+  const nodeLabel = intermediate?.symbol ?? label;
   const src = bundledTokenImages.get(denom) ?? currency?.coinImageUrl;
   const imageVisible = !!src && failedSource !== src;
-  const fallback = (currency?.coinDenom ?? label).slice(0, 2).toUpperCase();
+  const fallback = (currency?.coinDenom ?? nodeLabel).slice(0, 2).toUpperCase();
   return (
     <TokenNode>
       <TokenMark aria-hidden="true">
@@ -203,7 +214,7 @@ function RouteToken({
           <TokenImage
             src={src}
             alt=""
-            $monochrome={denom === ALLETH_DENOM}
+            $monochrome={denom === OSMOSIS_ROUTE_INTERMEDIATES.allETH.denom}
             referrerPolicy="no-referrer"
             onError={() => setFailedSource(src)}
           />
@@ -214,7 +225,7 @@ function RouteToken({
         )}
       </TokenMark>
       <TokenLabel size="textXs" weight="medium" title={denom}>
-        {label}
+        {nodeLabel}
       </TokenLabel>
     </TokenNode>
   );

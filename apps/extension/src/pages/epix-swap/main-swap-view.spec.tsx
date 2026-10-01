@@ -5,12 +5,14 @@ import {
   EpixMainSwapViewProps,
   SwapWorkflowProgress,
 } from "./main-swap-view";
+import { quoteRouteView } from "./quote-route";
 
 jest.mock("../../public/assets/logo-256.png", () => "epix.png");
 jest.mock("../../public/assets/img/ethereum.svg", () => "ethereum.svg");
 jest.mock("../../public/assets/img/route-usdc.svg", () => "route-usdc.svg");
 jest.mock("../../public/assets/img/route-btc.svg", () => "route-btc.svg");
 jest.mock("../../public/assets/img/route-osmo.svg", () => "route-osmo.svg");
+jest.mock("../../public/assets/img/route-usdt.svg", () => "route-usdt.svg");
 
 jest.mock("../main/layouts/header", () => ({
   MainHeaderLayout: ({ children }: { children: React.ReactNode }) => (
@@ -137,6 +139,35 @@ it("shows the bridge and exact quoted pools in order even when fees block the sw
   );
   expect(html).toContain('title="uosmo">OSMO');
   expect(html).toContain('title="ibc/usdc">USDC');
+});
+
+it("shows verified stablecoin icons and symbols while keeping alloyed identities in pool details", () => {
+  const html = renderToStaticMarkup(
+    <EpixMainSwapView
+      {...props}
+      quote={{
+        ...routedQuote,
+        routes: quoteRouteView([
+          {
+            poolId: "3486",
+            tokenOutDenom:
+              "factory/osmo1em6xs47hd82806f5cxgyufguxrrc7l0aqx7nzzptjuqgswczk8csavdxek/alloyed/allUSDT",
+          },
+          {
+            poolId: "3507",
+            tokenOutDenom:
+              "factory/osmo147h5x9pcj7lm0cttlaefx6sqq5vdfnmwfcqxkmjd7exqm9gc7grqhr75m0/alloyed/allUSDC",
+          },
+        ]),
+      }}
+    />
+  );
+  expect(html).toContain('src="route-usdt.svg"');
+  expect(html).toContain('src="route-usdc.svg"');
+  expect(html).toContain(">USDT</span>");
+  expect(html).toContain(">USDC</span>");
+  expect(html).toContain("USDT (allUSDT)");
+  expect(html).toContain("USDC (allUSDC)");
 });
 
 it.each(["loading", "error", "idle"] as const)(
