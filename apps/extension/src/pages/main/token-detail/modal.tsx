@@ -77,6 +77,13 @@ const Styles = {
   `,
 };
 
+function getChainNameColor(isIBCCurrency: boolean, isLightTheme: boolean) {
+  if (isIBCCurrency) {
+    return isLightTheme ? ColorPalette["purple-400"] : ColorPalette["white"];
+  }
+  return isLightTheme ? ColorPalette["gray-500"] : ColorPalette["gray-200"];
+}
+
 export const TokenDetailModal: FunctionComponent<{
   close: () => void;
   chainId: string;
@@ -443,15 +450,7 @@ export const TokenDetailModal: FunctionComponent<{
               </Body1>
               <Body1
                 as="span"
-                color={
-                  isIBCCurrency
-                    ? theme.mode === "light"
-                      ? ColorPalette["purple-400"]
-                      : ColorPalette["white"]
-                    : theme.mode === "light"
-                    ? ColorPalette["gray-500"]
-                    : ColorPalette["gray-200"]
-                }
+                color={getChainNameColor(isIBCCurrency, theme.mode === "light")}
               >
                 {modularChainInfo.chainName}
               </Body1>

@@ -1,4 +1,4 @@
-import { ChainIdHelper } from "@keplr-wallet/cosmos";
+import { Bech32Address, ChainIdHelper } from "@keplr-wallet/cosmos";
 import { simpleFetch } from "@keplr-wallet/simple-fetch";
 import { MsgHistory, ResMsgsHistory } from "../../main/token-detail/types";
 
@@ -190,6 +190,17 @@ type Stream = {
   pending: NativeTransaction[];
 };
 
+function isHistoryAddress(address: string): boolean {
+  // The standard bech32 length limit also bounds validation of untrusted input.
+  if (address.length > 90 || !/^[a-z0-9]+$/.test(address)) return false;
+  try {
+    Bech32Address.validate(address);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Merge both descending indexes before emitting a page, including skewed streams. */
 export class NativeHistoryPager {
   private streams: Stream[] = ["message.sender", "transfer.recipient"].map(
@@ -206,8 +217,8 @@ export class NativeHistoryPager {
     private readonly fetch: HistoryFetch = fetchHistory,
     private readonly pageSize = 20
   ) {
-    // Only a bech32 account can be interpolated into the Comet query language.
-    if (!/^[a-z0-9]+1[a-z0-9]+$/.test(address)) {
+    // Validate the checksum and restrict the prefix before query interpolation.
+    if (!isHistoryAddress(address)) {
       throw new TypeError("Invalid history address");
     }
   }

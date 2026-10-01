@@ -79,7 +79,7 @@ export class EpixPriceStore extends CoinGeckoPriceStore {
     return super.getPriceFromResponse(coinId, vsCurrency);
   }
 
-  override async waitPrice(coinId: string, vsCurrency?: string) {
+  override waitPrice(coinId: string, vsCurrency?: string) {
     if (
       coinId === EPIX_PRICE_ID &&
       this.getPrice(coinId, vsCurrency) === undefined

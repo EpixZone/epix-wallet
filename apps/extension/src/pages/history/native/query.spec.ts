@@ -252,13 +252,18 @@ describe("native Epix history", () => {
     );
   });
 
-  it("does not interpolate arbitrary query syntax from an account address", () => {
+  it.each([
+    ["query syntax", "x' OR tx.height>1"],
+    ["an invalid checksum", "epix1vn7qz3c3htxngjnjnrktlhyvhvks6tqsrdnz7q"],
+    ["a missing separator", "epixwithoutseparator"],
+    ["an overlong address", "epix" + "1".repeat(10000) + "!"],
+  ])("rejects %s in a history address", (_name, invalidAddress) => {
     expect(
       () =>
         new NativeHistoryPager(
           "https://api.epix.zone",
           chainId,
-          "x' OR tx.height>1",
+          invalidAddress,
           "aepix"
         )
     ).toThrow("Invalid history address");

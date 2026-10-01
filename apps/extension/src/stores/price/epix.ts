@@ -69,6 +69,41 @@ function osmosisQuote(response: JsonResponse, now: number): Quote | undefined {
   return { price: token["price"], timestamp };
 }
 
+function coinGeckoQuote(
+  response: JsonResponse | undefined,
+  currency: string,
+  now: number
+): Quote | undefined {
+  const data = response?.data;
+  const source = record(data) ? data[EPIX_PRICE_ID] : undefined;
+  const cg = record(source) ? source : undefined;
+  const timestamp =
+    typeof cg?.["last_updated_at"] === "number"
+      ? cg["last_updated_at"] * 1000
+      : Number.NaN;
+  const price = cg?.[currency];
+  return fresh(timestamp, now) && positive(price)
+    ? { price, timestamp }
+    : undefined;
+}
+
+function combineUsdQuotes(
+  coinGecko: Quote | undefined,
+  osmosis: Quote | undefined
+): Quote | undefined {
+  if (!coinGecko) return osmosis;
+  if (!osmosis) return coinGecko;
+  const lower = new Dec(Math.min(coinGecko.price, osmosis.price).toString());
+  const higher = new Dec(Math.max(coinGecko.price, osmosis.price).toString());
+  // Average only matching USD snapshots within 20% of the lower quote.
+  // A larger disagreement means unavailable, not a misleading midpoint.
+  if (higher.gt(lower.mul(new Dec("1.2")))) return;
+  return {
+    price: Number(lower.add(higher).quo(new Dec(2)).toString()),
+    timestamp: Math.min(coinGecko.timestamp, osmosis.timestamp),
+  };
+}
+
 export function resolveEpixPrices(
   coinGecko: JsonResponse | undefined,
   osmosis: JsonResponse | undefined,
@@ -76,42 +111,16 @@ export function resolveEpixPrices(
   now: number
 ): Record<string, number> {
   const result: Record<string, number> = {};
-  const cgData = coinGecko?.data;
-  const source = record(cgData) ? cgData[EPIX_PRICE_ID] : undefined;
-  const cg = record(source) ? source : undefined;
-  const cgTimestamp =
-    typeof cg?.["last_updated_at"] === "number"
-      ? cg["last_updated_at"] * 1000
-      : NaN;
-  const validCg = fresh(cgTimestamp, now);
   const osmo = osmosis ? osmosisQuote(osmosis, now) : undefined;
   const timestamps: number[] = [];
 
   for (const currency of currencies) {
-    const value = cg?.[currency];
-    const cgPrice = validCg && positive(value) ? value : undefined;
-    if (currency !== "usd") {
-      // Osmosis only quotes USD. Never relabel that price as another currency.
-      if (cgPrice !== undefined) {
-        result[currency] = cgPrice;
-        timestamps.push(cgTimestamp);
-      }
-      continue;
-    }
-    if (cgPrice !== undefined && osmo) {
-      const lower = new Dec(Math.min(cgPrice, osmo.price).toString());
-      const higher = new Dec(Math.max(cgPrice, osmo.price).toString());
-      // Average only matching USD snapshots within 20% of the lower quote.
-      // A larger disagreement means unavailable, not a misleading midpoint.
-      if (higher.gt(lower.mul(new Dec("1.2")))) continue;
-      result["usd"] = Number(lower.add(higher).quo(new Dec(2)).toString());
-      timestamps.push(cgTimestamp, osmo.timestamp);
-    } else if (cgPrice !== undefined) {
-      result["usd"] = cgPrice;
-      timestamps.push(cgTimestamp);
-    } else if (osmo) {
-      result["usd"] = osmo.price;
-      timestamps.push(osmo.timestamp);
+    const cg = coinGeckoQuote(coinGecko, currency, now);
+    // Osmosis only quotes USD. Never relabel that price as another currency.
+    const quote = currency === "usd" ? combineUsdQuotes(cg, osmo) : cg;
+    if (quote) {
+      result[currency] = quote.price;
+      timestamps.push(quote.timestamp);
     }
   }
   if (timestamps.length) {

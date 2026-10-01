@@ -400,7 +400,7 @@ export class CoinGeckoPriceStore extends ObservableQuery<CoinGeckoSimplePrice> {
 
     const price = this.getPriceFromResponse(coinId, vsCurrency);
     if (price !== undefined) {
-      return Promise.resolve(price);
+      return price;
     }
 
     this.updateURL([coinId], [vsCurrency]);
