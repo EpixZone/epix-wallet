@@ -1,4 +1,5 @@
 import { OSMOSIS_SWAP_TOKENS } from "./tokens";
+import type { OsmosisAssetMetadata } from "./osmosis-asset-registry";
 
 // Display-only intermediates from the Osmosis asset registry. Match the full
 // denomination, never a token factory issuer's suffix or an unverified symbol.
@@ -30,9 +31,11 @@ export type QuoteRouteHop = Readonly<{
   tokenOut: string;
   tokenInDenom: string;
   tokenOutDenom: string;
+  tokenInMetadata?: OsmosisAssetMetadata;
+  tokenOutMetadata?: OsmosisAssetMetadata;
 }>;
 
-function tokenLabel(denom: string): string {
+function tokenLabel(denom: string, metadata?: OsmosisAssetMetadata): string {
   const currency = OSMOSIS_SWAP_TOKENS.find(
     (token) => token.coinMinimalDenom === denom
   );
@@ -41,23 +44,29 @@ function tokenLabel(denom: string): string {
     (token) => token.denom === denom
   );
   if (intermediate) return intermediate.label;
+  if (metadata) return metadata.symbol;
   // An unknown intermediate remains a denomination, never a guessed symbol.
   return denom.length > 24 ? `${denom.slice(0, 12)}…${denom.slice(-8)}` : denom;
 }
 
 /** Convert the validated single-route pool sequence without truncating its path. */
 export function quoteRouteView(
-  routes?: ReadonlyArray<Readonly<{ poolId: string; tokenOutDenom: string }>>
+  routes?: ReadonlyArray<Readonly<{ poolId: string; tokenOutDenom: string }>>,
+  registry?: ReadonlyMap<string, OsmosisAssetMetadata>
 ): ReadonlyArray<QuoteRouteHop> | undefined {
   if (!routes?.length || routes.length > 8) return undefined;
   let tokenInDenom = OSMOSIS_SWAP_TOKENS[0].coinMinimalDenom;
   return routes.map(({ poolId, tokenOutDenom }) => {
+    const tokenInMetadata = registry?.get(tokenInDenom);
+    const tokenOutMetadata = registry?.get(tokenOutDenom);
     const hop = {
       poolId,
-      tokenIn: tokenLabel(tokenInDenom),
-      tokenOut: tokenLabel(tokenOutDenom),
+      tokenIn: tokenLabel(tokenInDenom, tokenInMetadata),
+      tokenOut: tokenLabel(tokenOutDenom, tokenOutMetadata),
       tokenInDenom,
       tokenOutDenom,
+      ...(tokenInMetadata ? { tokenInMetadata } : {}),
+      ...(tokenOutMetadata ? { tokenOutMetadata } : {}),
     };
     tokenInDenom = tokenOutDenom;
     return hop;

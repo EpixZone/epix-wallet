@@ -6,6 +6,7 @@ import {
   SwapWorkflowProgress,
 } from "./main-swap-view";
 import { quoteRouteView } from "./quote-route";
+import { parseOsmosisAssetRegistry } from "./osmosis-asset-registry";
 
 jest.mock("../../public/assets/logo-256.png", () => "epix.png");
 jest.mock("../../public/assets/img/ethereum.svg", () => "ethereum.svg");
@@ -120,6 +121,55 @@ const routedQuote = {
     },
   ],
 };
+
+it("renders registry-only icons while preferring bundled icons and labels for known tokens", () => {
+  const atom =
+    "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2";
+  const atomIcon =
+    "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.svg";
+  const remoteOsmo =
+    "https://raw.githubusercontent.com/cosmos/chain-registry/master/osmosis/images/osmo.svg";
+  const registry = parseOsmosisAssetRegistry(
+    JSON.stringify({
+      chainName: "osmosis",
+      assets: [
+        {
+          coinMinimalDenom: atom,
+          symbol: "ATOM",
+          name: "Cosmos Hub",
+          logoURIs: { svg: atomIcon },
+        },
+        {
+          coinMinimalDenom: "uosmo",
+          symbol: "changed",
+          name: "Osmosis",
+          logoURIs: { svg: remoteOsmo },
+        },
+      ],
+    })
+  );
+  const html = renderToStaticMarkup(
+    <EpixMainSwapView
+      {...props}
+      quote={{
+        ...routedQuote,
+        routes: quoteRouteView(
+          [
+            { poolId: "1", tokenOutDenom: atom },
+            { poolId: "2", tokenOutDenom: "uosmo" },
+          ],
+          registry
+        ),
+      }}
+    />
+  );
+  expect(html).toContain(`src="${atomIcon}"`);
+  expect(html).toContain('referrerPolicy="no-referrer"');
+  expect(html).toContain(`title="${atom}">ATOM</`);
+  expect(html).toContain('src="route-osmo.svg"');
+  expect(html).not.toContain(remoteOsmo);
+  expect(html).not.toContain("changed");
+});
 
 it("shows the bridge and exact quoted pools in order even when fees block the swap", () => {
   const html = renderToStaticMarkup(

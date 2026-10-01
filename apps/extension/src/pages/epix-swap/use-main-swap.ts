@@ -16,6 +16,7 @@ import {
 } from "./tokens";
 import { parseAmountToMinimal } from "./amount";
 import { useSwapDraft } from "./use-draft";
+import { useRouteRegistry } from "./use-route-registry";
 import { swapRequester, useSwapOperations } from "./use-operations";
 import { quoteView, workflowView } from "./flow-view";
 import {
@@ -224,6 +225,7 @@ export function useMainSwap(): EpixMainSwapViewProps {
     epixAccount.bech32Address,
     osmoAccount.bech32Address
   );
+  const routeRegistry = useRouteRegistry(!!boundReview);
   const [confirmation, setConfirmation] = useState({
     owner,
     busy: false,
@@ -361,7 +363,7 @@ export function useMainSwap(): EpixMainSwapViewProps {
     osmosisAddress: ownerReady ? osmoAccount.bech32Address : "",
     osmosisEnabled: isEnabled,
     quoteState,
-    quote: boundReview ? quoteView(boundReview) : undefined,
+    quote: boundReview ? quoteView(boundReview, routeRegistry) : undefined,
     quoteError,
     blockReason: boundReview?.blockReason,
     restoredDraft: draft.restored,

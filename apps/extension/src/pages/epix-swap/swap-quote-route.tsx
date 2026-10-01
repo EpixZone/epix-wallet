@@ -11,6 +11,7 @@ import {
 import type { TranslateProgress } from "./main-swap-view";
 import { OSMOSIS_ROUTE_INTERMEDIATES, QuoteRouteHop } from "./quote-route";
 import { OSMOSIS_SWAP_TOKENS } from "./tokens";
+import type { OsmosisAssetMetadata } from "./osmosis-asset-registry";
 
 // Bundled registry icons include pinned source attribution and CC-BY-4.0 terms.
 const bundledTokenImages = new Map<string, string>([
@@ -140,13 +141,18 @@ export function SwapQuoteRoute({
             <RouteToken
               label={routes[0].tokenIn}
               denom={routes[0].tokenInDenom}
+              metadata={routes[0].tokenInMetadata}
             />
           </RouteNode>
           {routes.map((hop) => (
             <RouteNode
               key={`${hop.poolId}-${hop.tokenInDenom}-${hop.tokenOutDenom}`}
             >
-              <RouteToken label={hop.tokenOut} denom={hop.tokenOutDenom} />
+              <RouteToken
+                label={hop.tokenOut}
+                denom={hop.tokenOutDenom}
+                metadata={hop.tokenOutMetadata}
+              />
             </RouteNode>
           ))}
         </RoutePath>
@@ -195,28 +201,49 @@ export function SwapQuoteRoute({
 function RouteToken({
   label,
   denom,
-}: Readonly<{ label: string; denom: string }>) {
-  const [failedSource, setFailedSource] = useState<string>();
+  metadata,
+}: Readonly<{
+  label: string;
+  denom: string;
+  metadata?: OsmosisAssetMetadata;
+}>) {
+  const [failedSources, setFailedSources] = useState<string[]>([]);
   const currency = OSMOSIS_SWAP_TOKENS.find(
     (token) => token.coinMinimalDenom === denom
   );
   const intermediate = Object.values(OSMOSIS_ROUTE_INTERMEDIATES).find(
     (token) => token.denom === denom
   );
-  const nodeLabel = intermediate?.symbol ?? label;
-  const src = bundledTokenImages.get(denom) ?? currency?.coinImageUrl;
-  const imageVisible = !!src && failedSource !== src;
+  const nodeLabel =
+    currency?.coinDenom ?? intermediate?.symbol ?? metadata?.symbol ?? label;
+  const bundledImage = bundledTokenImages.get(denom);
+  const sources = [
+    bundledImage,
+    metadata?.iconUrl,
+    currency?.coinImageUrl,
+  ].filter((source): source is string => !!source);
+  const src = sources.find((source) => !failedSources.includes(source));
   const fallback = (currency?.coinDenom ?? nodeLabel).slice(0, 2).toUpperCase();
   return (
     <TokenNode>
       <TokenMark aria-hidden="true">
-        {imageVisible ? (
+        {src ? (
           <TokenImage
             src={src}
             alt=""
-            $monochrome={denom === OSMOSIS_ROUTE_INTERMEDIATES.allETH.denom}
+            $monochrome={
+              denom === OSMOSIS_ROUTE_INTERMEDIATES.allETH.denom &&
+              src === bundledImage
+            }
             referrerPolicy="no-referrer"
-            onError={() => setFailedSource(src)}
+            onError={() =>
+              setFailedSources((previous) => [
+                ...previous.filter(
+                  (source) => sources.includes(source) && source !== src
+                ),
+                src,
+              ])
+            }
           />
         ) : (
           <DSTypography size="textXs" weight="semibold">

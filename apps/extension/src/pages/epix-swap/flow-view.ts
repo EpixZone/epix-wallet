@@ -14,6 +14,7 @@ import {
 } from "./main-swap-view";
 import { transactionExplorerUrl } from "./explorer";
 import { quoteRouteView } from "./quote-route";
+import type { OsmosisAssetMetadata } from "./osmosis-asset-registry";
 
 export function isRouteFinished(operation: EpixSwapOperation): boolean {
   return operation.status === "complete" || operation.status === "failed";
@@ -37,13 +38,14 @@ function displayFee(fee: StdFee): string | undefined {
 }
 
 export function quoteView(
-  review: EpixSwapReview
+  review: EpixSwapReview,
+  registry?: ReadonlyMap<string, OsmosisAssetMetadata>
 ): MainSwapQuoteView | undefined {
   const currency = OSMOSIS_SWAP_TOKENS.find(
     (item) => item.coinMinimalDenom === review.outputDenom
   );
   if (!currency) return undefined;
-  const routes = quoteRouteView(review.routes);
+  const routes = quoteRouteView(review.routes, registry);
   return {
     expectedOutput: displayAmount(currency, review.estimatedAmountOut),
     minimumOutput: displayAmount(currency, review.minimumAmountOut),

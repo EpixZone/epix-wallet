@@ -10,6 +10,7 @@ import {
 } from "./swap-quote-route";
 import { quoteRouteView } from "./quote-route";
 import { OSMOSIS_SWAP_TOKENS } from "./tokens";
+import { parseOsmosisAssetRegistry } from "./osmosis-asset-registry";
 import type { TranslateProgress } from "./main-swap-view";
 
 const intl = createIntl({ locale: "en", messages });
@@ -37,6 +38,40 @@ export default {
 } as ComponentMeta<typeof SwapQuoteRoute>;
 
 export const Searching = () => <SwapRouteSearch t={t} outputToken="USDC" />;
+
+// Public registry fixture. Previews do not fetch or write extension storage.
+const atom =
+  "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2";
+const registry = parseOsmosisAssetRegistry(
+  JSON.stringify({
+    chainName: "osmosis",
+    assets: [
+      {
+        coinMinimalDenom: atom,
+        symbol: "ATOM",
+        name: "Cosmos Hub",
+        logoURIs: {
+          svg: "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.svg",
+        },
+      },
+    ],
+  })
+);
+
+export const RegistryAsset = () => (
+  <SwapQuoteRoute
+    t={t}
+    routes={
+      quoteRouteView(
+        [
+          { poolId: "3352", tokenOutDenom: "uosmo" },
+          { poolId: "1", tokenOutDenom: atom },
+        ],
+        registry
+      ) ?? []
+    }
+  />
+);
 
 export const Direct = () => (
   <SwapQuoteRoute

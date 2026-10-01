@@ -9,6 +9,7 @@ import {
   workflowView,
 } from "./flow-view";
 import { transactionExplorerUrl } from "./explorer";
+import { parseOsmosisAssetRegistry } from "./osmosis-asset-registry";
 import {
   EPIX_CHAIN_ID,
   EPIX_CURRENCY,
@@ -56,6 +57,47 @@ it("preserves tiny output, approved minimum and fee-cap units exactly", () => {
   expect(displayAmount(EPIX_CURRENCY, "1000000000000000001")).toBe(
     "1.000000000000000001 EPIX"
   );
+});
+
+it("uses registry metadata only for route display, never outputs, fees or approved amounts", () => {
+  const registry = parseOsmosisAssetRegistry(
+    JSON.stringify({
+      chainName: "osmosis",
+      assets: [
+        {
+          coinMinimalDenom: "unknown",
+          symbol: "USDC",
+          name: "Unapproved asset",
+          decimals: 1,
+        },
+        {
+          coinMinimalDenom: review.outputDenom,
+          symbol: "Changed",
+          name: "Changed name",
+          decimals: 1,
+        },
+        {
+          coinMinimalDenom: "uosmo",
+          symbol: "Changed",
+          name: "Changed fee",
+          decimals: 1,
+        },
+      ],
+    })
+  );
+  expect(quoteView(review, registry)).toEqual(quoteView(review));
+  expect(
+    quoteView({ ...review, outputDenom: "unknown" }, registry)
+  ).toBeUndefined();
+  expect(
+    quoteView(
+      {
+        ...review,
+        swapFeeCap: { gas: "1", amount: [{ denom: "unknown", amount: "100" }] },
+      },
+      registry
+    )?.osmosisNetworkFeeLimit
+  ).toBeUndefined();
 });
 
 it("includes the validated quote path with exact pool IDs and denomination metadata", () => {

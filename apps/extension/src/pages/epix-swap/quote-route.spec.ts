@@ -1,5 +1,6 @@
 import { quoteRouteView } from "./quote-route";
 import { OSMOSIS_SWAP_TOKENS } from "./tokens";
+import { parseOsmosisAssetRegistry } from "./osmosis-asset-registry";
 
 const epix = OSMOSIS_SWAP_TOKENS[0].coinMinimalDenom;
 const usdc = OSMOSIS_SWAP_TOKENS[1].coinMinimalDenom;
@@ -153,4 +154,41 @@ it("keeps absent routes compatible and never displays a partial overlong path", 
   expect(
     quoteRouteView([...maximum, { poolId: "9", tokenOutDenom: usdc }])
   ).toBeUndefined();
+});
+
+it("enriches exact registered denominations without altering the quoted path or bundled labels", () => {
+  const atom =
+    "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2";
+  const registry = parseOsmosisAssetRegistry(
+    JSON.stringify({
+      chainName: "osmosis",
+      assets: [
+        { coinMinimalDenom: atom, symbol: "ATOM", name: "Cosmos Hub" },
+        { coinMinimalDenom: allUsdt, symbol: "changed", name: "Changed label" },
+        { coinMinimalDenom: "uosmo", symbol: "changed", name: "Changed label" },
+      ],
+    })
+  );
+  const path = Object.freeze([
+    Object.freeze({ poolId: "18446744073709551615", tokenOutDenom: atom }),
+    Object.freeze({ poolId: "2", tokenOutDenom: allUsdt }),
+    Object.freeze({ poolId: "3", tokenOutDenom: "uosmo" }),
+  ]);
+  const route = quoteRouteView(path, registry);
+  expect(
+    route?.map(({ poolId, tokenOutDenom }) => ({ poolId, tokenOutDenom }))
+  ).toEqual(path);
+  expect(route?.[0].tokenOut).toBe("ATOM");
+  expect(route?.[1].tokenInMetadata).toBe(registry.get(atom));
+  expect(route?.[1].tokenOut).toBe("USDT (allUSDT)");
+  expect(route?.[2].tokenOut).toBe("OSMO");
+  expect(
+    quoteRouteView(
+      [{ poolId: "1", tokenOutDenom: atom.toLowerCase() }],
+      registry
+    )?.[0].tokenOut
+  ).not.toBe("ATOM");
+  expect(
+    OSMOSIS_SWAP_TOKENS.some((token) => token.coinMinimalDenom === atom)
+  ).toBe(false);
 });
