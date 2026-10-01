@@ -52,7 +52,7 @@ function integer(value: unknown, maximum = uint256Max): value is string {
   return (
     typeof value === "string" &&
     value.trim() === value &&
-    /^[1-9][0-9]{0,77}$/.test(value) &&
+    /^[1-9]\d{0,77}$/.test(value) &&
     BigInt(value) <= maximum
   );
 }
