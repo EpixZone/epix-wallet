@@ -264,7 +264,7 @@
   "page.setting.general.contacts-title": "연락처",
   "page.setting.general.theme-title": "테마",
   "page.setting.general.manage-authz-title": "AuthZ 관리",
-  "page.setting.general.link-kpelr-mobile-title": "QR로 Android에 내보내기",
+  "page.setting.general.link-kpelr-mobile-title": "다른 기기로 전송",
   "page.setting.general.side-panel-title": "사이드 패널",
   "page.setting.general.side-panel-paragraph": "케플러 지갑을 브라우저의 사이드 패널에서 사용할 수 있습니다.",
   "page.setting.general.side-panel-overlay-title": "웹사이트에 '케플러 열기' 배너 표시",

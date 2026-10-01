@@ -82,7 +82,7 @@ export const SettingGeneralLinkKeplrMobilePage: FunctionComponent = observer(
 
     return (
       <HeaderLayout
-        title={message("export-title", "Export to Android with QR")}
+        title={message("export-title", "Transfer to another device")}
         left={<BackButton />}
       >
         <Box padding="1rem">
@@ -94,7 +94,7 @@ export const SettingGeneralLinkKeplrMobilePage: FunctionComponent = observer(
             >
               {message(
                 "instructions",
-                "On Android, open Epix Wallet, choose Import an existing wallet, then Scan desktop QR. Transfer one wallet at a time. No wallet data is uploaded."
+                "On the receiving device, open Epix Wallet, choose Import an existing wallet, then Scan QR code. Transfer one wallet at a time. No wallet data is uploaded."
               )}
             </DSTypography>
             <DSTypography size="textMd" weight="semibold">
@@ -104,7 +104,7 @@ export const SettingGeneralLinkKeplrMobilePage: FunctionComponent = observer(
               <DSTypography as="p" size="textSm">
                 {message(
                   "unsupported",
-                  "Select a recovery phrase or private key wallet to export. Hardware wallets must be connected separately on Android."
+                  "Select a recovery phrase or private key wallet to transfer. Connect hardware wallets separately on the receiving device."
                 )}
               </DSTypography>
             ) : null}
@@ -113,7 +113,7 @@ export const SettingGeneralLinkKeplrMobilePage: FunctionComponent = observer(
                 <DSTypography as="p" size="textSm">
                   {message(
                     "scan-instructions",
-                    "Scan this QR with Epix Wallet on Android and enter your transfer password there. It expires after 5 minutes. Keep the QR and password private."
+                    "Scan this QR with Epix Wallet on the receiving device and enter your transfer password there. It expires after 5 minutes. Keep the QR and password private."
                   )}
                 </DSTypography>
                 <Box
@@ -213,7 +213,7 @@ export const SettingGeneralLinkKeplrMobilePage: FunctionComponent = observer(
                   >
                     {message(
                       "password-help",
-                      "Choose a unique transfer password of at least 12 characters, such as several random words. You will enter it on Android. It does not change your wallet password."
+                      "Choose a unique transfer password of at least 12 characters, such as several random words. You will enter it on the receiving device. It does not change your wallet password."
                     )}
                   </DSTypography>
                   <PasswordTextInput

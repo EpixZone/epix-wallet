@@ -43,7 +43,7 @@ export const ImportWalletQRScene: FunctionComponent = () => {
     onWillVisible: () => {
       header.setHeader({
         mode: "step",
-        title: message("import-title", "Scan desktop QR"),
+        title: message("import-title", "Scan QR code"),
         stepCurrent: 1,
         stepTotal: 3,
       });
@@ -85,7 +85,7 @@ export const ImportWalletQRScene: FunctionComponent = () => {
           setError(
             message(
               "invalid-qr",
-              "This is not an Epix Wallet transfer QR. Create one in the desktop wallet's Settings, Export to Android with QR."
+              "This is not an Epix Wallet transfer QR. On the sending device, open Settings, then Transfer to another device to create one."
             )
           );
           return false;
@@ -100,7 +100,7 @@ export const ImportWalletQRScene: FunctionComponent = () => {
         setError(
           message(
             "camera-error",
-            "Camera unavailable. Allow EpixNet camera access in Android settings, then try again."
+            "Camera unavailable. Allow camera access for EpixNet or your browser, then try again."
           )
         );
       }
@@ -113,7 +113,7 @@ export const ImportWalletQRScene: FunctionComponent = () => {
         <DSTypography as="p" size="textSm" color={DSColor.typography.secondary}>
           {message(
             "desktop-instructions",
-            "On your desktop, select the wallet to transfer, open Settings, then Export to Android with QR. Create a transfer password and scan the QR here. Only scan a QR you created yourself."
+            "On the sending device, select the wallet to transfer, open Settings, then Transfer to another device. Create a transfer password and scan the QR here. Only scan a QR you created yourself."
           )}
         </DSTypography>
         {!payload ? (
@@ -213,7 +213,7 @@ export const ImportWalletQRScene: FunctionComponent = () => {
               <DSTypography as="p" size="textSm">
                 {message(
                   "scanned",
-                  "QR scanned. Enter the transfer password you chose on your desktop."
+                  "QR scanned. Enter the transfer password you chose on the sending device."
                 )}
               </DSTypography>
               <PasswordTextInput
