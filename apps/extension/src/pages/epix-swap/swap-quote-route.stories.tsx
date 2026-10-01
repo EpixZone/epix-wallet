@@ -1,7 +1,7 @@
 import React from "react";
 import { ComponentMeta } from "@storybook/react";
 import { createIntl } from "react-intl";
-import { DSColor } from "@keplr-wallet/design-system";
+import { DSColor, DSThemeProvider } from "@keplr-wallet/design-system";
 import messages from "../../languages/en.json";
 import {
   SwapQuoteRoute,
@@ -22,17 +22,19 @@ export default {
   component: SwapQuoteRoute,
   decorators: [
     (Story) => (
-      <div
-        style={{
-          maxWidth: "22rem",
-          margin: "1rem",
-          padding: "1rem",
-          borderRadius: "0.75rem",
-          background: DSColor.background.surface.surface,
-        }}
-      >
-        <Story />
-      </div>
+      <DSThemeProvider defaultTheme="dark">
+        <div
+          style={{
+            maxWidth: "22rem",
+            margin: "1rem",
+            padding: "1rem",
+            borderRadius: "0.75rem",
+            background: DSColor.background.surface.surface,
+          }}
+        >
+          <Story />
+        </div>
+      </DSThemeProvider>
     ),
   ],
 } as ComponentMeta<typeof SwapQuoteRoute>;
