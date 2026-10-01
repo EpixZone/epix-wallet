@@ -1,5 +1,8 @@
 import React, { ErrorInfo, FunctionComponent, PropsWithChildren } from "react";
 import { MsgHistory } from "../types";
+import { MsgItemBase } from "./base";
+import { HistoryIcon, DSColor } from "@keplr-wallet/design-system";
+import { decorateMsgType } from "../../../history-detail/decorate-msg-type";
 import { MsgRelationSend } from "./send";
 import { MsgRelationReceive } from "./receive";
 import { MsgRelationDelegate } from "./delegate";
@@ -53,6 +56,21 @@ const MsgItemRenderInner: FunctionComponent<{
   targetDenom: string;
   isInAllActivitiesPage?: boolean;
 }> = ({ msg, prices, targetDenom, isInAllActivitiesPage }) => {
+  if (msg.relation === "native/transaction") {
+    const type = (msg.msg as { "@type"?: string })["@type"];
+    return (
+      <MsgItemBase
+        logo={<HistoryIcon size={24} color={DSColor.typography.primary} />}
+        chainId={msg.chainId}
+        title={decorateMsgType(type || "Transaction")}
+        amount=""
+        prices={{}}
+        msg={msg}
+        targetDenom={targetDenom}
+        isInAllActivitiesPage={isInAllActivitiesPage}
+      />
+    );
+  }
   if (msg.relation.startsWith("bbn-wrapped-")) {
     const innerMsg = msg.msg as { msg: unknown };
     const msgHistory: MsgHistory = { ...msg, msg: innerMsg.msg };

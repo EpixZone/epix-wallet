@@ -2,421 +2,170 @@ import React, { FunctionComponent, useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStore } from "../../../../stores";
 import { useSpringValue, animated, easings } from "@react-spring/web";
-import { defaultSpringConfig } from "../../../../styles/spring";
-import { useTheme } from "styled-components";
-import { ColorPalette, SidePanelMaxWidth } from "../../../../styles";
-import { Subtitle4 } from "../../../../components/typography";
+import { SidePanelMaxWidth } from "../../../../styles";
+import {
+  DSColor,
+  DSTypography,
+  LoadingIcon,
+} from "@keplr-wallet/design-system";
+import { useIntl } from "react-intl";
 import { Gutter } from "../../../../components/gutter";
 import { BottomTabsHeightRem } from "../../../../bottom-tabs";
-import { DenomHelper } from "@keplr-wallet/common";
-import { INITIA_CHAIN_ID } from "../../../../config.ui";
-import { usePageSimpleBar } from "../../../../hooks/page-simplebar";
-import { isRunningInSidePanel } from "../../../../utils";
-import { useIsNotReady } from "../../index";
-import SimpleBarCore from "simplebar-core";
+import { AutoFetchingAssetsInterval } from "../../../../config.ui";
+import { useLocation } from "react-router";
+import { refreshWalletBalances } from "./refresh-balances";
+import {
+  isWalletRefreshRoute,
+  startWalletRefresh,
+  WalletRefreshEvent,
+} from "./refresh-controller";
 
-const visibleTranslateY = -40;
-const invisibleTranslateY = 100;
-
-export const RefreshButton: FunctionComponent<{
-  forcePreventScrollRefreshButtonVisible: React.MutableRefObject<boolean>;
-}> = observer(({ forcePreventScrollRefreshButtonVisible }) => {
-  const {
-    chainStore,
-    queriesStore,
-    starknetQueriesStore,
-    bitcoinQueriesStore,
-    accountStore,
-    priceStore,
-  } = useStore();
-
-  const isNotReady = useIsNotReady();
-
-  const theme = useTheme();
-  const pageSimpleBar = usePageSimpleBar();
-
-  const [isRefreshButtonVisible, setIsRefreshButtonVisible] = useState(false);
+export const RefreshButton: FunctionComponent = observer(() => {
+  const stores = useStore();
+  const intl = useIntl();
+  const { pathname } = useLocation();
   const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const controller = useRef<ReturnType<typeof startWalletRefresh>>();
+  const status = stores.keyRingStore.status;
+  const accountId = stores.keyRingStore.selectedKeyInfo?.id;
+  const previousAccount = useRef({ status, accountId });
 
-  const [simpleBarRefState, setSimpleBarRefState] =
-    useState<SimpleBarCore | null>(null);
   useEffect(() => {
-    return pageSimpleBar.refChangeHandler(setSimpleBarRefState);
-  }, []);
+    const refresh = startWalletRefresh({
+      document,
+      window,
+      intervalMs: AutoFetchingAssetsInterval,
+      canRefresh: () => stores.keyRingStore.status === "unlocked",
+      refresh: (mode) => refreshWalletBalances(stores, mode === "manual"),
+      onStart: (mode) => {
+        if (mode === "manual") {
+          setHasError(false);
+          setIsLoading(true);
+        }
+      },
+      onSettled: (mode) => {
+        if (mode === "manual") setIsLoading(false);
+      },
+      onError: (_error, mode) => {
+        if (mode === "manual") {
+          setHasError(true);
+        }
+      },
+    });
+    controller.current = refresh;
+    return () => {
+      refresh.dispose();
+      controller.current = undefined;
+    };
+  }, [stores]);
 
-  // 스크롤 핸들러
+  // Read the selected account again when a queued refresh runs. Never retain
+  // the previous account's addresses in the timer or focus handlers.
   useEffect(() => {
-    if (!isRunningInSidePanel()) {
-      return;
+    if (
+      previousAccount.current.status !== status ||
+      previousAccount.current.accountId !== accountId
+    ) {
+      previousAccount.current = { status, accountId };
+      void controller.current?.refresh();
     }
-    if (!simpleBarRefState) {
-      return;
-    }
-
-    const scrollElement = simpleBarRefState.getScrollElement();
-    if (scrollElement) {
-      // 최상단에선 안 보임
-      // 그러나 최상단에서 움직임 없이 5초 지나면 보임
-      // 스크롤 다운 하면 사라짐
-      // 스크롤 업 하면 보임
-      let lastScrollTop = 0;
-      let lastScrollTime = Date.now();
-      const listener = (e: Event) => {
-        if (e.target) {
-          const { scrollTop } = e.target as HTMLDivElement;
-
-          const gap = scrollTop - lastScrollTop;
-          if (gap > 0) {
-            setIsRefreshButtonVisible(false);
-          } else if (gap < 0) {
-            if (!forcePreventScrollRefreshButtonVisible.current) {
-              setIsRefreshButtonVisible(true);
-            }
-          }
-
-          lastScrollTop = scrollTop;
-          lastScrollTime = Date.now();
-        }
-      };
-      scrollElement.addEventListener("scroll", listener);
-
-      const interval = setInterval(() => {
-        if (lastScrollTop <= 10) {
-          if (Date.now() - lastScrollTime >= 5000) {
-            if (!forcePreventScrollRefreshButtonVisible.current) {
-              setIsRefreshButtonVisible(true);
-            } else {
-              lastScrollTime = Date.now();
-            }
-          }
-        }
-      }, 1000);
-
-      return () => {
-        scrollElement.removeEventListener("scroll", listener);
-        clearInterval(interval);
-      };
-    }
-  }, [simpleBarRefState]);
-
-  const visible =
-    !isNotReady &&
-    isRunningInSidePanel() &&
-    (isRefreshButtonVisible || isLoading);
-
-  const translateY = useSpringValue(
-    visible ? visibleTranslateY : invisibleTranslateY,
-    {
-      config: defaultSpringConfig,
-    }
-  );
-  useEffect(() => {
-    translateY.start(visible ? visibleTranslateY : invisibleTranslateY);
-  }, [translateY, visible]);
-
-  const refresh = async () => {
-    if (isLoading) {
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const promises: Promise<unknown>[] = [];
-
-      promises.push(priceStore.waitFreshResponse());
-      for (const modularChainInfo of chainStore.modularChainInfosInUI) {
-        if (modularChainInfo.type === "cosmos") {
-          const account = accountStore.getAccount(modularChainInfo.chainId);
-
-          if (account.bech32Address !== "") {
-            const queries = queriesStore.get(modularChainInfo.chainId);
-            const queryBalance = queries.queryBalances.getQueryBech32Address(
-              account.bech32Address
-            );
-            const queryRewards =
-              queries.cosmos.queryRewards.getQueryBech32Address(
-                account.bech32Address
-              );
-            // XXX: 얘는 구조상 waitFreshResponse()가 안되서 일단 쿼리가 끝인지 아닌지는 무시한다.
-            queryBalance.fetch();
-
-            promises.push(queryRewards.waitFreshResponse());
-          }
-        } else if (modularChainInfo.type === "ethermint") {
-          const account = accountStore.getAccount(modularChainInfo.chainId);
-          const u = modularChainInfo.unwrapped;
-
-          // Ethermint: fetch bech32 balance for IBC tokens
-          if (account.bech32Address !== "") {
-            const queries = queriesStore.get(modularChainInfo.chainId);
-            const queryBalance = queries.queryBalances.getQueryBech32Address(
-              account.bech32Address
-            );
-            const queryRewards =
-              queries.cosmos.queryRewards.getQueryBech32Address(
-                account.bech32Address
-              );
-            queryBalance.fetch();
-            promises.push(queryRewards.waitFreshResponse());
-          }
-
-          // Ethermint: fetch EVM balance for erc20 tokens
-          if (account.ethereumHexAddress && u.type === "ethermint") {
-            const queries = queriesStore.get(modularChainInfo.chainId);
-            const queryBalance =
-              queries.queryBalances.getQueryEthereumHexAddress(
-                account.ethereumHexAddress
-              );
-            queryBalance.fetch();
-
-            for (const currency of u.evm.tokens ?? []) {
-              const query = queriesStore
-                .get(modularChainInfo.chainId)
-                .queryBalances.getQueryEthereumHexAddress(
-                  account.ethereumHexAddress
-                );
-
-              const denomHelper = new DenomHelper(currency.coinMinimalDenom);
-              if (denomHelper.type === "erc20") {
-                query.fetch();
-              }
-            }
-          }
-        } else if (modularChainInfo.type === "evm") {
-          const account = accountStore.getAccount(modularChainInfo.chainId);
-          const u = modularChainInfo.unwrapped;
-
-          if (account.ethereumHexAddress && u.type === "evm") {
-            const queries = queriesStore.get(modularChainInfo.chainId);
-            const queryBalance =
-              queries.queryBalances.getQueryEthereumHexAddress(
-                account.ethereumHexAddress
-              );
-            queryBalance.fetch();
-
-            for (const currency of u.evm.tokens ?? []) {
-              const query = queriesStore
-                .get(modularChainInfo.chainId)
-                .queryBalances.getQueryEthereumHexAddress(
-                  account.ethereumHexAddress
-                );
-
-              const denomHelper = new DenomHelper(currency.coinMinimalDenom);
-              if (denomHelper.type === "erc20") {
-                query.fetch();
-              }
-            }
-          }
-        } else if (modularChainInfo.type === "starknet") {
-          const account = accountStore.getAccount(modularChainInfo.chainId);
-          const u = modularChainInfo.unwrapped;
-
-          if (account.starknetHexAddress && u.type === "starknet") {
-            const queries = starknetQueriesStore.get(modularChainInfo.chainId);
-
-            for (const currency of u.starknet.currencies) {
-              const query = queries.queryStarknetERC20Balance.getBalance(
-                modularChainInfo.chainId,
-                chainStore,
-                account.starknetHexAddress,
-                currency.coinMinimalDenom
-              );
-
-              if (query) {
-                query.fetch();
-              }
-            }
-
-            // refresh starknet staking info
-            const stakingInfo = queries.stakingInfoManager.getStakingInfo(
-              account.starknetHexAddress
-            );
-            promises.push(stakingInfo.waitFreshResponse());
-          }
-        } else if (modularChainInfo.type === "bitcoin") {
-          const account = accountStore.getAccount(modularChainInfo.chainId);
-          const u = modularChainInfo.unwrapped;
-
-          if (account.bitcoinAddress && u.type === "bitcoin") {
-            const currency = u.bitcoin.currencies[0];
-            const queries = bitcoinQueriesStore.get(modularChainInfo.chainId);
-            const queryBalance = queries.queryBitcoinBalance.getBalance(
-              modularChainInfo.chainId,
-              chainStore,
-              account.bitcoinAddress.bech32Address,
-              currency.coinMinimalDenom
-            );
-
-            if (queryBalance) {
-              queryBalance.fetch();
-            }
-          }
-        }
-      }
-
-      for (const chainInfo of chainStore.modularChainInfosInUI) {
-        if (chainInfo.type !== "cosmos" && chainInfo.type !== "ethermint") {
-          continue;
-        }
-        const account = accountStore.getAccount(chainInfo.chainId);
-        const isInitia = chainInfo.chainId === INITIA_CHAIN_ID;
-
-        if (account.bech32Address === "") {
-          continue;
-        }
-        const queries = queriesStore.get(chainInfo.chainId);
-        const queryUnbonding = isInitia
-          ? queries.cosmos.queryInitiaUnbondingDelegations.getQueryBech32Address(
-              account.bech32Address
-            )
-          : queries.cosmos.queryUnbondingDelegations.getQueryBech32Address(
-              account.bech32Address
-            );
-        const queryDelegation = isInitia
-          ? queries.cosmos.queryInitiaDelegations.getQueryBech32Address(
-              account.bech32Address
-            )
-          : queries.cosmos.queryDelegations.getQueryBech32Address(
-              account.bech32Address
-            );
-
-        promises.push(queryUnbonding.waitFreshResponse());
-        promises.push(queryDelegation.waitFreshResponse());
-      }
-
-      await Promise.all([
-        Promise.all(promises),
-        new Promise((resolve) => setTimeout(resolve, 2000)),
-      ]);
-    } catch (e) {
-      console.log(e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [status, accountId]);
 
   const rotate = useSpringValue(0, {
-    config: {
-      duration: 1250,
-      easing: easings.linear,
-    },
+    config: { duration: 1250, easing: easings.linear },
   });
-  // 밑에서 onRest callback에서 isLoading을 써야하기 때문에 이러한 처리가 필요함.
-  const isLoadingRef = useRef(isLoading);
-  isLoadingRef.current = isLoading;
-  const prevIsLoading = useRef(isLoading);
   useEffect(() => {
-    // 이 코드의 목적은 rotate animation을 실행하는데
-    // isLoading이 false가 되었을때 마지막 rotate까지는 끝내도록 하기 위해서 따로 작성된 것임.
-    if (prevIsLoading.current !== isLoading && isLoading) {
-      // prev 값과 비교하지 않으면 최초 mount 시점에서 0~360으로 바로 회전하게 된다.
-      if (isLoading) {
-        const onRest = () => {
-          if (isLoadingRef.current) {
-            rotate.start(360, {
-              from: 0,
-              onRest,
-            });
-          }
-        };
-
-        rotate.start(360, {
-          from: 0,
-          onRest,
-        });
-      }
+    if (isLoading) {
+      rotate.start(360, { from: 0, loop: true });
+    } else {
+      rotate.stop();
+      rotate.set(0);
     }
-
-    prevIsLoading.current = isLoading;
+    return () => {
+      rotate.stop();
+    };
   }, [rotate, isLoading]);
 
-  if (!isRunningInSidePanel()) {
-    return null;
-  }
+  if (status !== "unlocked" || !isWalletRefreshRoute(pathname)) return null;
 
   return (
-    <animated.div
-      onClick={(e) => {
-        e.preventDefault();
-
-        refresh();
-      }}
+    <div
       style={{
-        pointerEvents: translateY.to((v) =>
-          // visible이 false일때는 pointer-events를 none으로 해서 클릭을 막는다.
-          // visibleTranslateY / 2는 대충 정한 값임. 이 값보다 작으면 pointer-events를 none으로 해서 클릭을 막는다.
-          v >= visibleTranslateY / 2 ? "none" : "auto"
-        ),
-
+        pointerEvents: "none",
         position: "fixed",
         marginBottom: BottomTabsHeightRem,
-        bottom: 0,
+        bottom: "0.75rem",
         zIndex: 10,
-
+        left: "50%",
+        transform: "translateX(-50%)",
         width: "100%",
         maxWidth: SidePanelMaxWidth,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-
-        cursor: isLoading ? "progress" : "pointer",
+        gap: "0.5rem",
       }}
     >
-      <animated.div
+      {hasError ? (
+        <DSTypography
+          as="div"
+          size="textSm"
+          role="alert"
+          style={{
+            padding: "0.5rem 1rem",
+            maxWidth: "90%",
+            borderRadius: "0.5rem",
+            background: DSColor.background.surface.elevated,
+            color: DSColor.typography.primary,
+          }}
+        >
+          {intl.formatMessage({ id: "wallet.refresh.error" })}
+        </DSTypography>
+      ) : null}
+      <button
+        type="button"
+        aria-label={intl.formatMessage({
+          id: "wallet.refresh.accessible-label",
+        })}
+        aria-busy={isLoading}
+        disabled={isLoading}
+        onClick={() => window.dispatchEvent(new Event(WalletRefreshEvent))}
         style={{
+          pointerEvents: "auto",
+          minHeight: "44px",
           padding: "0.75rem 1rem",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-
+          border: 0,
           borderRadius: "999999px",
-          background:
-            theme.mode === "light"
-              ? ColorPalette["white"]
-              : ColorPalette["gray-500"],
-          boxShadow:
-            theme.mode === "light"
-              ? "0px 4px 12px 0px rgba(0, 0, 0, 0.12)"
-              : "0px 0px 24px 0px rgba(0, 0, 0, 0.25)",
-
-          translateY: translateY.to((v) => `${v}%`),
+          background: DSColor.background.surface.elevated,
+          color: DSColor.typography.primary,
+          boxShadow: `0 2px 8px ${DSColor.background.surface.scrim}`,
+          cursor: isLoading ? "progress" : "pointer",
         }}
       >
-        <Subtitle4
-          color={
-            theme.mode === "light"
-              ? ColorPalette["gray-600"]
-              : ColorPalette["gray-50"]
-          }
-        >
-          Refresh
-        </Subtitle4>
-        <Gutter size="0.25rem" />
-        <animated.svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          fill="none"
-          stroke="none"
-          viewBox="0 0 16 16"
-          style={{
-            transform: rotate.to((v) => `rotate(${v}deg)`),
-          }}
-        >
-          <path
-            stroke={
-              theme.mode === "light"
-                ? ColorPalette["gray-600"]
-                : ColorPalette["gray-50"]
-            }
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="1.33"
-            d="M11.182 6.232h3.328v0M2.49 13.095V9.768m0 0h3.328m-3.329 0l2.12 2.122a5.5 5.5 0 009.202-2.466M3.188 6.577a5.5 5.5 0 019.202-2.467l2.121 2.121m0-3.327V6.23"
-          />
-        </animated.svg>
-      </animated.div>
-    </animated.div>
+        <DSTypography size="textSm" weight="medium">
+          {intl.formatMessage({
+            id: isLoading ? "wallet.refresh.loading" : "wallet.refresh.label",
+          })}
+        </DSTypography>
+        {isLoading ? (
+          <React.Fragment>
+            <Gutter size="0.25rem" />
+            <animated.span
+              aria-hidden="true"
+              style={{
+                display: "flex",
+                transform: rotate.to((v) => `rotate(${v}deg)`),
+              }}
+            >
+              <LoadingIcon size={16} />
+            </animated.span>
+          </React.Fragment>
+        ) : null}
+      </button>
+    </div>
   );
 });

@@ -42,6 +42,8 @@ import { FormattedMessage } from "react-intl";
 import { NOBLE_CHAIN_ID } from "../../../config.ui";
 import { MintPhotonButton } from "./mint-photon-button";
 import { supportsNativeStaking } from "../../stake/utils";
+import { NativeHistory } from "../../history/native";
+import { hasNativeHistory } from "../../history/native/query";
 
 const Styles = {
   Container: styled.div`
@@ -173,10 +175,17 @@ export const TokenDetailModal: FunctionComponent<{
 
   const navigate = useNavigate();
 
-  const querySupported = queriesStore.simpleQuery.queryGet<string[]>(
-    process.env["KEPLR_EXT_CONFIG_SERVER"],
-    "/tx-history/supports"
-  );
+  const nativeHistory = hasNativeHistory(chainId);
+  const indexedHistory =
+    !nativeHistory &&
+    !!process.env["KEPLR_EXT_TX_HISTORY_BASE_URL"] &&
+    !!process.env["KEPLR_EXT_CONFIG_SERVER"];
+  const querySupported = indexedHistory
+    ? queriesStore.simpleQuery.queryGet<string[]>(
+        process.env["KEPLR_EXT_CONFIG_SERVER"],
+        "/tx-history/supports"
+      )
+    : undefined;
 
   const isSupported: boolean = useMemo(() => {
     const u = modularChainInfo.unwrapped;
@@ -190,14 +199,14 @@ export const TokenDetailModal: FunctionComponent<{
       }
 
       const map = new Map<string, boolean>();
-      for (const chainIdentifier of querySupported.response?.data ?? []) {
+      for (const chainIdentifier of querySupported?.response?.data ?? []) {
         map.set(chainIdentifier, true);
       }
 
       return map.get(modularChainInfo.chainIdentifier) ?? false;
     }
     return false;
-  }, [modularChainInfo, querySupported.response, chainId, isERC20]);
+  }, [modularChainInfo, querySupported?.response, chainId, isERC20]);
 
   const buttons: {
     icon: React.ReactElement;
@@ -344,7 +353,10 @@ export const TokenDetailModal: FunctionComponent<{
         return true;
       }
       return false;
-    }
+    },
+    `${chainId}/${account.bech32Address}/${account.ethereumHexAddress}/${coinMinimalDenom}/${indexedHistory}`,
+    () =>
+      indexedHistory && !!(account.bech32Address || account.ethereumHexAddress)
   );
 
   const simpleBarRef = useRef<SimpleBarCore>(null);
@@ -723,6 +735,21 @@ export const TokenDetailModal: FunctionComponent<{
 
           <Gutter size="1.25rem" />
           {(() => {
+            if (nativeHistory)
+              return (
+                <NativeHistory
+                  chainId={chainId}
+                  targetDenom={coinMinimalDenom}
+                />
+              );
+            if (!indexedHistory)
+              return (
+                <Box padding="0.75rem">
+                  <Subtitle3>
+                    <FormattedMessage id="page.history.native.unavailable" />
+                  </Subtitle3>
+                </Box>
+              );
             // 최초 loading 중인 경우
             if (msgHistory.pages.length === 0) {
               return (

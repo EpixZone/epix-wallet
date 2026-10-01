@@ -44,6 +44,7 @@ import manifest from "./manifest.v2.json";
 import { WalletStatus } from "@keplr-wallet/stores";
 import { UnlockPage } from "./pages/unlock";
 import { MainPage } from "./pages/main";
+import { RefreshButton } from "./pages/main/components/refresh-button";
 import { SettingPage } from "./pages/setting";
 import { SettingGeneralPage } from "./pages/setting/general";
 import { SettingGeneralFiatPage } from "./pages/setting/general/fiat";
@@ -420,6 +421,7 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
         ]}
       >
         <RoutePageAnalytics />
+        {isReady && !shouldUnlockPage ? <RefreshButton /> : null}
         {isReady ? (
           shouldUnlockPage ? (
             <UnlockPage />

@@ -22,6 +22,9 @@ export interface MsgHistory {
   eventStartIndex: number;
   eventEndIndex: number;
 
+  // Fee returned with a transaction by the native Cosmos REST API.
+  nativeFee?: { denom: string; amount: string }[];
+
   search: string;
   denoms?: string[];
   meta: Record<string, number | boolean | string | number[] | string[]>;

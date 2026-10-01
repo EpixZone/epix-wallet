@@ -118,7 +118,7 @@ export const RenderMessages: FunctionComponent<{
 
                 return (
                   <MsgItemRender
-                    key={`${msg.msg.height}/${msg.msg.msgIndex}/${msg.msg.relation}`}
+                    key={`${msg.msg.txHash}/${msg.msg.msgIndex}/${msg.msg.relation}/${denom}`}
                     msg={msg.msg}
                     prices={msg.prices}
                     targetDenom={denom}

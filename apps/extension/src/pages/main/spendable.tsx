@@ -344,7 +344,7 @@ export const SpendableAssetView: FunctionComponent<{
   // 초기 유저에게 뜨는 alternative에서 get started 버튼을 누르면 copy address modal을 띄워야된다...
   // 근데 컴포넌트가 분리되어있는데 이거 하려고 context api 쓰긴 귀찮아서 그냥 prop으로 대충 처리한다.
   onClickGetStarted: () => void;
-  onMoreTokensClosed: () => void;
+  onMoreTokensClosed?: () => void;
 
   hideNumInTitle: boolean;
 }> = observer(
@@ -938,7 +938,7 @@ const TokensFlatViewScene = observer(
     setSearchParams,
   }: {
     trimSearch: string;
-    onMoreTokensClosed: () => void;
+    onMoreTokensClosed?: () => void;
     setSearchParams: Dispatch<SetStateAction<URLSearchParams>>;
   }) => {
     const { uiConfigStore } = useStore();
@@ -954,7 +954,7 @@ const TokensFlatViewScene = observer(
             notRenderHiddenItems={true}
             onCollapse={(isCollapsed) => {
               if (isCollapsed) {
-                onMoreTokensClosed();
+                onMoreTokensClosed?.();
               }
             }}
             lenAlwaysShown={TokenViewData.lenAlwaysShown}
@@ -993,7 +993,7 @@ const TokensGroupedViewScene = observer(
     onMoreTokensClosed,
   }: {
     trimSearch: string;
-    onMoreTokensClosed: () => void;
+    onMoreTokensClosed?: () => void;
   }) => {
     const { uiConfigStore } = useStore();
     const { searchedGroupedTokensMap } = useGroupedTokensMap(trimSearch);
@@ -1008,7 +1008,7 @@ const TokensGroupedViewScene = observer(
             notRenderHiddenItems={true}
             onCollapse={(isCollapsed) => {
               if (isCollapsed) {
-                onMoreTokensClosed();
+                onMoreTokensClosed?.();
               }
             }}
             lenAlwaysShown={10}

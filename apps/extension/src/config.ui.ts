@@ -1,3 +1,6 @@
+// Epix explorer supports the ?tx= route in both browsers and host shells.
+export const EPIX_TX_EXPLORER = "https://explorer.epix.zone/?tx={txHash}";
+
 // Seperate shared config from UI config to prevent code mixup between UI and background process code.
 import { FiatCurrency } from "@keplr-wallet/types";
 

@@ -7,6 +7,7 @@ import {
 import {
   CoinGeckoAPIEndPoint,
   CoinGeckoGetPrice,
+  AutoFetchingFiatValueInterval,
   EthereumEndpoint,
   FiatCurrencies,
   ICNSInfo,
@@ -87,6 +88,7 @@ import {
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { HugeQueriesStore } from "./huge-queries";
 import { AprsStore } from "./aprs";
+import { EpixPriceStore } from "./price";
 import { ClaimRewardsStateStore } from "./claim-rewards-state";
 import { ExtensionAnalyticsClient } from "../analytics";
 import { AmplitudeAnalyticsClient } from "../analytics-amplitude";
@@ -547,7 +549,7 @@ export class RootStore {
       getKeplrFromWindow
     );
 
-    this.priceStore = new CoinGeckoPriceStore(
+    this.priceStore = new EpixPriceStore(
       new ExtensionKVStore("store_prices"),
       FiatCurrencies.reduce<{
         [vsCurrency: string]: FiatCurrency;
@@ -559,6 +561,7 @@ export class RootStore {
       {
         baseURL: CoinGeckoAPIEndPoint,
         uri: CoinGeckoGetPrice,
+        fetchingInterval: AutoFetchingFiatValueInterval,
       }
     );
     this.price24HChangesStore = new Price24HChangesStore(

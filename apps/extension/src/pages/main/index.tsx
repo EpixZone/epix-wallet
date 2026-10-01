@@ -13,7 +13,6 @@ import {
   UpdateNoteModal,
   UpdateNotePageData,
   SpendableCard,
-  RefreshButton,
 } from "./components";
 import { Stack } from "../../components/stack";
 import { CoinPretty, Dec, PricePretty } from "@keplr-wallet/unit";
@@ -230,8 +229,6 @@ export const MainPage: FunctionComponent<{
     }
   }, [uiConfigStore.changelogConfig.showingInfo.length]);
 
-  const forcePreventScrollRefreshButtonVisible = useRef(false);
-
   return (
     <MainHeaderLayout
       isNotReady={isNotReady}
@@ -240,11 +237,6 @@ export const MainPage: FunctionComponent<{
       <TotalPriceVisibilityHandler
         totalPriceSectionRef={totalPriceSectionRef}
         setIsTotalPriceVisible={setIsTotalPriceVisible}
-      />
-      <RefreshButton
-        forcePreventScrollRefreshButtonVisible={
-          forcePreventScrollRefreshButtonVisible
-        }
       />
 
       <Box padding="1.25rem">
@@ -367,16 +359,6 @@ export const MainPage: FunctionComponent<{
             isNotReady={isNotReady}
             onClickGetStarted={() => {
               setIsOpenDepositModal(true);
-            }}
-            onMoreTokensClosed={() => {
-              // token list가 접히면서 scroll height가 작아지게 된다.
-              // scroll height가 작아지는 것은 위로 스크롤 하는 것과 같은 효과를 내기 때문에
-              // 아래와같은 처리가 없으면 token list를 접으면 refesh 버튼이 무조건 나타나게 된다.
-              // 이게 약간 어색해보이므로 token list를 접을때 1.5초 동안 refresh 버튼 기능을 없애버린다.
-              forcePreventScrollRefreshButtonVisible.current = true;
-              setTimeout(() => {
-                forcePreventScrollRefreshButtonVisible.current = false;
-              }, 1500);
             }}
             hideNumInTitle={uiConfigStore.isPrivacyMode}
           />

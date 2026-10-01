@@ -353,6 +353,12 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
   };
 
   private postStart() {
+    if (this.intervalId != null) {
+      clearInterval(this.intervalId as NodeJS.Timeout);
+      this.intervalId = undefined;
+    }
+    // Async initialization can finish after the last observer has left.
+    if (!this.isStarted) return;
     this.fetch();
 
     if (this.options.fetchingInterval > 0) {

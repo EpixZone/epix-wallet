@@ -13,6 +13,8 @@ import { useTheme } from "styled-components";
 import { ColorPalette } from "../../styles";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { Body1 } from "../../components/typography";
+import { hasNativeHistory } from "../history/native/query";
+import { EPIX_TX_EXPLORER } from "../../config.ui";
 
 export const HistoryDetailPage: FunctionComponent = observer(() => {
   const { queriesStore } = useStore();
@@ -33,14 +35,21 @@ export const HistoryDetailPage: FunctionComponent = observer(() => {
     prices?: Record<string, Record<string, number | undefined> | undefined>;
   } = JSON.parse(msgJson);
 
-  const queryExplorer = queriesStore.simpleQuery.queryGet<{
-    link: string;
-  }>(
-    process.env["KEPLR_EXT_CONFIG_SERVER"],
-    `/tx-history/explorer/${ChainIdHelper.parse(chainId || "").identifier}`
-  );
+  const queryExplorer =
+    !hasNativeHistory(chainId || "") && process.env["KEPLR_EXT_CONFIG_SERVER"]
+      ? queriesStore.simpleQuery.queryGet<{
+          link: string;
+        }>(
+          process.env["KEPLR_EXT_CONFIG_SERVER"],
+          `/tx-history/explorer/${
+            ChainIdHelper.parse(chainId || "").identifier
+          }`
+        )
+      : undefined;
 
-  const explorerUrl = queryExplorer.response?.data.link || "";
+  const explorerUrl = hasNativeHistory(chainId || "")
+    ? EPIX_TX_EXPLORER
+    : queryExplorer?.response?.data.link || "";
 
   return (
     <HeaderLayout

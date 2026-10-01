@@ -214,8 +214,8 @@ export const MainHeaderLayout = observer<
       whileElementsMounted: autoUpdate,
     });
     const { totalPrice } = useTotalPrices();
-    // The Tor/I2P strip pins under the fixed header; when it shows, the
-    // scrollable content needs the extra top padding to not start beneath it.
+    // Keep network status above the wallet selector and reserve space for
+    // both fixed rows before the scrollable content.
     const { available: hasEpixStatusBar } = useEpixStatus();
     // On the mobile shells the strip opens an inline popover whose tap-away
     // backdrop must cover the header row; lift the strip's stacking context
@@ -249,6 +249,19 @@ export const MainHeaderLayout = observer<
 
     return (
       <Fragment>
+        {hasEpixStatusBar ? (
+          <Box
+            position="fixed"
+            style={{
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: isEpixPopoverOpen ? 101 : 99,
+            }}
+          >
+            <EpixNetworkStatusBar onOpenChange={setIsEpixPopoverOpen} />
+          </Box>
+        ) : null}
         <HeaderLayout
           title={""}
           left={
@@ -456,13 +469,9 @@ export const MainHeaderLayout = observer<
             </Columns>
           }
           {...otherProps}
-          // With the strip pinned right under the header, the header's
-          // scroll-triggered bottom border would draw a stray line between
-          // two identical chrome rows; the strip's own hairline takes over
-          // as the chrome/content separator.
           headerContainerStyle={
             hasEpixStatusBar
-              ? { ...headerContainerStyle, borderBottomColor: "transparent" }
+              ? { ...headerContainerStyle, top: EpixStatusBarHeight }
               : headerContainerStyle
           }
           contentContainerStyle={
@@ -473,19 +482,6 @@ export const MainHeaderLayout = observer<
         >
           {children}
         </HeaderLayout>
-        {hasEpixStatusBar ? (
-          <Box
-            position="fixed"
-            style={{
-              top: HeaderHeight,
-              left: 0,
-              right: 0,
-              zIndex: isEpixPopoverOpen ? 101 : 99,
-            }}
-          >
-            <EpixNetworkStatusBar onOpenChange={setIsEpixPopoverOpen} />
-          </Box>
-        ) : null}
         <AccountSwitchFloatModal
           isOpen={isOpenAccountSwitchModal}
           closeModal={() => setIsOpenAccountSwitchModal(false)}
