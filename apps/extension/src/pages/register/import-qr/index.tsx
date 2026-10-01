@@ -131,11 +131,23 @@ export const ImportWalletQRScene: FunctionComponent = () => {
                 style={{
                   width: "100%",
                   aspectRatio: "1",
-                  objectFit: "cover",
+                  objectFit: "contain",
                   borderRadius: "0.5rem",
                   background: DSColor.background.surface.scrim,
                 }}
               />
+            ) : null}
+            {active ? (
+              <DSTypography
+                as="p"
+                size="textSm"
+                color={DSColor.typography.secondary}
+              >
+                {message(
+                  "camera-framing",
+                  "Keep the entire QR code and its white border in view. Hold steady while the camera focuses."
+                )}
+              </DSTypography>
             ) : null}
             <Button
               size="large"

@@ -25,6 +25,11 @@ Transfers expire in the receiving app after five minutes; the desktop also
 hides the QR when its page is hidden. A saved QR is still encrypted data, so
 expiry does not make a captured copy safe to share.
 
+The transfer QR is static. Keep the entire code and its white border in the
+camera preview and hold steady for focus. The scanner requests HD video when
+available; lower-resolution cameras remain supported. The preview shows the
+whole camera frame without cropping its edges.
+
 If the camera is unavailable, allow EpixNet camera access in Android settings
 and try again. An unrelated QR is ignored. If decryption fails, check the
 transfer password and device clocks, or create a fresh transfer.
