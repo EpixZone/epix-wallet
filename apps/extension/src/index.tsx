@@ -91,7 +91,7 @@ import { SignEthereumTxPage } from "./pages/sign/ethereum";
 import "simplebar-react/dist/simplebar.min.css";
 import { AppThemeProvider } from "./theme";
 import { useTheme } from "styled-components";
-import { IBCSwapPage } from "./pages/ibc-swap";
+import { IBCSwapEntryPage } from "./pages/ibc-swap/entry";
 import {
   BottomTabHistoryIcon,
   BottomTabHomeIcon,
@@ -436,7 +436,7 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
               <Route path="/starknet/send" element={<StarknetSendPage />} />
               <Route path="/bitcoin/send" element={<BitcoinSendPage />} />
 
-              <Route path="/ibc-swap" element={<IBCSwapPage />} />
+              <Route path="/ibc-swap" element={<IBCSwapEntryPage />} />
               <Route
                 path="/send/select-asset"
                 element={<SendSelectAssetPage />}

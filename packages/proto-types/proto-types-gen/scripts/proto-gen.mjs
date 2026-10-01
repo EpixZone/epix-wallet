@@ -129,6 +129,7 @@ function setOutputHash(root, hash) {
       "circle/cctp/v1/tx.proto",
       "thorchain/v1/types/msg_send.proto",
       "noble/swap/v1/tx.proto",
+      "osmosis/poolmanager/v1beta1/tx.proto",
       "noble/dollar/v1/tx.proto",
       "initia/mstaking/v1/tx.proto",
       "babylon/epoching/v1/tx.proto",

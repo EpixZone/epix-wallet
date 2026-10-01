@@ -1,31 +1,16 @@
 import { useMemo } from "react";
 import { useStore } from "../stores";
 import { PricePretty } from "@keplr-wallet/unit";
+import { sumAssetPrices } from "./sum-asset-prices";
 
 export function useStakedTotalPrice() {
   const { hugeQueriesStore, priceStore } = useStore();
 
-  const stakedTotalPrice = useMemo(() => {
-    let result: PricePretty | undefined;
-    for (const bal of hugeQueriesStore.delegations) {
-      if (bal.price) {
-        if (!result) {
-          result = bal.price;
-        } else {
-          result = result.add(bal.price);
-        }
-      }
-    }
-    for (const bal of hugeQueriesStore.unbondings) {
-      if (bal.price) {
-        if (!result) {
-          result = bal.price;
-        } else {
-          result = result.add(bal.price);
-        }
-      }
-    }
-    return result;
+  const stakedTotal = useMemo(() => {
+    return sumAssetPrices([
+      ...hugeQueriesStore.delegations,
+      ...hugeQueriesStore.unbondings,
+    ]);
   }, [hugeQueriesStore.delegations, hugeQueriesStore.unbondings]);
 
   const stakedTotalPriceEmbedOnlyUSD = useMemo(() => {
@@ -64,7 +49,8 @@ export function useStakedTotalPrice() {
   }, [hugeQueriesStore.delegations, hugeQueriesStore.unbondings, priceStore]);
 
   return {
-    stakedTotalPrice,
+    stakedTotalPrice: stakedTotal.price,
+    hasUnavailableStakedPrice: stakedTotal.hasUnavailableEpixPrice,
     stakedTotalPriceEmbedOnlyUSD,
   };
 }

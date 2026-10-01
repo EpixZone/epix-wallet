@@ -364,7 +364,7 @@ export const MainHeaderLayout = observer<
                           }}
                         >
                           <Subtitle4 color={ColorPalette["gray-300"]}>
-                            {totalPrice?.toString()}
+                            {totalPrice?.toString() ?? "-"}
                           </Subtitle4>
                         </NameHoverArea>
                       </VerticalCollapseTransition>

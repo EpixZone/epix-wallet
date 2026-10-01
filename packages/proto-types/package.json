@@ -15,7 +15,8 @@
     "build": "npx zx ./proto-types-gen/scripts/proto-gen.mjs",
     "dev": "npx zx ./proto-types-gen/scripts/proto-gen.mjs",
     "lint-test": "npx eslint \"proto-types-gen/scripts/**/*\" && npx prettier --check \"proto-types-gen/scripts/**/*\"",
-    "lint-fix": "npx eslint --fix \"proto-types-gen/scripts/**/*\" && npx prettier --write \"proto-types-gen/scripts/**/*\""
+    "lint-fix": "npx eslint --fix \"proto-types-gen/scripts/**/*\" && npx prettier --write \"proto-types-gen/scripts/**/*\"",
+    "test": "node --test proto-types-gen/scripts/*.test.mjs"
   },
   "dependencies": {
     "long": "^4.0.0",

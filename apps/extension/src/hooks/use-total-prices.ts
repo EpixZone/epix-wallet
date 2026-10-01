@@ -3,11 +3,18 @@ import { useSpendablePrice } from "./use-spendable-total-price";
 import { useStakedTotalPrice } from "./use-staked-total-price";
 
 export function useTotalPrices() {
-  const { spendableTotalPrice } = useSpendablePrice();
-  const { stakedTotalPrice, stakedTotalPriceEmbedOnlyUSD } =
-    useStakedTotalPrice();
+  const { spendableTotalPrice, hasUnavailableSpendablePrice } =
+    useSpendablePrice();
+  const {
+    stakedTotalPrice,
+    stakedTotalPriceEmbedOnlyUSD,
+    hasUnavailableStakedPrice,
+  } = useStakedTotalPrice();
 
   const totalPrice = useMemo(() => {
+    if (hasUnavailableSpendablePrice || hasUnavailableStakedPrice) {
+      return undefined;
+    }
     if (spendableTotalPrice && stakedTotalPrice) {
       return spendableTotalPrice.add(stakedTotalPrice);
     }
@@ -21,7 +28,12 @@ export function useTotalPrices() {
     }
 
     return undefined;
-  }, [spendableTotalPrice, stakedTotalPrice]);
+  }, [
+    spendableTotalPrice,
+    stakedTotalPrice,
+    hasUnavailableSpendablePrice,
+    hasUnavailableStakedPrice,
+  ]);
 
   return {
     spendableTotalPrice,
