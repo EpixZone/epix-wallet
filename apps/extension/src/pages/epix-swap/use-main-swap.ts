@@ -38,6 +38,45 @@ import {
 import { EpixMainSwapViewProps, MainSwapSelection } from "./main-swap-view";
 import { swapBalanceView } from "./swap-balance";
 
+function isSwapOwnerReady({
+  keyRingStore,
+  accountStore,
+}: ReturnType<typeof useStore>): boolean {
+  const epix = accountStore.getAccount(EPIX_CHAIN_ID);
+  const osmosis = accountStore.getAccount(OSMOSIS_CHAIN_ID);
+  return (
+    !!keyRingStore.selectedKeyInfo?.id &&
+    keyRingStore.status === "unlocked" &&
+    epix.isReadyToSendTx &&
+    osmosis.isReadyToSendTx &&
+    !!epix.bech32Address &&
+    !!osmosis.bech32Address
+  );
+}
+
+function swapInputValues(
+  stores: ReturnType<typeof useStore>,
+  selection: MainSwapSelection
+) {
+  const ownerReady = isSwapOwnerReady(stores);
+  const currency = swapInputCurrency(selection);
+  const amount = swapInputAmount(selection);
+  const { sourceChainId } = swapChainIds(selection.direction);
+  const source = stores.accountStore.getAccount(sourceChainId);
+  const balanceQuery =
+    ownerReady && currency
+      ? stores.queriesStore
+          .get(sourceChainId)
+          .queryBalances.getQueryBech32Address(source.bech32Address)
+          .getBalance(currency)
+      : undefined;
+  const inputPrice =
+    ownerReady && amount && currency
+      ? stores.priceStore.calculatePrice(new CoinPretty(currency, amount))
+      : undefined;
+  return { balanceQuery, balance: swapBalanceView(balanceQuery), inputPrice };
+}
+
 export function useMainSwap(): EpixMainSwapViewProps {
   const intl = useIntl();
   const t = useCallback(
@@ -45,8 +84,8 @@ export function useMainSwap(): EpixMainSwapViewProps {
       intl.formatMessage({ id: `page.epix-swap.${key}` }, values),
     [intl]
   );
-  const { chainStore, accountStore, queriesStore, keyRingStore, priceStore } =
-    useStore();
+  const stores = useStore();
+  const { chainStore, accountStore, keyRingStore } = stores;
   const vaultId = keyRingStore.selectedKeyInfo?.id;
   const epixAccount = accountStore.getAccount(EPIX_CHAIN_ID);
   const osmoAccount = accountStore.getAccount(OSMOSIS_CHAIN_ID);
@@ -55,13 +94,7 @@ export function useMainSwap(): EpixMainSwapViewProps {
     epixAccount.bech32Address,
     osmoAccount.bech32Address,
   ]);
-  const ownerReady =
-    !!vaultId &&
-    keyRingStore.status === "unlocked" &&
-    epixAccount.isReadyToSendTx &&
-    osmoAccount.isReadyToSendTx &&
-    !!epixAccount.bech32Address &&
-    !!osmoAccount.bech32Address;
+  const ownerReady = isSwapOwnerReady(stores);
   const draft = useSwapDraft(
     ownerReady ? `main-swap/${owner}` : undefined,
     DEFAULT_SWAP_DRAFT,
@@ -73,7 +106,6 @@ export function useMainSwap(): EpixMainSwapViewProps {
   );
   const routeRunning = !!unfinished && !resumeId;
   const selection = swapSelection(draft.draft, unfinished);
-  const inputCurrency = swapInputCurrency(selection);
   const amountMinimal = swapInputAmount(selection);
   const { sourceChainId, destinationChainId } = swapChainIds(
     selection.direction
@@ -307,14 +339,10 @@ export function useMainSwap(): EpixMainSwapViewProps {
       );
     }
   };
-  const balanceQuery =
-    ownerReady && inputCurrency
-      ? queriesStore
-          .get(sourceChainId)
-          .queryBalances.getQueryBech32Address(sourceAccount.bech32Address)
-          .getBalance(inputCurrency)
-      : undefined;
-  const balance = swapBalanceView(balanceQuery);
+  const { balanceQuery, balance, inputPrice } = swapInputValues(
+    stores,
+    selection
+  );
   const refresh = async () => {
     if (!draft.ready || draft.error) draft.retry();
     if (!isEnabled) setRetry((value) => value + 1);
@@ -338,10 +366,6 @@ export function useMainSwap(): EpixMainSwapViewProps {
     t
   );
   const quoteError = quoteMessage(quote, requestKey, confirmation, owner);
-  const inputPrice =
-    ownerReady && amountMinimal && inputCurrency
-      ? priceStore.calculatePrice(new CoinPretty(inputCurrency, amountMinimal))
-      : undefined;
   return {
     t,
     selection,
