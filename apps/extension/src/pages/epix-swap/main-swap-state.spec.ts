@@ -10,6 +10,8 @@ import {
   quoteMessage,
   recoveryMessage,
   swapSelection,
+  flipSwapSelection,
+  swapInputAmount,
   SwapQuoteState,
   DEFAULT_SWAP_DRAFT,
 } from "./main-swap-state";
@@ -20,6 +22,10 @@ import {
 } from "./tokens";
 
 const review: EpixSwapReview = {
+  direction: "to-osmosis",
+  inputDenom: "aepix",
+  sourceChainId: "epix_1916-1",
+  destinationChainId: "osmosis-1",
   id: "review-a",
   expiresAt: 30_000,
   executionExpiresAt: 900_000,
@@ -39,8 +45,9 @@ const quote: SwapQuoteState = {
   loading: false,
 };
 const draft: SwapDraft = {
+  direction: "to-osmosis",
   amount: "2",
-  outputIndex: 1,
+  tokenIndex: 1,
   feeIndex: 3,
   slippage: 100,
 };
@@ -54,6 +61,8 @@ test("offers exactly the four requested outputs and defaults new forms to alloye
   ]);
   const initial = swapSelection(DEFAULT_SWAP_DRAFT);
   expect(initial).toEqual({
+    direction: "to-osmosis",
+    inputDenom: "aepix",
     amount: "",
     outputDenom:
       "factory/osmo1em6xs47hd82806f5cxgyufguxrrc7l0aqx7nzzptjuqgswczk8csavdxek/alloyed/allUSDT",
@@ -74,6 +83,10 @@ function operation(
   changes: Partial<EpixSwapOperation> = {}
 ): EpixSwapOperation {
   return {
+    direction: "to-osmosis",
+    inputDenom: "aepix",
+    sourceChainId: "epix_1916-1",
+    destinationChainId: "osmosis-1",
     id: "pending-a",
     vaultId: "wallet-a",
     sourceAddress: review.sourceAddress,
@@ -358,6 +371,8 @@ test("an older unfinished recovery takes precedence over newer completed history
   });
   expect(history).toEqual([pending, completed, failed]);
   expect(swapSelection(draft, result.unfinished)).toEqual({
+    direction: "to-osmosis",
+    inputDenom: "aepix",
     amount: "123456789012.345678901234567891",
     outputDenom: pending.outputDenom,
     feeDenom: pending.feeDenom,
@@ -384,9 +399,76 @@ test("completed history permits a new swap using the saved form rather than old 
     resumeId: undefined,
   });
   expect(swapSelection(draft, result.unfinished)).toEqual({
+    direction: "to-osmosis",
+    inputDenom: "aepix",
     amount: "2",
     outputDenom: OSMOSIS_SWAP_TOKENS[1].coinMinimalDenom,
     feeDenom: "uosmo",
     slippageBps: 100,
   });
+});
+
+test("flipping preserves the chosen Osmosis asset and clears the quantity in both directions", () => {
+  const forward = swapSelection({ ...draft, tokenIndex: 2 });
+  const reverse = flipSwapSelection(forward);
+  expect(reverse).toEqual({
+    ...forward,
+    direction: "to-epix",
+    inputDenom: OSMOSIS_SWAP_TOKENS[2].coinMinimalDenom,
+    outputDenom: "aepix",
+    amount: "",
+  });
+  expect(flipSwapSelection({ ...reverse, amount: "0.01" })).toEqual({
+    ...forward,
+    amount: "",
+  });
+});
+
+test.each([
+  [1, "1.234567", "1234567"],
+  [4, ".123456", "123456"],
+  [2, "0.12345678", "12345678"],
+  [3, "1.", "1000000"],
+] as const)(
+  "uses the exact input decimals for reverse token index %i",
+  (tokenIndex, amount, minimal) => {
+    const selection = swapSelection({
+      ...draft,
+      direction: "to-epix",
+      tokenIndex,
+      amount,
+    });
+    expect(selection.outputDenom).toBe("aepix");
+    expect(swapInputAmount(selection)).toBe(minimal);
+    expect(
+      swapInputAmount({ ...selection, amount: "0.000000001" })
+    ).toBeUndefined();
+  }
+);
+
+test("a paused reverse route restores its original input using stablecoin precision", () => {
+  const pending = operation({
+    direction: "to-epix",
+    inputDenom: OSMOSIS_SWAP_TOKENS[1].coinMinimalDenom,
+    outputDenom: "aepix",
+    amountIn: "123456789",
+    sourceChainId: "osmosis-1",
+    destinationChainId: "epix_1916-1",
+  });
+  expect(swapSelection(draft, pending)).toMatchObject({
+    direction: "to-epix",
+    inputDenom: pending.inputDenom,
+    outputDenom: "aepix",
+    amount: "123.456789",
+  });
+  expect(swapInputAmount(swapSelection(draft, pending))).toBe(pending.amountIn);
+});
+
+test("changing direction immediately removes the old quote and its approval", () => {
+  const oldKey = JSON.stringify(swapSelection(draft));
+  const nextKey = JSON.stringify(flipSwapSelection(swapSelection(draft)));
+  const oldQuote = { ...quote, key: oldKey };
+  const flipped = beginQuoteRefresh(oldQuote, nextKey, false);
+  expect(flipped).toEqual({ key: nextKey, loading: false });
+  expect(isQuoteConfirmable(oldQuote, nextKey, review, true, 1)).toBe(false);
 });

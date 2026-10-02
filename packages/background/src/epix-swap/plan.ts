@@ -2,8 +2,13 @@ import { StdFee } from "@keplr-wallet/types";
 import { MsgTransfer } from "@keplr-wallet/proto-types/ibc/applications/transfer/v1/tx";
 import { MsgSwapExactAmountIn } from "@keplr-wallet/proto-types/osmosis/poolmanager/v1beta1/tx";
 import { Any } from "@keplr-wallet/proto-types/google/protobuf/any";
-import { EpixSwapOperation } from "./types";
-import { SUPPORTED_FEE_DENOMS, SUPPORTED_OUTPUT_DENOMS } from "./constants";
+import { EpixSwapDirection, EpixSwapOperation } from "./types";
+import {
+  EPIX_CHAIN_ID,
+  OSMOSIS_CHAIN_ID,
+  SUPPORTED_FEE_DENOMS,
+  SUPPORTED_OUTPUT_DENOMS,
+} from "./constants";
 
 export const OSMOSIS_EPIX_DENOM =
   "ibc/776917313EC3252954ED622945D4979651ACD909A18E528283F46D7B166F20BF";
@@ -14,6 +19,8 @@ export const MAX_BRIDGE_GAS = "350000";
 export const APPROVAL_DURATION_MS = 15 * 60 * 1000;
 
 export function assertSelection(
+  direction: EpixSwapDirection,
+  input: string,
   amount: string,
   output: string,
   slippage: number,
@@ -27,10 +34,58 @@ export function assertSelection(
       )
   )
     throw new TypeError("Invalid swap amount");
-  if (!OUTPUT_DENOMS.has(output) || !FEE_DENOMS.has(feeDenom))
+  const validPair =
+    direction === "to-osmosis"
+      ? input === "aepix" && OUTPUT_DENOMS.has(output)
+      : direction === "to-epix" &&
+        OUTPUT_DENOMS.has(input) &&
+        output === "aepix";
+  if (!validPair || !FEE_DENOMS.has(feeDenom))
     throw new TypeError("Unsupported swap asset");
   if (!Number.isInteger(slippage) || slippage < 1 || slippage > 500)
     throw new TypeError("Slippage must be between 0.01% and 5%");
+}
+
+export function chainPair(direction: EpixSwapDirection) {
+  return direction === "to-osmosis"
+    ? { sourceChainId: EPIX_CHAIN_ID, destinationChainId: OSMOSIS_CHAIN_ID }
+    : { sourceChainId: OSMOSIS_CHAIN_ID, destinationChainId: EPIX_CHAIN_ID };
+}
+export function osmosisRest(operation: EpixSwapOperation): string {
+  return operation.direction === "to-osmosis"
+    ? operation.destinationRest
+    : operation.sourceRest;
+}
+export function osmosisAddress(operation: EpixSwapOperation): string {
+  return operation.direction === "to-osmosis"
+    ? operation.destinationAddress
+    : operation.sourceAddress;
+}
+export function quoteSelection(
+  operation: Pick<
+    EpixSwapOperation,
+    "direction" | "inputDenom" | "outputDenom" | "amountIn" | "slippageBps"
+  >
+) {
+  return {
+    direction: operation.direction,
+    inputDenom:
+      operation.direction === "to-osmosis"
+        ? OSMOSIS_EPIX_DENOM
+        : operation.inputDenom,
+    outputDenom:
+      operation.direction === "to-osmosis"
+        ? operation.outputDenom
+        : OSMOSIS_EPIX_DENOM,
+    amountIn: operation.amountIn,
+    slippageBps: operation.slippageBps,
+  };
+}
+function transferAmount(operation: EpixSwapOperation): string {
+  if (operation.direction === "to-osmosis") return operation.amountIn;
+  if (!operation.swapConfirmed || !operation.swapAmountOut)
+    throw new Error("The received swap output has not been verified.");
+  return operation.swapAmountOut;
 }
 
 export function assertFeeWithin(fee: StdFee, cap: StdFee): void {
@@ -59,10 +114,15 @@ export function bridgeMessage(operation: EpixSwapOperation): Any {
     value: MsgTransfer.encode(
       MsgTransfer.fromPartial({
         sourcePort: "transfer",
-        sourceChannel: "channel-0",
+        sourceChannel:
+          operation.direction === "to-osmosis" ? "channel-0" : "channel-108456",
         sender: operation.sourceAddress,
         receiver: operation.destinationAddress,
-        token: { denom: "aepix", amount: operation.amountIn },
+        token: {
+          denom:
+            operation.direction === "to-osmosis" ? "aepix" : OSMOSIS_EPIX_DENOM,
+          amount: transferAmount(operation),
+        },
         timeoutHeight: { revisionNumber: "0", revisionHeight: "0" },
         timeoutTimestamp: operation.packetTimeoutTimestamp,
       })
@@ -77,9 +137,12 @@ export function swapMessage(
   return {
     typeUrl: "/osmosis.poolmanager.v1beta1.MsgSwapExactAmountIn",
     value: MsgSwapExactAmountIn.encode({
-      sender: operation.destinationAddress,
+      sender: osmosisAddress(operation),
       routes,
-      tokenIn: { denom: OSMOSIS_EPIX_DENOM, amount: operation.amountIn },
+      tokenIn: {
+        denom: quoteSelection(operation).inputDenom,
+        amount: operation.amountIn,
+      },
       tokenOutMinAmount: operation.minimumAmountOut,
     }).finish(),
   };
@@ -97,17 +160,24 @@ export function matchingPacketSequence(
     );
     if (
       a["packet_src_port"] !== "transfer" ||
-      a["packet_src_channel"] !== "channel-0" ||
+      a["packet_src_channel"] !==
+        (operation.direction === "to-osmosis"
+          ? "channel-0"
+          : "channel-108456") ||
       a["packet_dst_port"] !== "transfer" ||
-      a["packet_dst_channel"] !== "channel-108456"
+      a["packet_dst_channel"] !==
+        (operation.direction === "to-osmosis" ? "channel-108456" : "channel-0")
     )
       continue;
     const data = JSON.parse(a["packet_data"]) as Record<string, unknown>;
     if (
       data["sender"] !== operation.sourceAddress ||
       data["receiver"] !== operation.destinationAddress ||
-      data["denom"] !== "aepix" ||
-      data["amount"] !== operation.amountIn ||
+      data["denom"] !==
+        (operation.direction === "to-osmosis"
+          ? "aepix"
+          : "transfer/channel-108456/aepix") ||
+      data["amount"] !== transferAmount(operation) ||
       a["packet_timeout_timestamp"] !== operation.packetTimeoutTimestamp ||
       !/^[1-9]\d*$/.test(a["packet_sequence"])
     )

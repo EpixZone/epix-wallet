@@ -12,11 +12,17 @@ import type { TranslateProgress } from "./main-swap-view";
 import { OSMOSIS_ROUTE_INTERMEDIATES, QuoteRouteHop } from "./quote-route";
 import { OSMOSIS_SWAP_TOKENS } from "./tokens";
 import type { OsmosisAssetMetadata } from "./osmosis-asset-registry";
+import type { EpixSwapDirection } from "@keplr-wallet/background";
 
 // Bundled registry icons include pinned source attribution and CC-BY-4.0 terms.
 const bundledTokenImages = new Map<string, string>([
   [
     OSMOSIS_SWAP_TOKENS[0].coinMinimalDenom,
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require("../../public/assets/logo-256.png"),
+  ],
+  [
+    OSMOSIS_SWAP_TOKENS[6].coinMinimalDenom,
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     require("../../public/assets/logo-256.png"),
   ],
@@ -75,12 +81,17 @@ export function SwapQuoteRefreshStatus({
 
 export function SwapRouteSearch({
   t,
+  inputToken = "EPIX",
   outputToken,
-}: Readonly<{ t: TranslateProgress; outputToken?: string }>) {
+}: Readonly<{
+  t: TranslateProgress;
+  inputToken?: string;
+  outputToken?: string;
+}>) {
   return (
     <SearchStatus role="status" aria-live="polite">
       <SearchPath aria-hidden="true">
-        <DSTypography size="textXs">EPIX</DSTypography>
+        <DSTypography size="textXs">{inputToken}</DSTypography>
         <SearchTrack>
           <SearchDot />
           <SearchDot />
@@ -102,12 +113,17 @@ export function SwapQuoteRoute({
   t,
   routes,
   bridgeComplete = false,
+  direction = "to-osmosis",
+  swapComplete = false,
 }: Readonly<{
   t: TranslateProgress;
   routes: ReadonlyArray<QuoteRouteHop>;
   bridgeComplete?: boolean;
+  direction?: EpixSwapDirection;
+  swapComplete?: boolean;
 }>) {
-  if (routes.length === 0) return null;
+  if (routes.length === 0 && !swapComplete) return null;
+  const returning = direction === "to-epix";
   return (
     <RouteSection aria-label={t("estimated-route")}>
       <RouteDisclosure>
@@ -128,88 +144,156 @@ export function SwapQuoteRoute({
           <ChevronDownIcon size={16} aria-hidden />
         </RouteSummary>
         <RouteContent>
-          <BridgeRow>
-            <DSTypography size="textXs" color={DSColor.typography.secondary}>
-              {t(bridgeComplete ? "route-ibc-complete" : "route-ibc-bridge")}
-            </DSTypography>
-            <TokenPair>
-              <DSTypography size="textXs">Epix</DSTypography>
-              <ArrowRightIcon size={14} aria-hidden />
-              <DSTypography size="textXs">Osmosis</DSTypography>
-            </TokenPair>
-          </BridgeRow>
-          <RouteViewport
-            tabIndex={0}
-            role="region"
-            aria-label={t("route-path")}
-          >
-            <RoutePath>
-              <RouteNode>
-                <RouteToken
-                  label={routes[0].tokenIn}
-                  denom={routes[0].tokenInDenom}
-                  metadata={routes[0].tokenInMetadata}
-                />
-              </RouteNode>
-              {routes.map((hop) => (
-                <RouteNode
-                  key={`${hop.poolId}-${hop.tokenInDenom}-${hop.tokenOutDenom}`}
-                >
-                  <RouteToken
-                    label={hop.tokenOut}
-                    denom={hop.tokenOutDenom}
-                    metadata={hop.tokenOutMetadata}
-                  />
-                </RouteNode>
-              ))}
-            </RoutePath>
-          </RouteViewport>
-          <PoolDetails>
-            <PoolSummary>
-              <DSTypography size="textXs" color={DSColor.typography.secondary}>
-                {t("route-details")}
-              </DSTypography>
-              <ChevronDownIcon size={16} aria-hidden />
-            </PoolSummary>
-            <PoolList>
-              {routes.map((hop) => (
-                <PoolStep
-                  key={`${hop.poolId}-${hop.tokenInDenom}-${hop.tokenOutDenom}`}
-                >
-                  <DSTypography
-                    size="textXs"
-                    color={DSColor.typography.secondary}
-                    style={{ overflowWrap: "anywhere" }}
-                  >
-                    {t("route-pool", { pool: hop.poolId })}
-                  </DSTypography>
-                  <TokenPair>
-                    <DSTypography size="textXs" title={hop.tokenInDenom}>
-                      {hop.tokenIn}
-                    </DSTypography>
-                    <ArrowRightIcon size={14} aria-hidden />
-                    <DSTypography size="textXs" title={hop.tokenOutDenom}>
-                      {hop.tokenOut}
-                    </DSTypography>
-                  </TokenPair>
-                </PoolStep>
-              ))}
-            </PoolList>
+          {!returning && (
+            <RouteBridge
+              t={t}
+              direction={direction}
+              complete={bridgeComplete}
+            />
+          )}
+          {swapComplete ? (
             <DSTypography
               as="p"
               size="textXs"
               color={DSColor.typography.secondary}
             >
-              {t(
-                bridgeComplete
-                  ? "route-resume-preview-help"
-                  : "route-preview-help"
-              )}
+              {t("route-swap-complete")}
             </DSTypography>
-          </PoolDetails>
+          ) : (
+            <SwapPools
+              t={t}
+              routes={routes}
+              direction={direction}
+              bridgeComplete={bridgeComplete}
+            />
+          )}
+          {returning && (
+            <RouteBridge
+              t={t}
+              direction={direction}
+              complete={bridgeComplete}
+            />
+          )}
+          {returning && swapComplete && (
+            <DSTypography
+              as="p"
+              size="textXs"
+              color={DSColor.typography.secondary}
+            >
+              {t("route-return-resume-help")}
+            </DSTypography>
+          )}
         </RouteContent>
       </RouteDisclosure>
     </RouteSection>
+  );
+}
+
+function RouteBridge({
+  t,
+  direction,
+  complete,
+}: Readonly<{
+  t: TranslateProgress;
+  direction: EpixSwapDirection;
+  complete: boolean;
+}>) {
+  const returning = direction === "to-epix";
+  let label = returning ? "route-bridge-return" : "route-ibc-bridge";
+  if (complete) label = "route-ibc-complete";
+  return (
+    <BridgeRow>
+      <DSTypography size="textXs" color={DSColor.typography.secondary}>
+        {t(label)}
+      </DSTypography>
+      <TokenPair>
+        <DSTypography size="textXs">
+          {returning ? "Osmosis" : "Epix"}
+        </DSTypography>
+        <ArrowRightIcon size={14} aria-hidden />
+        <DSTypography size="textXs">
+          {returning ? "Epix" : "Osmosis"}
+        </DSTypography>
+      </TokenPair>
+    </BridgeRow>
+  );
+}
+
+function SwapPools({
+  t,
+  routes,
+  direction,
+  bridgeComplete,
+}: Readonly<{
+  t: TranslateProgress;
+  routes: ReadonlyArray<QuoteRouteHop>;
+  direction: EpixSwapDirection;
+  bridgeComplete: boolean;
+}>) {
+  let help = bridgeComplete
+    ? "route-resume-preview-help"
+    : "route-preview-help";
+  if (direction === "to-epix") help = "route-return-help";
+  return (
+    <React.Fragment>
+      <RouteViewport tabIndex={0} role="region" aria-label={t("route-path")}>
+        <RoutePath>
+          <RouteNode>
+            <RouteToken
+              label={routes[0].tokenIn}
+              denom={routes[0].tokenInDenom}
+              metadata={routes[0].tokenInMetadata}
+            />
+          </RouteNode>
+          {routes.map((hop) => (
+            <RouteNode
+              key={`${hop.poolId}-${hop.tokenInDenom}-${hop.tokenOutDenom}`}
+            >
+              <RouteToken
+                label={hop.tokenOut}
+                denom={hop.tokenOutDenom}
+                metadata={hop.tokenOutMetadata}
+              />
+            </RouteNode>
+          ))}
+        </RoutePath>
+      </RouteViewport>
+      <PoolDetails>
+        <PoolSummary>
+          <DSTypography size="textXs" color={DSColor.typography.secondary}>
+            {t("route-details")}
+          </DSTypography>
+          <ChevronDownIcon size={16} aria-hidden />
+        </PoolSummary>
+        <PoolList>
+          {routes.map((hop) => (
+            <PoolStep
+              key={`${hop.poolId}-${hop.tokenInDenom}-${hop.tokenOutDenom}`}
+            >
+              <DSTypography
+                size="textXs"
+                color={DSColor.typography.secondary}
+                style={{ overflowWrap: "anywhere" }}
+              >
+                {t("route-pool", { pool: hop.poolId })}
+              </DSTypography>
+              <TokenPair>
+                <DSTypography size="textXs" title={hop.tokenInDenom}>
+                  {hop.tokenIn}
+                </DSTypography>
+                <ArrowRightIcon size={14} aria-hidden />
+                <DSTypography size="textXs" title={hop.tokenOutDenom}>
+                  {hop.tokenOut}
+                </DSTypography>
+              </TokenPair>
+            </PoolStep>
+          ))}
+        </PoolList>
+        <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
+          {t(help)}
+        </DSTypography>
+      </PoolDetails>
+    </React.Fragment>
   );
 }
 

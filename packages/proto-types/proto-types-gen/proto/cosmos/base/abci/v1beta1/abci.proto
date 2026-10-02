@@ -115,7 +115,11 @@ message MsgData {
 message TxMsgData {
   option (gogoproto.stringer) = true;
 
-  repeated MsgData data = 1;
+  // Deprecated since Cosmos SDK 0.46; retained to decode historical responses.
+  repeated MsgData data = 1 [deprecated = true];
+
+  // Modern message responses, as defined by Cosmos SDK v0.50.14.
+  repeated google.protobuf.Any msg_responses = 2;
 }
 
 // SearchTxsResult defines a structure for querying txs pageable

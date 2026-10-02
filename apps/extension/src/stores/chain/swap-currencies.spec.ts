@@ -1,6 +1,7 @@
 import { ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
 import { CoinPretty } from "@keplr-wallet/unit";
 import {
+  OSMOSIS_ALL_EPIX_DENOM,
   OSMOSIS_ALL_USDC_DENOM,
   OSMOSIS_ALL_USDT_DENOM,
   OSMOSIS_SWAP_TOKENS,
@@ -42,7 +43,7 @@ it("registers received swap assets without visiting the Swap page", () => {
       )
     ).toMatchObject(token);
   }
-  expect(loaded.currencies).toHaveLength(7);
+  expect(loaded.currencies).toHaveLength(8);
   expect(
     loaded.currencies.find((currency) => currency.coinMinimalDenom === "uion")
   ).toBe(ion);
@@ -83,7 +84,35 @@ it("keeps alloyed output assets distinct from native USDC fee metadata", () => {
       6,
       "usd-coin",
     ],
+    ["EPIX (allEPIX)", OSMOSIS_ALL_EPIX_DENOM, 12, "epix"],
   ]);
+});
+
+it("registers alloyed EPIX separately from bridgeable EPIX with exact scaling and an offline icon", () => {
+  const loaded = withOsmosisSwapCurrencies(chain);
+  const alloyed = loaded.currencies.find(
+    (currency) => currency.coinMinimalDenom === OSMOSIS_ALL_EPIX_DENOM
+  );
+  const bridgeable = loaded.currencies.find(
+    (currency) =>
+      currency.coinMinimalDenom === OSMOSIS_SWAP_TOKENS[0].coinMinimalDenom
+  );
+  expect(alloyed).toEqual(OSMOSIS_SWAP_TOKENS[6]);
+  expect(alloyed).toMatchObject({
+    coinDenom: "EPIX (allEPIX)",
+    coinDecimals: 12,
+    coinGeckoId: "epix",
+    coinImageUrl: "assets/logo-256.png",
+  });
+  expect(bridgeable).toMatchObject({ coinDenom: "EPIX", coinDecimals: 18 });
+  if (!alloyed || !bridgeable) throw new Error("Missing Epix metadata");
+  expect(new CoinPretty(alloyed, "1000000000001").toDec().toString()).toBe(
+    "1.000000000001000000"
+  );
+  expect(new CoinPretty(bridgeable, "1000000000001").toDec().toString()).toBe(
+    "0.000001000000000001"
+  );
+  expect(loaded.feeCurrencies).toBe(chain.feeCurrencies);
 });
 
 it.each([
@@ -115,7 +144,7 @@ it("keeps custom endpoints, fee policy and unrelated chain metadata intact", () 
   expect(loaded.feeCurrencies).toHaveLength(1);
 });
 
-it.each([1, 4, 5])(
+it.each([1, 4, 5, 6])(
   "restores exact metadata for token %i across repeated loads",
   (index) => {
     const token = OSMOSIS_SWAP_TOKENS[index];
@@ -132,7 +161,7 @@ it.each([1, 4, 5])(
     });
     const second = withOsmosisSwapCurrencies(first);
     expect(second).toEqual(first);
-    expect(second.currencies).toHaveLength(7);
+    expect(second.currencies).toHaveLength(8);
     expect(
       second.currencies.find(
         (currency) => currency.coinMinimalDenom === token.coinMinimalDenom

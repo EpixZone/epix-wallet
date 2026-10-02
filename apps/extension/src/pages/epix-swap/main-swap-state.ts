@@ -7,7 +7,12 @@ import {
   EpixMainSwapViewProps,
   TranslateProgress,
 } from "./main-swap-view";
-import { EPIX_CURRENCY, OSMOSIS_SWAP_TOKENS } from "./tokens";
+import {
+  EPIX_CURRENCY,
+  OSMOSIS_SWAP_TOKENS,
+  OSMOSIS_SWAP_OUTPUT_OPTIONS,
+} from "./tokens";
+import { parseAmountToMinimal } from "./amount";
 
 export type SwapQuoteState = {
   key: string;
@@ -19,7 +24,8 @@ type OwnerMessage = { owner: string; error: string };
 
 export const DEFAULT_SWAP_DRAFT: SwapDraft = {
   amount: "",
-  outputIndex: 1,
+  direction: "to-osmosis",
+  tokenIndex: 1,
   slippage: 100,
   feeIndex: 3,
 };
@@ -41,22 +47,78 @@ export function swapSelection(
   draft: SwapDraft,
   operation?: EpixSwapOperation
 ): MainSwapSelection {
-  if (operation)
+  if (operation) {
+    const inputCurrency = swapInputCurrency(operation) ?? EPIX_CURRENCY;
     return {
-      amount: new CoinPretty(EPIX_CURRENCY, operation.amountIn)
+      direction: operation.direction,
+      inputDenom: operation.inputDenom,
+      amount: new CoinPretty(inputCurrency, operation.amountIn)
         .toDec()
-        .toString(),
+        .toString(inputCurrency.coinDecimals),
       outputDenom: operation.outputDenom,
       feeDenom: operation.feeDenom,
       slippageBps: operation.slippageBps,
     };
+  }
   return {
+    direction: draft.direction,
     amount: draft.amount,
+    inputDenom:
+      draft.direction === "to-epix"
+        ? OSMOSIS_SWAP_TOKENS[draft.tokenIndex].coinMinimalDenom
+        : EPIX_CURRENCY.coinMinimalDenom,
     outputDenom:
-      OSMOSIS_SWAP_TOKENS[draft.outputIndex]?.coinMinimalDenom ??
-      OSMOSIS_SWAP_TOKENS[1].coinMinimalDenom,
+      draft.direction === "to-epix"
+        ? EPIX_CURRENCY.coinMinimalDenom
+        : OSMOSIS_SWAP_TOKENS[draft.tokenIndex].coinMinimalDenom,
     feeDenom: OSMOSIS_SWAP_TOKENS[draft.feeIndex]?.coinMinimalDenom ?? "uosmo",
     slippageBps: draft.slippage,
+  };
+}
+
+export function swapInputCurrency(
+  selection: Pick<MainSwapSelection, "direction" | "inputDenom">
+) {
+  if (selection.direction === "to-osmosis")
+    return selection.inputDenom === EPIX_CURRENCY.coinMinimalDenom
+      ? EPIX_CURRENCY
+      : undefined;
+  if (
+    !OSMOSIS_SWAP_OUTPUT_OPTIONS.some(
+      (option) => option.denom === selection.inputDenom
+    )
+  )
+    return undefined;
+  return OSMOSIS_SWAP_TOKENS.find(
+    (token) => token.coinMinimalDenom === selection.inputDenom
+  );
+}
+
+export function swapInputAmount(
+  selection: MainSwapSelection
+): string | undefined {
+  const currency = swapInputCurrency(selection);
+  const value = selection.amount;
+  if (!currency || !value || value === ".") return undefined;
+  const withZero = value.startsWith(".") ? `0${value}` : value;
+  const normalized = withZero.endsWith(".") ? withZero.slice(0, -1) : withZero;
+  try {
+    return parseAmountToMinimal(normalized, currency.coinDecimals);
+  } catch {
+    return undefined;
+  }
+}
+
+export function flipSwapSelection(
+  selection: MainSwapSelection
+): MainSwapSelection {
+  return {
+    ...selection,
+    direction: selection.direction === "to-osmosis" ? "to-epix" : "to-osmosis",
+    inputDenom: selection.outputDenom,
+    outputDenom: selection.inputDenom,
+    // A quantity of EPIX must not become the same quantity of BTC or dollars.
+    amount: "",
   };
 }
 

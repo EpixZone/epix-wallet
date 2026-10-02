@@ -2,6 +2,8 @@ import React from "react";
 import styled from "styled-components";
 import {
   ChevronDownIcon,
+  ArrowDownIcon,
+  ArrowUpIcon,
   DSColor,
   DSTypography,
 } from "@keplr-wallet/design-system";
@@ -14,6 +16,8 @@ import {
   SwapRouteSearch,
   SwapQuoteRefreshStatus,
 } from "./swap-quote-route";
+import type { EpixSwapDirection } from "@keplr-wallet/background";
+import { flipSwapSelection } from "./main-swap-state";
 import type { QuoteRouteHop } from "./quote-route";
 export type TranslateProgress = (
   key: string,
@@ -21,6 +25,8 @@ export type TranslateProgress = (
 ) => string;
 
 export type MainSwapSelection = {
+  direction: EpixSwapDirection;
+  inputDenom: string;
   amount: string;
   outputDenom: string;
   slippageBps: number;
@@ -33,11 +39,12 @@ export type MainSwapTokenOption = {
 export type MainSwapQuoteView = {
   expectedOutput: string;
   minimumOutput: string;
-  epixNetworkFee?: string;
+  bridgeNetworkFee?: string;
   osmosisNetworkFeeLimit?: string;
   approvalExpiresAt?: number;
   routes?: ReadonlyArray<QuoteRouteHop>;
   bridgeComplete?: boolean;
+  swapComplete?: boolean;
 };
 export type MainSwapWorkflowView = {
   id: string;
@@ -56,12 +63,12 @@ export type MainSwapWorkflowView = {
 export type EpixMainSwapViewProps = Readonly<{
   t: TranslateProgress;
   selection: MainSwapSelection;
-  outputOptions: ReadonlyArray<MainSwapTokenOption>;
+  tokenOptions: ReadonlyArray<MainSwapTokenOption>;
   feeOptions: ReadonlyArray<MainSwapTokenOption>;
-  /** Exact human-readable EPIX balance, including its symbol. */
+  /** Exact human-readable input balance, including its symbol. */
   availableBalance?: string;
   inputFiat?: string;
-  osmosisAddress: string;
+  destinationAddress: string;
   osmosisEnabled: boolean;
   quoteState: "idle" | "loading" | "ready" | "refreshing" | "stale" | "error";
   quote?: MainSwapQuoteView;
@@ -93,7 +100,11 @@ export function EpixMainSwapView(props: EpixMainSwapViewProps) {
           {t("main-title")}
         </DSTypography>
         <DSTypography as="p" size="textSm" color={DSColor.typography.secondary}>
-          {t("main-description")}
+          {t(
+            props.selection.direction === "to-epix"
+              ? "reverse-description"
+              : "main-description"
+          )}
         </DSTypography>
         {restoredDraft && (
           <DSTypography as="p" size="textSm" role="status">
@@ -123,7 +134,7 @@ export function EpixMainSwapView(props: EpixMainSwapViewProps) {
 function SwapAmountCards({
   t,
   selection,
-  outputOptions,
+  tokenOptions,
   availableBalance,
   inputFiat,
   quoteState,
@@ -133,9 +144,13 @@ function SwapAmountCards({
   onSelectionChange,
 }: EpixMainSwapViewProps) {
   const estimatedOutput = quote?.expectedOutput ?? t("enter-amount");
-  const outputToken = outputOptions.find(
-    (option) => option.denom === selection.outputDenom
+  const reverse = selection.direction === "to-epix";
+  const selectedToken = tokenOptions.find(
+    (option) =>
+      option.denom === (reverse ? selection.inputDenom : selection.outputDenom)
   )?.label;
+  const inputToken = reverse ? selectedToken : "EPIX";
+  const outputToken = reverse ? "EPIX" : selectedToken;
   const showQuote =
     !!quote && ["ready", "refreshing", "stale"].includes(quoteState);
   return (
@@ -152,8 +167,21 @@ function SwapAmountCards({
           <DSTypography size="textSm" color={DSColor.typography.secondary}>
             {t("you-pay")}
           </DSTypography>
-          <DSTypography size="textSm">EPIX · Epix</DSTypography>
+          <DSTypography size="textSm">
+            {reverse ? "Osmosis" : "EPIX · Epix"}
+          </DSTypography>
         </Box>
+        {reverse && (
+          <TokenSelect
+            label={t("pay-token")}
+            value={selection.inputDenom}
+            options={tokenOptions}
+            disabled={controlsDisabled || selectionLocked}
+            onChange={(inputDenom) =>
+              onSelectionChange({ inputDenom, amount: "" })
+            }
+          />
+        )}
         <TextInput
           label={t("amount")}
           value={selection.amount}
@@ -175,19 +203,37 @@ function SwapAmountCards({
             : t("loading")}
         </DSTypography>
       </Panel>
+      <DirectionButton
+        type="button"
+        aria-label={t("reverse-direction")}
+        title={t("reverse-direction")}
+        disabled={controlsDisabled || selectionLocked}
+        onClick={() => onSelectionChange(flipSwapSelection(selection))}
+      >
+        <ArrowDownIcon size={20} aria-hidden />
+        <ArrowUpIcon size={20} aria-hidden />
+      </DirectionButton>
       <Panel>
         <DSTypography size="textSm" color={DSColor.typography.secondary}>
-          {t("receive-on-osmosis")}
+          {t(reverse ? "receive-on-epix" : "receive-on-osmosis")}
         </DSTypography>
-        <TokenSelect
-          label={t("receive-token")}
-          value={selection.outputDenom}
-          options={outputOptions}
-          disabled={controlsDisabled || selectionLocked}
-          onChange={(outputDenom) => onSelectionChange({ outputDenom })}
-        />
+        {reverse ? (
+          <DSTypography size="textSm">EPIX · Epix</DSTypography>
+        ) : (
+          <TokenSelect
+            label={t("receive-token")}
+            value={selection.outputDenom}
+            options={tokenOptions}
+            disabled={controlsDisabled || selectionLocked}
+            onChange={(outputDenom) => onSelectionChange({ outputDenom })}
+          />
+        )}
         {quoteState === "loading" ? (
-          <SwapRouteSearch t={t} outputToken={outputToken} />
+          <SwapRouteSearch
+            t={t}
+            inputToken={inputToken}
+            outputToken={outputToken}
+          />
         ) : (
           <DSTypography
             as="p"
@@ -206,10 +252,12 @@ function SwapAmountCards({
             stale={quoteState === "stale"}
           />
         )}
-        {showQuote && quote?.routes && (
+        {showQuote && (quote?.routes || quote?.swapComplete) && (
           <SwapQuoteRoute
             t={t}
-            routes={quote.routes}
+            routes={quote.routes ?? []}
+            direction={selection.direction}
+            swapComplete={quote.swapComplete}
             bridgeComplete={quote.bridgeComplete}
           />
         )}
@@ -224,7 +272,7 @@ function SwapQuoteDetails({
   feeOptions,
   quote,
   quoteError,
-  osmosisAddress,
+  destinationAddress,
   osmosisEnabled,
   controlsDisabled,
   selectionLocked = false,
@@ -274,13 +322,23 @@ function SwapQuoteDetails({
               onChange={(feeDenom) => onSelectionChange({ feeDenom })}
             />
           </Box>
-          {quote && <QuoteAmounts t={t} quote={quote} />}
+          {quote && (
+            <QuoteAmounts
+              t={t}
+              quote={quote}
+              reverse={selection.direction === "to-epix"}
+            />
+          )}
           <DSTypography
             as="p"
             size="textXs"
             color={DSColor.typography.secondary}
           >
-            {t("fee-help")}
+            {t(
+              selection.direction === "to-epix"
+                ? "reverse-fee-help"
+                : "fee-help"
+            )}
           </DSTypography>
           <DSTypography
             as="p"
@@ -288,7 +346,7 @@ function SwapQuoteDetails({
             color={DSColor.typography.secondary}
             style={{ overflowWrap: "anywhere" }}
           >
-            {t("recipient")}: {osmosisAddress || "..."}
+            {t("recipient")}: {destinationAddress || "..."}
           </DSTypography>
           {osmosisEnabled && (
             <DSTypography
@@ -296,7 +354,11 @@ function SwapQuoteDetails({
               size="textXs"
               color={DSColor.typography.secondary}
             >
-              {t("destination-enabled")}
+              {t(
+                selection.direction === "to-epix"
+                  ? "epix-destination-enabled"
+                  : "destination-enabled"
+              )}
             </DSTypography>
           )}
         </SettingsContent>
@@ -313,7 +375,12 @@ function SwapQuoteDetails({
 function QuoteAmounts({
   t,
   quote,
-}: Readonly<{ t: TranslateProgress; quote: MainSwapQuoteView }>) {
+  reverse,
+}: Readonly<{
+  t: TranslateProgress;
+  quote: MainSwapQuoteView;
+  reverse: boolean;
+}>) {
   const expiresAt = quote.approvalExpiresAt;
   const approvalMinutes =
     typeof expiresAt === "number" && Number.isFinite(expiresAt)
@@ -323,11 +390,11 @@ function QuoteAmounts({
     <React.Fragment>
       <QuoteLine label={t("minimum-received")} value={quote.minimumOutput} />
       <QuoteLine
-        label={t("epix-network-fee")}
-        value={quote.epixNetworkFee ?? "..."}
+        label={t(reverse ? "osmosis-bridge-fee" : "epix-network-fee")}
+        value={quote.bridgeNetworkFee ?? "..."}
       />
       <QuoteLine
-        label={t("osmosis-network-fee")}
+        label={t(reverse ? "osmosis-swap-fee" : "osmosis-network-fee")}
         value={quote.osmosisNetworkFeeLimit ?? "..."}
       />
       {approvalMinutes !== undefined && (
@@ -341,6 +408,7 @@ function QuoteAmounts({
 
 function SwapSubmitSection({
   t,
+  selection,
   blockReason,
   canConfirm,
   confirming,
@@ -360,14 +428,18 @@ function SwapSubmitSection({
         </DSTypography>
       )}
       <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
-        {t("swap-once-help")}
+        {t(
+          selection.direction === "to-epix"
+            ? "reverse-swap-once-help"
+            : "swap-once-help"
+        )}
       </DSTypography>
       <Button
         text={t(workflow?.canResume ? "resume" : "swap")}
         disabled={
           confirming ||
           !canConfirm ||
-          !quote?.epixNetworkFee ||
+          !quote?.bridgeNetworkFee ||
           !quote?.osmosisNetworkFeeLimit ||
           !osmosisEnabled ||
           controlsDisabled ||
@@ -526,6 +598,30 @@ export function SwapWorkflowProgress({
     </Panel>
   );
 }
+
+const DirectionButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  margin-block: -0.5rem;
+  padding: 0.25rem;
+  border: 1px solid ${DSColor.stroke.input.default};
+  border-radius: 50%;
+  color: ${DSColor.typography.brand};
+  background: ${DSColor.background.surface.surface};
+  cursor: pointer;
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  &:focus-visible {
+    outline: 2px solid ${DSColor.typography.brand};
+    outline-offset: 2px;
+  }
+`;
 
 const Panel = styled.div`
   display: flex;

@@ -1,8 +1,11 @@
+import { TxMsgData } from "@keplr-wallet/proto-types/cosmos/base/abci/v1beta1/abci";
+import { MsgSwapExactAmountInResponse } from "@keplr-wallet/proto-types/osmosis/poolmanager/v1beta1/tx";
 import {
   EPIX_OSMOSIS_DENOM,
   fetchJSON,
   fetchSwapQuote,
   getOsmosisFeeQuote,
+  lookupSwapResult,
   lookupTx,
   packetAck,
   readBalance,
@@ -11,6 +14,7 @@ import {
   validateSwapQuote,
 } from "./network";
 import {
+  OSMOSIS_ALL_BTC_DENOM,
   OSMOSIS_ALL_USDC_DENOM,
   OSMOSIS_ALL_USDT_DENOM,
   OSMOSIS_USDC_DENOM,
@@ -19,6 +23,8 @@ import {
 const originalFetch = global.fetch;
 const usdc = OSMOSIS_ALL_USDC_DENOM;
 const request = {
+  direction: "to-osmosis" as const,
+  inputDenom: EPIX_OSMOSIS_DENOM,
   amountIn: "1000000000000000000",
   outputDenom: usdc,
   slippageBps: 100,
@@ -174,6 +180,83 @@ it("requests a fixed Epix input with single-route routing and rejects unknown ou
     validateSwapQuote(quote, { ...request, outputDenom: "unknown" })
   ).toThrow();
 });
+
+it.each([
+  OSMOSIS_ALL_BTC_DENOM,
+  OSMOSIS_ALL_USDT_DENOM,
+  OSMOSIS_ALL_USDC_DENOM,
+  "uosmo",
+])(
+  "requests exact reverse routing from %s to bridgeable EPIX",
+  async (inputDenom) => {
+    const reverse = {
+      direction: "to-epix" as const,
+      inputDenom,
+      amountIn: "1000000",
+      outputDenom: EPIX_OSMOSIS_DENOM,
+      slippageBps: 100,
+    };
+    const amountOut = "14213343243874240299008";
+    mockJSON(() => ({
+      amount_in: { amount: reverse.amountIn, denom: inputDenom },
+      amount_out: amountOut,
+      route: [
+        {
+          in_amount: reverse.amountIn,
+          out_amount: amountOut,
+          pools: [{ id: "3486", token_out_denom: EPIX_OSMOSIS_DENOM }],
+        },
+      ],
+    }));
+    await expect(fetchSwapQuote(reverse)).resolves.toMatchObject({
+      amountOut,
+      minimumAmountOut: "14071209811435497896017",
+      routes: [{ poolId: "3486", tokenOutDenom: EPIX_OSMOSIS_DENOM }],
+    });
+    const url = new URL((global.fetch as jest.Mock).mock.calls[0][0]);
+    expect(url.searchParams.get("tokenIn")).toBe(reverse.amountIn + inputDenom);
+    expect(url.searchParams.get("tokenOutDenom")).toBe(EPIX_OSMOSIS_DENOM);
+    expect(url.searchParams.get("singleRoute")).toBe("true");
+  }
+);
+
+it.each([
+  {
+    direction: "to-epix",
+    inputDenom: OSMOSIS_USDC_DENOM,
+    outputDenom: EPIX_OSMOSIS_DENOM,
+  },
+  {
+    direction: "to-epix",
+    inputDenom:
+      "factory/osmo130tfawc7katf7jwzt2rjdranhqju929rjra3xwsrfsd85hedh3tsssy9j7/alloyed/allEPIX",
+    outputDenom: EPIX_OSMOSIS_DENOM,
+  },
+  {
+    direction: "to-epix",
+    inputDenom: OSMOSIS_ALL_USDT_DENOM.replace("osmo1em6", "osmo1other"),
+    outputDenom: EPIX_OSMOSIS_DENOM,
+  },
+  { direction: "to-epix", inputDenom: EPIX_OSMOSIS_DENOM, outputDenom: usdc },
+  {
+    direction: "to-osmosis",
+    inputDenom: usdc,
+    outputDenom: EPIX_OSMOSIS_DENOM,
+  },
+  { direction: "to-epix", inputDenom: "uosmo", outputDenom: usdc },
+])(
+  "rejects unauthorized direction/input/output before querying: %j",
+  async (pair) => {
+    await expect(
+      fetchSwapQuote({
+        ...request,
+        ...pair,
+        direction: pair.direction as "to-epix" | "to-osmosis",
+      })
+    ).rejects.toThrow("Invalid swap amount or token");
+    expect(global.fetch).not.toHaveBeenCalled();
+  }
+);
 
 function feeResponses(url: string): unknown {
   if (url.endsWith("cur_eip_base_fee")) return { base_fee: "0.03" };
@@ -352,6 +435,229 @@ it("treats missing transaction or ack as unresolved, never failed or delivered",
     "received"
   );
 });
+
+const swapHash = "A".repeat(64);
+const swapType = "/osmosis.poolmanager.v1beta1.MsgSwapExactAmountIn";
+const swapResponseType = `${swapType}Response`;
+const expectedSwap = {
+  sender: "osmo1rfxncp207da22dtdw8l7lhlvs8rtp07wsq9gtp",
+  inputDenom: OSMOSIS_ALL_USDT_DENOM,
+  amountIn: "1000000",
+  minimumAmountOut: "9007199254740993",
+  outputDenom: EPIX_OSMOSIS_DENOM,
+};
+function swapResponse(amount = "9007199254740994") {
+  return {
+    typeUrl: swapResponseType,
+    value: MsgSwapExactAmountInResponse.encode({
+      tokenOutAmount: amount,
+    }).finish(),
+  };
+}
+function swapData(
+  msgResponses = [swapResponse()],
+  data: TxMsgData["data"] = []
+) {
+  return Buffer.from(
+    TxMsgData.encode({ data, msgResponses }).finish()
+  ).toString("hex");
+}
+function committedSwap() {
+  return {
+    tx: {
+      body: {
+        messages: [
+          {
+            "@type": swapType,
+            sender: expectedSwap.sender,
+            token_in: {
+              denom: expectedSwap.inputDenom,
+              amount: expectedSwap.amountIn,
+            },
+            token_out_min_amount: expectedSwap.minimumAmountOut,
+            routes: [
+              { pool_id: "3486", token_out_denom: expectedSwap.outputDenom },
+            ],
+          },
+        ],
+      },
+    },
+    tx_response: {
+      txhash: swapHash,
+      height: "71736666",
+      code: 0,
+      data: swapData(),
+    },
+  };
+}
+
+it("reads the exact committed swap output without losing integer precision", async () => {
+  mockJSON(() => committedSwap());
+  await expect(
+    lookupSwapResult(
+      "https://osmo.example",
+      swapHash.toLowerCase(),
+      expectedSwap
+    )
+  ).resolves.toEqual({ code: 0, amountOut: "9007199254740994" });
+  expect((global.fetch as jest.Mock).mock.calls[0][0]).toBe(
+    `https://osmo.example/cosmos/tx/v1beta1/txs/${swapHash.toLowerCase()}`
+  );
+});
+
+it("decodes a recorded public Osmosis modern TxMsgData response", async () => {
+  // Public transaction 5647D98D2F327617AD0FCA42874CA01D64E1E0491A38D00ABBC2A94358257ED0,
+  // height 71736666. This is the chain-returned data, not generated by this test.
+  const fixture = committedSwap();
+  fixture.tx_response.data =
+    "12470A392F6F736D6F7369732E706F6F6C6D616E616765722E763162657461312E4D7367537761704578616374416D6F756E74496E526573706F6E7365120A0A083138363631363436";
+  fixture.tx.body.messages[0].token_out_min_amount = "18549769";
+  mockJSON(() => fixture);
+  await expect(
+    lookupSwapResult("https://osmo.example", swapHash, {
+      ...expectedSwap,
+      minimumAmountOut: "18549769",
+    })
+  ).resolves.toEqual({ code: 0, amountOut: "18661646" });
+});
+
+it.each([
+  ["hash", { txhash: "B".repeat(64) }],
+  ["uncommitted height", { height: "0" }],
+  ["height overflow", { height: "18446744073709551616" }],
+  ["negative code", { code: -1 }],
+  ["noninteger code", { code: 0.5 }],
+  ["code overflow", { code: 4294967296 }],
+])("rejects invalid committed swap %s", async (_name, changes) => {
+  const fixture = committedSwap();
+  Object.assign(fixture.tx_response, changes);
+  mockJSON(() => fixture);
+  await expect(
+    lookupSwapResult("https://osmo.example", swapHash, expectedSwap)
+  ).rejects.toThrow("Invalid transaction status");
+});
+
+it.each([
+  ["message type", { "@type": "/cosmos.bank.v1beta1.MsgSend" }],
+  ["sender", { sender: "another-sender" }],
+  [
+    "input amount",
+    { token_in: { denom: expectedSwap.inputDenom, amount: "999999" } },
+  ],
+  [
+    "input denomination",
+    { token_in: { denom: "uosmo", amount: expectedSwap.amountIn } },
+  ],
+  ["approved minimum", { token_out_min_amount: "1" }],
+  [
+    "final denomination",
+    { routes: [{ pool_id: "3486", token_out_denom: "uosmo" }] },
+  ],
+  [
+    "pool id",
+    { routes: [{ pool_id: "0", token_out_denom: expectedSwap.outputDenom }] },
+  ],
+  [
+    "pool overflow",
+    {
+      routes: [
+        {
+          pool_id: "18446744073709551616",
+          token_out_denom: expectedSwap.outputDenom,
+        },
+      ],
+    },
+  ],
+  ["empty route", { routes: [] }],
+])("rejects a swap with a different %s", async (_name, changes) => {
+  const fixture = committedSwap();
+  Object.assign(fixture.tx.body.messages[0], changes);
+  mockJSON(() => fixture);
+  await expect(
+    lookupSwapResult("https://osmo.example", swapHash, expectedSwap)
+  ).rejects.toThrow("Committed swap does not match");
+});
+
+it("rejects multiple transaction messages instead of attributing another response", async () => {
+  const fixture = committedSwap();
+  fixture.tx.body.messages.push(fixture.tx.body.messages[0]);
+  mockJSON(() => fixture);
+  await expect(
+    lookupSwapResult("https://osmo.example", swapHash, expectedSwap)
+  ).rejects.toThrow("exactly one committed swap message");
+});
+
+it.each([
+  ["nonhex data", "not hex"],
+  ["odd hex data", "123"],
+  ["truncated protobuf", "12ff"],
+  [
+    "legacy response",
+    swapData([], [{ msgType: swapType, data: swapResponse().value }]),
+  ],
+  [
+    "legacy and modern responses",
+    swapData(
+      [swapResponse()],
+      [{ msgType: swapType, data: swapResponse().value }]
+    ),
+  ],
+  ["multiple responses", swapData([swapResponse(), swapResponse()])],
+  [
+    "wrong response type",
+    swapData([
+      { ...swapResponse(), typeUrl: "/cosmos.bank.v1beta1.MsgSendResponse" },
+    ]),
+  ],
+  ["zero output", swapData([swapResponse("0")])],
+  [
+    "less than the approved minimum",
+    swapData([swapResponse("9007199254740992")]),
+  ],
+  [
+    "overflow output",
+    swapData([swapResponse((BigInt(1) << BigInt(256)).toString())]),
+  ],
+])("rejects invalid exact swap result: %s", async (_name, data) => {
+  const fixture = committedSwap();
+  fixture.tx_response.data = data;
+  mockJSON(() => fixture);
+  await expect(
+    lookupSwapResult("https://osmo.example", swapHash, expectedSwap)
+  ).rejects.toThrow();
+});
+
+it("reports a failed committed swap without requiring success response data", async () => {
+  const fixture = committedSwap();
+  fixture.tx_response.code = 5;
+  fixture.tx_response.data = "";
+  mockJSON(() => fixture);
+  await expect(
+    lookupSwapResult("https://osmo.example", swapHash, expectedSwap)
+  ).resolves.toEqual({ code: 5 });
+  global.fetch = jest.fn(async () => response({}, 404));
+  await expect(
+    lookupSwapResult("https://osmo.example", swapHash, expectedSwap)
+  ).resolves.toBeUndefined();
+});
+
+it.each([
+  ["to-osmosis" as const, "channel-108456"],
+  ["to-epix" as const, "channel-0"],
+])(
+  "checks only the destination channel acknowledgement for %s",
+  async (direction, channel) => {
+    mockJSON(() => ({
+      acknowledgement: "CPdVftUYJv4Y2EUSvyTsdQAe268hI6R333KgqfNkCnw=",
+    }));
+    await expect(
+      packetAck("https://destination.example", "306", undefined, direction)
+    ).resolves.toBe("received");
+    expect((global.fetch as jest.Mock).mock.calls[0][0]).toBe(
+      `https://destination.example/ibc/core/channel/v1/channels/${channel}/ports/transfer/packet_acks/306`
+    );
+  }
+);
 
 it("reads exact integer balances and treats only explicit absent balances as zero", async () => {
   mockJSON(() => ({

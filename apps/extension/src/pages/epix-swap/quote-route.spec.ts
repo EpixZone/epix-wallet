@@ -11,6 +11,61 @@ const allUsdt =
 const allUsdc =
   "factory/osmo147h5x9pcj7lm0cttlaefx6sqq5vdfnmwfcqxkmjd7exqm9gc7grqhr75m0/alloyed/allUSDC";
 
+it("starts a reverse path at the exact selected Osmosis asset", () => {
+  expect(
+    quoteRouteView(
+      [
+        { poolId: "3507", tokenOutDenom: allUsdt },
+        { poolId: "3486", tokenOutDenom: epix },
+      ],
+      undefined,
+      allUsdc
+    )
+  ).toEqual([
+    {
+      poolId: "3507",
+      tokenIn: "USDC (allUSDC)",
+      tokenOut: "USDT (allUSDT)",
+      tokenInDenom: allUsdc,
+      tokenOutDenom: allUsdt,
+    },
+    {
+      poolId: "3486",
+      tokenIn: "USDT (allUSDT)",
+      tokenOut: "EPIX",
+      tokenInDenom: allUsdt,
+      tokenOutDenom: epix,
+    },
+  ]);
+});
+
+it("keeps alloyed EPIX distinct from the bridgeable EPIX produced by its pool", () => {
+  const alloyed = OSMOSIS_SWAP_TOKENS[6].coinMinimalDenom;
+  expect(
+    quoteRouteView(
+      [{ poolId: "3471", tokenOutDenom: epix }],
+      undefined,
+      alloyed
+    )?.[0]
+  ).toMatchObject({
+    tokenIn: "EPIX (allEPIX)",
+    tokenInDenom: alloyed,
+    tokenOut: "EPIX",
+    tokenOutDenom: epix,
+  });
+});
+
+it("does not guess the label of an unknown reverse input", () => {
+  const unknown = allUsdt.replace("osmo1em6", "osmo1other");
+  const hop = quoteRouteView(
+    [{ poolId: "1", tokenOutDenom: epix }],
+    undefined,
+    unknown
+  )?.[0];
+  expect(hop?.tokenIn).toBe(`${unknown.slice(0, 12)}…${unknown.slice(-8)}`);
+  expect(hop?.tokenInDenom).toBe(unknown);
+});
+
 it("maps a direct route from exact Osmosis EPIX and preserves a uint64 pool ID", () => {
   expect(
     quoteRouteView([{ poolId: "18446744073709551615", tokenOutDenom: "uosmo" }])

@@ -15,6 +15,9 @@ import {
   MAX_BRIDGE_GAS,
   MAX_SWAP_GAS,
   OSMOSIS_EPIX_DENOM,
+  chainPair,
+  osmosisRest,
+  quoteSelection,
   assertFeeWithin,
   assertSelection,
   bridgeMessage,
@@ -35,6 +38,8 @@ function recoveryState(operation: EpixSwapOperation): string {
     operation.bridgeTxHash,
     operation.swapTxHash,
     operation.depositConfirmed,
+    operation.swapConfirmed,
+    operation.swapAmountOut,
   ]);
 }
 function finished(operation: EpixSwapOperation): boolean {
@@ -75,6 +80,7 @@ export class EpixSwapService {
   private readonly reviews = new Map<string, ReviewPlan>();
   private readonly approvals = new Map<string, EpixSwapOperation>();
   private readonly running = new Set<string>();
+  private readonly verifiedSwaps = new Map<string, string>();
   private readonly verifiedReceipts = new Set<string>();
   private readonly refreshing = new Map<string, Promise<void>>();
   private writeTail: Promise<void> = Promise.resolve();
@@ -95,6 +101,10 @@ export class EpixSwapService {
         const operation = readStoredOperation(value);
         // Persistence is progress, never authorization. No automatic restart signing.
         if (operation.status !== "complete" && operation.status !== "failed") {
+          if (operation.direction === "to-epix") {
+            operation.swapConfirmed = false;
+            operation.swapAmountOut = undefined;
+          }
           operation.status = "paused";
           operation.error =
             "Wallet restarted. Review again before further signing.";
@@ -148,51 +158,42 @@ export class EpixSwapService {
     internal(env);
     msg.validateBasic();
     assertSelection(
+      msg.direction,
+      msg.inputDenom,
       msg.amountMinimal,
       msg.outputDenom,
       msg.slippageBps,
       msg.feeDenom
     );
     this.assertAvailable(msg.vaultId, msg.resumeOperationId);
-    const context = await this.transactions.context(msg.vaultId);
+    const context = await this.transactions.context(msg.vaultId, msg.direction);
     const previous = await this.prepareResume(msg, context);
-    await this.api.validateBridgeRoute(
-      context.sourceRest,
-      context.destinationRest
-    );
-    const [quote, swapFee] = await Promise.all([
-      this.api.fetchSwapQuote({
-        amountIn: msg.amountMinimal,
-        outputDenom: msg.outputDenom,
-        slippageBps: msg.slippageBps,
-      }),
-      this.api.getOsmosisFeeQuote({
-        rest: context.destinationRest,
-        gasLimit: Number(MAX_SWAP_GAS),
-        feeDenom: msg.feeDenom,
-        minimumBaseGasPrice: "0.03",
-      }),
-    ]);
+    const resumeState = previous ? recoveryState(previous) : undefined;
     const now = Date.now();
     const operation = this.makeOperation(msg, context, previous, now);
-    operation.minimumAmountOut = quote.minimumAmountOut;
-    operation.estimatedAmountOut = quote.amountOut;
-    operation.swapFeeCap = swapFee.fee;
+    await this.validateRoute(operation);
+    const { quote, expiresAt } = await this.prepareBounds(operation, context);
     const blockReason = await this.checkFunding(operation, context);
     const review: EpixSwapReview = {
       id: crypto.randomUUID(),
-      expiresAt: Math.min(quote.expiresAt, swapFee.expiresAt),
+      direction: operation.direction,
+      inputDenom: operation.inputDenom,
+      sourceChainId: operation.sourceChainId,
+      destinationChainId: operation.destinationChainId,
+      expiresAt,
       executionExpiresAt: operation.expiresAt,
       sourceAddress: operation.sourceAddress,
       destinationAddress: operation.destinationAddress,
       amountIn: operation.amountIn,
       outputDenom: operation.outputDenom,
       estimatedAmountOut: quote.amountOut,
-      minimumAmountOut: quote.minimumAmountOut,
+      minimumAmountOut: operation.minimumAmountOut,
       routes: quote.routes,
       bridgeComplete: operation.depositConfirmed,
+      swapComplete: operation.swapConfirmed,
+      swapAmountOut: operation.swapAmountOut,
       bridgeFee: operation.bridgeFee,
-      swapFeeCap: swapFee.fee,
+      swapFeeCap: operation.swapFeeCap,
       canStart: !blockReason,
       blockReason,
       resumeOperationId: msg.resumeOperationId,
@@ -203,10 +204,66 @@ export class EpixSwapService {
       publicCopy({
         review,
         operation,
-        resumeState: previous ? recoveryState(previous) : undefined,
+        resumeState,
       })
     );
     return publicCopy(review);
+  }
+
+  private validateRoute(operation: EpixSwapOperation): Promise<void> {
+    const [epix, osmosis] =
+      operation.direction === "to-osmosis"
+        ? [operation.sourceRest, operation.destinationRest]
+        : [operation.destinationRest, operation.sourceRest];
+    return this.api.validateBridgeRoute(epix, osmosis);
+  }
+
+  private feeQuote(operation: EpixSwapOperation, gas: string) {
+    return this.api.getOsmosisFeeQuote({
+      rest: osmosisRest(operation),
+      gasLimit: Number(gas),
+      feeDenom: operation.feeDenom,
+      minimumBaseGasPrice: "0.03",
+    });
+  }
+
+  private async prepareBounds(
+    operation: EpixSwapOperation,
+    context: SwapContext
+  ) {
+    // A completed reverse swap cannot be quoted again: its input is already spent.
+    const quote = operation.swapConfirmed
+      ? {
+          amountOut: operation.swapAmountOut!,
+          minimumAmountOut: operation.minimumAmountOut,
+          routes: [],
+          expiresAt: Date.now() + 30000,
+        }
+      : await this.api.fetchSwapQuote(quoteSelection(operation));
+    if (!operation.swapConfirmed)
+      operation.minimumAmountOut = quote.minimumAmountOut;
+    operation.estimatedAmountOut = quote.amountOut;
+    const swapFee = operation.swapConfirmed
+      ? {
+          fee: {
+            gas: "0",
+            amount: [{ denom: operation.feeDenom, amount: "0" }],
+          },
+          expiresAt: quote.expiresAt,
+        }
+      : await this.feeQuote(operation, MAX_SWAP_GAS);
+    operation.swapFeeCap = swapFee.fee;
+    let expiresAt = Math.min(quote.expiresAt, swapFee.expiresAt);
+    if (operation.direction === "to-epix") {
+      const bridge = await this.feeQuote(operation, MAX_BRIDGE_GAS);
+      operation.bridgeFee = bridge.fee;
+      expiresAt = Math.min(expiresAt, bridge.expiresAt);
+    } else {
+      operation.bridgeFee = operation.depositConfirmed
+        ? { amount: [{ denom: "aepix", amount: "0" }], gas: "0" }
+        : bridgeFee(MAX_BRIDGE_GAS, context.bridgeGasPrice);
+    }
+    return { quote, expiresAt };
   }
 
   private makeOperation(
@@ -218,6 +275,9 @@ export class EpixSwapService {
     return {
       id: previous?.id ?? crypto.randomUUID(),
       vaultId: msg.vaultId,
+      direction: msg.direction,
+      inputDenom: msg.inputDenom,
+      ...chainPair(msg.direction),
       sourceAddress: context.sourceAddress,
       destinationAddress: context.destinationAddress,
       sourceRest: context.sourceRest,
@@ -226,17 +286,24 @@ export class EpixSwapService {
       outputDenom: msg.outputDenom,
       slippageBps: msg.slippageBps,
       feeDenom: msg.feeDenom,
-      minimumAmountOut: "0",
+      minimumAmountOut: previous?.minimumAmountOut ?? "0",
       estimatedAmountOut: "0",
-      bridgeFee: previous?.depositConfirmed
-        ? { amount: [{ denom: "aepix", amount: "0" }], gas: "0" }
-        : bridgeFee(MAX_BRIDGE_GAS, context.bridgeGasPrice),
+      bridgeFee: { amount: [], gas: MAX_BRIDGE_GAS },
       swapFeeCap: { amount: [], gas: MAX_SWAP_GAS },
-      status: previous?.depositConfirmed ? "swapping" : "bridging",
+      status: (
+        msg.direction === "to-epix"
+          ? !previous?.swapConfirmed
+          : previous?.depositConfirmed
+      )
+        ? "swapping"
+        : "bridging",
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
       expiresAt: now + APPROVAL_DURATION_MS,
       bridgeTxHash: previous?.bridgeTxHash,
+      swapTxHash: previous?.swapTxHash,
+      swapConfirmed: previous?.swapConfirmed,
+      swapAmountOut: previous?.swapAmountOut,
       packetSequence: previous?.packetSequence,
       packetTimeoutTimestamp:
         (previous?.bridgeTxHash
@@ -260,6 +327,8 @@ export class EpixSwapService {
     const operation = this.get(msg.resumeOperationId);
     if (
       operation.vaultId !== msg.vaultId ||
+      operation.direction !== msg.direction ||
+      operation.inputDenom !== msg.inputDenom ||
       operation.sourceAddress !== context.sourceAddress ||
       operation.destinationAddress !== context.destinationAddress ||
       operation.amountIn !== msg.amountMinimal ||
@@ -270,7 +339,7 @@ export class EpixSwapService {
     await this.refreshStatus(operation);
     if (finished(operation)) throw new Error("This swap has already finished.");
     if (
-      operation.swapTxHash ||
+      (operation.swapTxHash && !operation.swapConfirmed) ||
       (operation.bridgeTxHash && !operation.depositConfirmed)
     )
       throw new Error(
@@ -299,6 +368,8 @@ export class EpixSwapService {
       return "This one-confirmation flow requires a software wallet.";
     if (!context.enabled)
       return "Enable Osmosis before starting so the received assets are visible.";
+    if (operation.direction === "to-epix")
+      return this.checkReverseFunding(operation);
     const inputRest = operation.depositConfirmed
       ? operation.destinationRest
       : operation.sourceRest;
@@ -325,6 +396,41 @@ export class EpixSwapService {
       return "Insufficient EPIX for the amount and bridge fee.";
     if (BigInt(feeBalance) < BigInt(operation.swapFeeCap.amount[0].amount))
       return "Fund the selected Osmosis fee asset before starting. Swap output cannot pay its own initial fee.";
+    return undefined;
+  }
+
+  private async checkReverseFunding(
+    operation: EpixSwapOperation
+  ): Promise<string | undefined> {
+    const inputDenom = operation.swapConfirmed
+      ? OSMOSIS_EPIX_DENOM
+      : operation.inputDenom;
+    const amount = operation.swapConfirmed
+      ? operation.swapAmountOut!
+      : operation.amountIn;
+    const fees =
+      BigInt(operation.bridgeFee.amount[0].amount) +
+      (operation.swapConfirmed
+        ? BigInt(0)
+        : BigInt(operation.swapFeeCap.amount[0].amount));
+    const [input, feeBalance] = await Promise.all([
+      this.api.readBalance(
+        operation.sourceRest,
+        operation.sourceAddress,
+        inputDenom
+      ),
+      this.api.readBalance(
+        operation.sourceRest,
+        operation.sourceAddress,
+        operation.feeDenom
+      ),
+    ]);
+    const requiredInput =
+      BigInt(amount) + (inputDenom === operation.feeDenom ? fees : BigInt(0));
+    if (BigInt(input) < requiredInput)
+      return "Insufficient input for the swap amount and approved fees.";
+    if (BigInt(feeBalance) < fees)
+      return "Fund the selected Osmosis fee asset for both the swap and return transfer before starting.";
     return undefined;
   }
 
@@ -435,6 +541,11 @@ export class EpixSwapService {
       return;
     }
     this.guard(operation);
+    if (operation.direction === "to-epix") await this.runReverse(operation);
+    else await this.runForward(operation);
+  }
+
+  private async runForward(operation: EpixSwapOperation): Promise<void> {
     if (
       operation.swapTxHash ||
       (operation.bridgeTxHash && !operation.depositConfirmed)
@@ -446,12 +557,24 @@ export class EpixSwapService {
     else await this.sendSwap(operation);
   }
 
+  private async runReverse(operation: EpixSwapOperation): Promise<void> {
+    if (
+      operation.bridgeTxHash ||
+      (operation.swapTxHash && !operation.swapConfirmed)
+    ) {
+      await this.save();
+      return;
+    }
+    if (!operation.swapConfirmed) await this.sendSwap(operation);
+    else await this.sendBridge(operation);
+  }
+
   private async sendBridge(operation: EpixSwapOperation): Promise<void> {
-    await this.api.validateBridgeRoute(
-      operation.sourceRest,
-      operation.destinationRest
+    await this.validateRoute(operation);
+    const context = await this.transactions.context(
+      operation.vaultId,
+      operation.direction
     );
-    const context = await this.transactions.context(operation.vaultId);
     const funding = await this.checkFunding(operation, context);
     if (funding) throw new Error(funding);
     const message = bridgeMessage(operation);
@@ -463,19 +586,27 @@ export class EpixSwapService {
         operation.bridgeFee
       )
     );
-    const fee = bridgeFee(gas, context.bridgeGasPrice);
-    assertFeeWithin(fee, operation.bridgeFee);
-    await this.dispatch(operation, "bridge", message, fee);
+    const feeQuote =
+      operation.direction === "to-epix"
+        ? await this.feeQuote(operation, gas)
+        : {
+            fee: bridgeFee(gas, context.bridgeGasPrice),
+            expiresAt: operation.expiresAt,
+          };
+    assertFeeWithin(feeQuote.fee, operation.bridgeFee);
+    await this.dispatch(
+      operation,
+      "bridge",
+      message,
+      feeQuote.fee,
+      feeQuote.expiresAt
+    );
     operation.status = "waiting-for-deposit";
     await this.save();
   }
 
   private async sendSwap(operation: EpixSwapOperation): Promise<void> {
-    const quote = await this.api.fetchSwapQuote({
-      amountIn: operation.amountIn,
-      outputDenom: operation.outputDenom,
-      slippageBps: operation.slippageBps,
-    });
+    const quote = await this.api.fetchSwapQuote(quoteSelection(operation));
     if (BigInt(quote.minimumAmountOut) < BigInt(operation.minimumAmountOut))
       throw new Error(
         "The new quote falls below the approved minimum. Review again."
@@ -493,14 +624,12 @@ export class EpixSwapService {
       throw new Error(
         "The swap requires more gas than approved. Review again."
       );
-    const feeQuote = await this.api.getOsmosisFeeQuote({
-      rest: operation.destinationRest,
-      gasLimit: Number(gas),
-      feeDenom: operation.feeDenom,
-      minimumBaseGasPrice: "0.03",
-    });
+    const feeQuote = await this.feeQuote(operation, gas);
     assertFeeWithin(feeQuote.fee, operation.swapFeeCap);
-    const context = await this.transactions.context(operation.vaultId);
+    const context = await this.transactions.context(
+      operation.vaultId,
+      operation.direction
+    );
     const funding = await this.checkFunding(operation, context);
     if (funding) throw new Error(funding);
     const freshUntil = Math.min(quote.expiresAt, feeQuote.expiresAt);
@@ -548,7 +677,11 @@ export class EpixSwapService {
       throw error;
     }
     // From this point a transport error is ambiguous. Keep the hash and never resend.
-    const returnedHash = await this.transactions.broadcast(step, signed);
+    const returnedHash = await this.transactions.broadcast(
+      operation,
+      step,
+      signed
+    );
     if (bytesToHex(returnedHash).toUpperCase() !== hash)
       throw new Error(
         "Unexpected transaction hash. Refresh before continuing."
@@ -559,10 +692,14 @@ export class EpixSwapService {
   }
 
   private async observe(operation: EpixSwapOperation): Promise<void> {
-    if (operation.swapTxHash) return this.observeSwap(operation);
+    if (operation.direction === "to-epix") {
+      await this.observeReverseSwap(operation);
+      if (!operation.swapConfirmed) return;
+    } else if (operation.swapTxHash) return this.observeSwap(operation);
     if (!operation.bridgeTxHash) return;
     if (this.verifiedReceipts.has(operation.id)) {
       operation.depositConfirmed = true;
+      if (operation.direction === "to-epix") operation.status = "complete";
       return;
     }
     const tx = await this.api.lookupTx(
@@ -571,20 +708,27 @@ export class EpixSwapService {
     );
     if (!tx) return;
     if (tx.code !== 0) {
-      operation.status = "failed";
-      operation.error = "The deposit failed on-chain. No swap was sent.";
+      this.bridgeFailed(operation);
       return;
     }
     operation.packetSequence = matchingPacketSequence(tx.events, operation);
     const ack = await this.api.packetAck(
       operation.destinationRest,
-      operation.packetSequence
+      operation.packetSequence,
+      undefined,
+      operation.direction
     );
     operation.depositConfirmed = ack === "received";
-    if (operation.depositConfirmed) this.verifiedReceipts.add(operation.id);
+    if (operation.depositConfirmed) {
+      this.verifiedReceipts.add(operation.id);
+      if (operation.direction === "to-epix") {
+        operation.status = "complete";
+        operation.error = undefined;
+      }
+    }
     if (ack === "unknown")
       throw new Error(
-        "The deposit acknowledgement needs review. No swap will be sent."
+        "The transfer acknowledgement needs review. No further transaction will be sent."
       );
     if (
       ack === "pending" &&
@@ -594,6 +738,56 @@ export class EpixSwapService {
       throw new Error(
         "The deposit timed out or is awaiting relay/refund. Check its status before continuing."
       );
+    operation.updatedAt = Date.now();
+  }
+
+  private bridgeFailed(operation: EpixSwapOperation): void {
+    if (operation.direction === "to-osmosis") {
+      operation.status = "failed";
+      operation.error = "The deposit failed on-chain. No swap was sent.";
+      return;
+    }
+    operation.status = "paused";
+    operation.error =
+      "The return transfer failed on-chain. Review again to transfer the verified swap output.";
+    delete operation.bridgeTxHash;
+    delete operation.packetSequence;
+    this.approvals.delete(operation.id);
+  }
+
+  private async observeReverseSwap(
+    operation: EpixSwapOperation
+  ): Promise<void> {
+    if (!operation.swapTxHash) return;
+    const verified = this.verifiedSwaps.get(operation.swapTxHash);
+    if (verified) {
+      operation.swapConfirmed = true;
+      operation.swapAmountOut = verified;
+      return;
+    }
+    const tx = await this.api.lookupSwapResult(
+      operation.sourceRest,
+      operation.swapTxHash,
+      {
+        sender: operation.sourceAddress,
+        inputDenom: operation.inputDenom,
+        amountIn: operation.amountIn,
+        minimumAmountOut: operation.minimumAmountOut,
+        outputDenom: OSMOSIS_EPIX_DENOM,
+      }
+    );
+    if (!tx) return;
+    if (tx.code !== 0) {
+      operation.status = "failed";
+      operation.error =
+        "The swap failed on-chain. No return transfer was sent.";
+      return;
+    }
+    if (!tx.amountOut)
+      throw new Error("The received swap output could not be verified.");
+    this.verifiedSwaps.set(operation.swapTxHash, tx.amountOut);
+    operation.swapAmountOut = tx.amountOut;
+    operation.swapConfirmed = true;
     operation.updatedAt = Date.now();
   }
 

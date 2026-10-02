@@ -41,6 +41,56 @@ export default {
 
 export const Searching = () => <SwapRouteSearch t={t} outputToken="USDC" />;
 
+export const ReverseSearching = () => (
+  <SwapRouteSearch t={t} inputToken="USDT (allUSDT)" outputToken="EPIX" />
+);
+
+export const Reverse = () => (
+  <SwapQuoteRoute
+    t={t}
+    direction="to-epix"
+    routes={
+      quoteRouteView(
+        [
+          {
+            poolId: "3486",
+            tokenOutDenom: OSMOSIS_SWAP_TOKENS[0].coinMinimalDenom,
+          },
+        ],
+        undefined,
+        OSMOSIS_SWAP_TOKENS[1].coinMinimalDenom
+      ) ?? []
+    }
+  />
+);
+
+export const ReverseSwapCompleted = () => (
+  <SwapQuoteRoute t={t} direction="to-epix" swapComplete routes={[]} />
+);
+
+export const OsmosisReturn = () => (
+  <SwapQuoteRoute
+    t={t}
+    direction="to-epix"
+    routes={
+      quoteRouteView(
+        [
+          {
+            poolId: "3513",
+            tokenOutDenom: OSMOSIS_SWAP_TOKENS[4].coinMinimalDenom,
+          },
+          {
+            poolId: "3587",
+            tokenOutDenom: OSMOSIS_SWAP_TOKENS[0].coinMinimalDenom,
+          },
+        ],
+        undefined,
+        OSMOSIS_SWAP_TOKENS[3].coinMinimalDenom
+      ) ?? []
+    }
+  />
+);
+
 // Public registry fixture. Previews do not fetch or write extension storage.
 const atom =
   "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2";

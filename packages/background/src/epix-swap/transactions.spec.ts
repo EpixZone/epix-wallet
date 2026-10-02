@@ -14,8 +14,12 @@ import { KeyRingService } from "../keyring/service";
 import { BackgroundTxService } from "../tx/service";
 import { EpixSwapTransactions } from "./transactions";
 import { EpixSwapOperation } from "./types";
-import { bridgeMessage, swapMessage } from "./plan";
-import { EPIX_CHAIN_ID, OSMOSIS_CHAIN_ID } from "./constants";
+import { bridgeMessage, swapMessage, OSMOSIS_EPIX_DENOM } from "./plan";
+import {
+  EPIX_CHAIN_ID,
+  OSMOSIS_CHAIN_ID,
+  OSMOSIS_ALL_USDT_DENOM,
+} from "./constants";
 
 const publicKey = new Uint8Array(33).fill(2);
 const signature = new Uint8Array(64).fill(3);
@@ -29,6 +33,10 @@ const swapFee: StdFee = {
 };
 const operation: EpixSwapOperation = {
   id: "operation",
+  direction: "to-osmosis",
+  inputDenom: "aepix",
+  sourceChainId: EPIX_CHAIN_ID,
+  destinationChainId: OSMOSIS_CHAIN_ID,
   vaultId: "vault",
   sourceAddress: "epix1source",
   destinationAddress: "osmo1destination",
@@ -223,5 +231,69 @@ it("rejects a changed actual signer before constructing a signed transaction", a
       () => undefined
     )
   ).rejects.toThrow("reviewed signing account changed");
+  expect(f.cosmos.signDirectPreAuthorized).not.toHaveBeenCalled();
+});
+
+it.each(["bridge", "swap"] as const)(
+  "uses only the Osmosis signer and chain for the reverse %s",
+  async (step) => {
+    const f = fixture();
+    const reverse: EpixSwapOperation = {
+      ...operation,
+      direction: "to-epix",
+      inputDenom: OSMOSIS_ALL_USDT_DENOM,
+      sourceChainId: OSMOSIS_CHAIN_ID,
+      destinationChainId: EPIX_CHAIN_ID,
+      sourceAddress: operation.destinationAddress,
+      destinationAddress: operation.sourceAddress,
+      sourceRest: operation.destinationRest,
+      destinationRest: operation.sourceRest,
+      outputDenom: "aepix",
+      swapConfirmed: true,
+      swapAmountOut: "1234567890123456789",
+      bridgeFee: swapFee,
+    };
+    const message =
+      step === "bridge"
+        ? bridgeMessage(reverse)
+        : swapMessage(reverse, [
+            {
+              poolId: "18446744073709551615",
+              tokenOutDenom: OSMOSIS_EPIX_DENOM,
+            },
+          ]);
+    const signed = await f.adapter.sign(reverse, step, message, swapFee, () =>
+      f.adapter.assertContext(reverse)
+    );
+    const raw = TxRaw.decode(signed);
+    expect(TxBody.decode(raw.bodyBytes).messages).toEqual([message]);
+    expect(
+      AuthInfo.decode(raw.authInfoBytes).signerInfos[0].publicKey?.typeUrl
+    ).toBe("/cosmos.crypto.secp256k1.PubKey");
+    expect(f.cosmos.signDirectPreAuthorized).toHaveBeenCalledWith(
+      expect.any(String),
+      "vault",
+      OSMOSIS_CHAIN_ID,
+      "osmo1destination",
+      expect.objectContaining({ accountNumber: "42" })
+    );
+    expect(BaseAccount.fetchFromRest).toHaveBeenCalledWith(
+      operation.destinationRest,
+      "osmo1destination",
+      true
+    );
+    await f.adapter.broadcast(reverse, step, signed);
+    expect(f.broadcast).toHaveBeenCalledWith(OSMOSIS_CHAIN_ID, signed, "sync", {
+      silent: true,
+      skipTracingTxResult: true,
+    });
+  }
+);
+
+it("rejects direction and chain identity mismatch before signing", () => {
+  const f = fixture();
+  expect(() =>
+    f.adapter.assertContext({ ...operation, sourceChainId: OSMOSIS_CHAIN_ID })
+  ).toThrow("Network settings changed");
   expect(f.cosmos.signDirectPreAuthorized).not.toHaveBeenCalled();
 });

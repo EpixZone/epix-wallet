@@ -52,10 +52,11 @@ function tokenLabel(denom: string, metadata?: OsmosisAssetMetadata): string {
 /** Convert the validated single-route pool sequence without truncating its path. */
 export function quoteRouteView(
   routes?: ReadonlyArray<Readonly<{ poolId: string; tokenOutDenom: string }>>,
-  registry?: ReadonlyMap<string, OsmosisAssetMetadata>
+  registry?: ReadonlyMap<string, OsmosisAssetMetadata>,
+  inputDenom = OSMOSIS_SWAP_TOKENS[0].coinMinimalDenom
 ): ReadonlyArray<QuoteRouteHop> | undefined {
   if (!routes?.length || routes.length > 8) return undefined;
-  let tokenInDenom = OSMOSIS_SWAP_TOKENS[0].coinMinimalDenom;
+  let tokenInDenom = inputDenom;
   return routes.map(({ poolId, tokenOutDenom }) => {
     const tokenInMetadata = registry?.get(tokenInDenom);
     const tokenOutMetadata = registry?.get(tokenOutDenom);

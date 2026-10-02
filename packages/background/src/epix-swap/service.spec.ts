@@ -28,7 +28,16 @@ const env = { isInternalMsg: true } as Env;
 const amount = "1000000000000000000";
 const bridgeHash = bytesToHex(sha256(new Uint8Array([1]))).toUpperCase();
 const request = (resume?: string) =>
-  new PrepareEpixSwapMsg("vault", amount, "uosmo", 100, "uosmo", resume);
+  new PrepareEpixSwapMsg(
+    "vault",
+    "to-osmosis",
+    "aepix",
+    amount,
+    "uosmo",
+    100,
+    "uosmo",
+    resume
+  );
 
 // Model extension storage's serialized boundary. Native structuredClone returns
 // Node-realm objects in Jest; MemoryKVStore's constructor identity check rejects
@@ -53,15 +62,23 @@ class SerializedStore implements KVStore {
 async function fixture() {
   const store = new SerializedStore();
   const transactions: jest.Mocked<SwapTransactions> = {
-    context: jest.fn().mockResolvedValue({
-      sourceAddress: "epix1source",
-      destinationAddress: "osmo1destination",
-      sourceRest: "https://epix.test",
-      destinationRest: "https://osmosis.test",
+    context: jest.fn().mockImplementation(async (_vault, direction) => ({
+      sourceAddress:
+        direction === "to-osmosis" ? "epix1source" : "osmo1destination",
+      destinationAddress:
+        direction === "to-osmosis" ? "osmo1destination" : "epix1source",
+      sourceRest:
+        direction === "to-osmosis"
+          ? "https://epix.test"
+          : "https://osmosis.test",
+      destinationRest:
+        direction === "to-osmosis"
+          ? "https://osmosis.test"
+          : "https://epix.test",
       bridgeGasPrice: "25000000000",
       software: true,
       enabled: true,
-    }),
+    })),
     assertContext: jest.fn(),
     watchContext: jest.fn(),
     simulate: jest.fn().mockResolvedValue("100000"),
@@ -71,10 +88,13 @@ async function fixture() {
     }),
     broadcast: jest
       .fn()
-      .mockImplementation(async (_step, bytes) => sha256(bytes)),
+      .mockImplementation(async (_op, _step, bytes) => sha256(bytes)),
   };
   const api = {
     ...network,
+    lookupSwapResult: jest
+      .fn()
+      .mockResolvedValue({ code: 0, amountOut: "1000" }),
     validateBridgeRoute: jest.fn().mockResolvedValue(undefined),
     fetchSwapQuote: jest.fn().mockImplementation(async ({ outputDenom }) => ({
       amountOut: "1000",
@@ -112,16 +132,24 @@ async function fixture() {
             type: "send_packet",
             attributes: Object.entries({
               packet_src_port: "transfer",
-              packet_src_channel: "channel-0",
+              packet_src_channel:
+                op.direction === "to-osmosis" ? "channel-0" : "channel-108456",
               packet_dst_port: "transfer",
-              packet_dst_channel: "channel-108456",
+              packet_dst_channel:
+                op.direction === "to-osmosis" ? "channel-108456" : "channel-0",
               packet_sequence: "7",
               packet_timeout_timestamp: op.packetTimeoutTimestamp!,
               packet_data: JSON.stringify({
                 sender: op.sourceAddress,
                 receiver: op.destinationAddress,
-                denom: "aepix",
-                amount: op.amountIn,
+                denom:
+                  op.direction === "to-osmosis"
+                    ? "aepix"
+                    : "transfer/channel-108456/aepix",
+                amount:
+                  op.direction === "to-osmosis"
+                    ? op.amountIn
+                    : op.swapAmountOut,
               }),
             }).map(([key, value]) => ({ key, value })),
           },
@@ -165,7 +193,15 @@ it.each([
     const f = await fixture();
     const operation = await begin(
       f,
-      new PrepareEpixSwapMsg("vault", amount, outputDenom, 100, "uosmo")
+      new PrepareEpixSwapMsg(
+        "vault",
+        "to-osmosis",
+        "aepix",
+        amount,
+        outputDenom,
+        100,
+        "uosmo"
+      )
     );
     expect(f.transactions.broadcast).toHaveBeenCalledTimes(1);
     const bridge = MsgTransfer.decode(
@@ -222,7 +258,15 @@ it.each([
     await expect(
       f.service.prepare(
         env,
-        new PrepareEpixSwapMsg("vault", amount, outputDenom, 100, feeDenom)
+        new PrepareEpixSwapMsg(
+          "vault",
+          "to-osmosis",
+          "aepix",
+          amount,
+          outputDenom,
+          100,
+          feeDenom
+        )
       )
     ).rejects.toThrow("Unsupported swap asset");
     expect(f.api.fetchSwapQuote).not.toHaveBeenCalled();
@@ -239,6 +283,8 @@ it.each([OSMOSIS_USDC_DENOM, OSMOSIS_ALL_BTC_DENOM, "uosmo"])(
       env,
       new PrepareEpixSwapMsg(
         "vault",
+        "to-osmosis",
+        "aepix",
         amount,
         OSMOSIS_ALL_USDT_DENOM,
         100,
@@ -372,6 +418,8 @@ it.each([OSMOSIS_ALL_USDT_DENOM, OSMOSIS_ALL_USDC_DENOM])(
     const f = await fixture();
     const msg = new PrepareEpixSwapMsg(
       "vault",
+      "to-osmosis",
+      "aepix",
       amount,
       outputDenom,
       100,
@@ -386,7 +434,16 @@ it.each([OSMOSIS_ALL_USDT_DENOM, OSMOSIS_ALL_USDC_DENOM])(
     expect(f.transactions.sign).toHaveBeenCalledTimes(1);
     const review = await restarted.prepare(
       env,
-      new PrepareEpixSwapMsg("vault", amount, outputDenom, 100, "uosmo", op.id)
+      new PrepareEpixSwapMsg(
+        "vault",
+        "to-osmosis",
+        "aepix",
+        amount,
+        outputDenom,
+        100,
+        "uosmo",
+        op.id
+      )
     );
     expect(review.bridgeComplete).toBe(true);
     expect(review.bridgeFee.gas).toBe("0");
@@ -522,7 +579,7 @@ it("coalesces read-only recovery lookups and never signs from Refresh", async ()
 
 it("keeps a successfully dispatched hash paused when approval is revoked during broadcast", async () => {
   const f = await fixture();
-  f.transactions.broadcast.mockImplementationOnce(async (_step, bytes) => {
+  f.transactions.broadcast.mockImplementationOnce(async (_op, _step, bytes) => {
     f.service.revokeApprovals();
     return sha256(bytes);
   });
@@ -541,4 +598,263 @@ it("keeps a successfully dispatched hash paused when approval is revoked during 
   await advance(60000);
   expect(f.transactions.sign).toHaveBeenCalledTimes(1);
   expect(f.transactions.broadcast).toHaveBeenCalledTimes(1);
+});
+
+const reverseRequest = (resume?: string, inputDenom = OSMOSIS_ALL_USDT_DENOM) =>
+  new PrepareEpixSwapMsg(
+    "vault",
+    "to-epix",
+    inputDenom,
+    "1000000",
+    "aepix",
+    100,
+    "uosmo",
+    resume
+  );
+
+it.each([
+  OSMOSIS_ALL_BTC_DENOM,
+  OSMOSIS_ALL_USDT_DENOM,
+  OSMOSIS_ALL_USDC_DENOM,
+  "uosmo",
+])(
+  "one reverse approval swaps %s and transfers exactly its proven output to Epix",
+  async (inputDenom) => {
+    const f = await fixture();
+    const op = await begin(f, reverseRequest(undefined, inputDenom));
+    expect(op).toMatchObject({
+      direction: "to-epix",
+      inputDenom,
+      sourceChainId: "osmosis-1",
+      destinationChainId: "epix_1916-1",
+    });
+    expect(f.transactions.sign).toHaveBeenCalledTimes(1);
+    const swap = MsgSwapExactAmountIn.decode(
+      f.transactions.sign.mock.calls[0][2].value
+    );
+    expect(swap).toMatchObject({
+      sender: "osmo1destination",
+      tokenIn: { denom: inputDenom, amount: "1000000" },
+      tokenOutMinAmount: "990",
+      routes: [{ poolId: "1", tokenOutDenom: OSMOSIS_EPIX_DENOM }],
+    });
+    await advance(5000);
+    expect(f.transactions.sign).toHaveBeenCalledTimes(2);
+    const bridge = MsgTransfer.decode(
+      f.transactions.sign.mock.calls[1][2].value
+    );
+    expect(bridge).toMatchObject({
+      sourceChannel: "channel-108456",
+      sender: "osmo1destination",
+      receiver: "epix1source",
+      token: { denom: OSMOSIS_EPIX_DENOM, amount: "1000" },
+    });
+    expect(f.api.lookupSwapResult).toHaveBeenCalledWith(
+      "https://osmosis.test",
+      expect.any(String),
+      {
+        sender: "osmo1destination",
+        inputDenom,
+        amountIn: "1000000",
+        minimumAmountOut: "990",
+        outputDenom: OSMOSIS_EPIX_DENOM,
+      }
+    );
+    expect(f.api.validateBridgeRoute).toHaveBeenLastCalledWith(
+      "https://epix.test",
+      "https://osmosis.test"
+    );
+    f.api.packetAck.mockResolvedValue("received" as never);
+    await advance(5000);
+    expect(f.api.packetAck).toHaveBeenCalledWith(
+      "https://epix.test",
+      "7",
+      undefined,
+      "to-epix"
+    );
+    expect(f.service.getOperations(env, "vault")[0]).toMatchObject({
+      status: "complete",
+      depositConfirmed: true,
+      swapConfirmed: true,
+      swapAmountOut: "1000",
+    });
+    expect(f.transactions.broadcast).toHaveBeenCalledTimes(2);
+  }
+);
+
+it("requires the input plus both fee caps when the reverse input is also the fee asset", async () => {
+  const f = await fixture();
+  f.api.readBalance.mockResolvedValue("1084599"); // 1 OSMO + 72000 swap fee + 12600 return fee, minus one.
+  const blocked = await f.service.prepare(
+    env,
+    reverseRequest(undefined, "uosmo")
+  );
+  expect(blocked.canStart).toBe(false);
+  expect(blocked.blockReason).toContain("input");
+  f.api.readBalance.mockResolvedValue("1084600");
+  const funded = await f.service.prepare(
+    env,
+    reverseRequest(undefined, "uosmo")
+  );
+  expect(funded.canStart).toBe(true);
+  expect(funded.bridgeFee.amount[0]).toEqual({
+    denom: "uosmo",
+    amount: "12600",
+  });
+  expect(funded.swapFeeCap.amount[0].amount).toBe("72000");
+  expect(f.transactions.sign).not.toHaveBeenCalled();
+});
+
+it("blocks reverse output, issuer, and direction spoofing before fetching a quote", async () => {
+  const f = await fixture();
+  const bad = [
+    new PrepareEpixSwapMsg(
+      "vault",
+      "to-epix",
+      OSMOSIS_EPIX_DENOM,
+      "1",
+      "aepix",
+      100,
+      "uosmo"
+    ),
+    new PrepareEpixSwapMsg(
+      "vault",
+      "to-epix",
+      OSMOSIS_ALL_USDT_DENOM,
+      "1",
+      OSMOSIS_EPIX_DENOM,
+      100,
+      "uosmo"
+    ),
+    new PrepareEpixSwapMsg(
+      "vault",
+      "to-epix",
+      OSMOSIS_ALL_USDT_DENOM + "/spoof",
+      "1",
+      "aepix",
+      100,
+      "uosmo"
+    ),
+    new PrepareEpixSwapMsg(
+      "vault",
+      "invalid" as never,
+      "uosmo",
+      "1",
+      "aepix",
+      100,
+      "uosmo"
+    ),
+  ];
+  for (const msg of bad)
+    await expect(f.service.prepare(env, msg)).rejects.toThrow();
+  expect(f.api.fetchSwapQuote).not.toHaveBeenCalled();
+});
+
+it("requires fresh consent and indexed output proof after restart without requoting spent input", async () => {
+  const f = await fixture();
+  const op = await begin(f, reverseRequest());
+  f.service.revokeApprovals();
+  await advance(5000);
+  const restarted = new EpixSwapService(f.store, f.transactions, f.api);
+  await restarted.init();
+  await restarted.refresh(env, op.id);
+  expect(f.transactions.sign).toHaveBeenCalledTimes(1);
+  f.api.fetchSwapQuote.mockRejectedValue(new Error("Do not quote spent input"));
+  f.api.readBalance.mockImplementation(async (_rest, _address, denom) =>
+    denom === OSMOSIS_EPIX_DENOM ? "1000" : denom === "uosmo" ? "12600" : "0"
+  );
+  const review = await restarted.prepare(env, reverseRequest(op.id));
+  expect(review).toMatchObject({
+    swapComplete: true,
+    swapAmountOut: "1000",
+    estimatedAmountOut: "1000",
+    minimumAmountOut: "990",
+    routes: [],
+    canStart: true,
+    swapFeeCap: { gas: "0" },
+  });
+  const stale = await restarted.prepare(env, reverseRequest(op.id));
+  await restarted.start(env, review.id);
+  await advance(0);
+  expect(f.transactions.sign.mock.calls[1][1]).toBe("bridge");
+  f.api.packetAck.mockResolvedValue("received" as never);
+  await advance(5000);
+  expect(restarted.getOperations(env, "vault")[0].status).toBe("complete");
+  await expect(restarted.start(env, stale.id)).rejects.toThrow();
+  expect(f.transactions.sign).toHaveBeenCalledTimes(2);
+});
+
+it("does not trust stored reverse output or resend an uncertain swap", async () => {
+  const f = await fixture();
+  f.transactions.broadcast.mockRejectedValueOnce(new Error("connection lost"));
+  const op = await begin(f, reverseRequest());
+  const saved = f.service.getOperations(env, "vault");
+  saved[0].swapConfirmed = true;
+  saved[0].swapAmountOut = "999999";
+  await f.store.set("operations", saved);
+  f.api.lookupSwapResult.mockResolvedValue(undefined);
+  const restarted = new EpixSwapService(f.store, f.transactions, f.api);
+  await restarted.init();
+  await restarted.refresh(env, op.id);
+  await expect(restarted.prepare(env, reverseRequest(op.id))).rejects.toThrow(
+    "unconfirmed"
+  );
+  expect(
+    restarted.getOperations(env, "vault")[0].swapAmountOut
+  ).toBeUndefined();
+  expect(f.transactions.sign).toHaveBeenCalledTimes(1);
+});
+
+it("does not bridge when the indexed swap proof is invalid", async () => {
+  const f = await fixture();
+  f.api.lookupSwapResult.mockRejectedValue(new Error("Output proof mismatch"));
+  await begin(f, reverseRequest());
+  await advance(5000);
+  expect(f.service.getOperations(env, "vault")[0]).toMatchObject({
+    status: "paused",
+    error: "Output proof mismatch",
+  });
+  expect(f.transactions.sign).toHaveBeenCalledTimes(1);
+});
+
+it("allows a freshly reviewed return transfer after a known failed bridge without repeating the swap", async () => {
+  const f = await fixture();
+  const op = await begin(f, reverseRequest());
+  await advance(5000);
+  f.api.lookupTx.mockResolvedValueOnce({ code: 5, events: [] });
+  await advance(5000);
+  expect(f.service.getOperations(env, "vault")[0]).toMatchObject({
+    status: "paused",
+    swapConfirmed: true,
+    swapAmountOut: "1000",
+  });
+  expect(f.service.getOperations(env, "vault")[0].bridgeTxHash).toBeUndefined();
+  const review = await f.service.prepare(env, reverseRequest(op.id));
+  await f.service.start(env, review.id);
+  await advance(0);
+  expect(f.transactions.sign.mock.calls.map((call) => call[1])).toEqual([
+    "swap",
+    "bridge",
+    "bridge",
+  ]);
+});
+
+it("never repeats an uncertain return transfer and terminates a known failed initial swap", async () => {
+  const f = await fixture();
+  f.transactions.broadcast
+    .mockImplementationOnce(async (_op, _step, bytes) => sha256(bytes))
+    .mockRejectedValueOnce(new Error("connection lost"));
+  const op = await begin(f, reverseRequest());
+  await advance(5000);
+  f.api.lookupTx.mockResolvedValue(undefined as never);
+  await expect(f.service.prepare(env, reverseRequest(op.id))).rejects.toThrow(
+    "unconfirmed"
+  );
+  expect(f.transactions.sign).toHaveBeenCalledTimes(2);
+  const g = await fixture();
+  g.api.lookupSwapResult.mockResolvedValue({ code: 5 });
+  await begin(g, reverseRequest());
+  await advance(5000);
+  expect(g.service.getOperations(env, "vault")[0].status).toBe("failed");
+  expect(g.transactions.sign).toHaveBeenCalledTimes(1);
 });

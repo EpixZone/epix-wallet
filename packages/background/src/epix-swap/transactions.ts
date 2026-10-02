@@ -11,7 +11,8 @@ import { KeyRingService } from "../keyring/service";
 import { BackgroundTxService } from "../tx/service";
 import { prepareSignDocForDirectSigning } from "../tx-executor/utils/cosmos";
 import { EPIX_CHAIN_ID, OSMOSIS_CHAIN_ID } from "./constants";
-import { EpixSwapOperation } from "./types";
+import { EpixSwapDirection, EpixSwapOperation } from "./types";
+import { chainPair, osmosisAddress, osmosisRest } from "./plan";
 import { simulateTx } from "./network";
 
 export interface SwapContext {
@@ -26,7 +27,7 @@ export interface SwapContext {
 export type SwapStep = "bridge" | "swap";
 export interface SwapTransactions {
   watchContext(onChange: () => void): void;
-  context(vaultId: string): Promise<SwapContext>;
+  context(vaultId: string, direction: EpixSwapDirection): Promise<SwapContext>;
   assertContext(operation: EpixSwapOperation): void;
   simulate(
     operation: EpixSwapOperation,
@@ -41,7 +42,11 @@ export interface SwapTransactions {
     fee: StdFee,
     guard: () => void
   ): Promise<Uint8Array>;
-  broadcast(step: SwapStep, bytes: Uint8Array): Promise<Uint8Array>;
+  broadcast(
+    operation: EpixSwapOperation,
+    step: SwapStep,
+    bytes: Uint8Array
+  ): Promise<Uint8Array>;
 }
 
 /** Only the service's two constructed messages can reach this private signer. */
@@ -72,7 +77,10 @@ export class EpixSwapTransactions implements SwapTransactions {
     }
   }
 
-  async context(vaultId: string): Promise<SwapContext> {
+  async context(
+    vaultId: string,
+    direction: EpixSwapDirection
+  ): Promise<SwapContext> {
     this.assertSelected(vaultId);
     const [source, destination] = await Promise.all([
       this.cosmos.getKey(vaultId, EPIX_CHAIN_ID),
@@ -86,10 +94,20 @@ export class EpixSwapTransactions implements SwapTransactions {
     if (!currency?.gasPriceStep)
       throw new Error("Epix fee configuration is unavailable.");
     return {
-      sourceAddress: source.bech32Address,
-      destinationAddress: destination.bech32Address,
-      sourceRest: sourceChain.rest,
-      destinationRest: this.chains.getChainInfoOrThrow(OSMOSIS_CHAIN_ID).rest,
+      sourceAddress:
+        direction === "to-osmosis"
+          ? source.bech32Address
+          : destination.bech32Address,
+      destinationAddress:
+        direction === "to-osmosis"
+          ? destination.bech32Address
+          : source.bech32Address,
+      sourceRest: this.chains.getChainInfoOrThrow(
+        chainPair(direction).sourceChainId
+      ).rest,
+      destinationRest: this.chains.getChainInfoOrThrow(
+        chainPair(direction).destinationChainId
+      ).rest,
       bridgeGasPrice: currency.gasPriceStep.average.toString(),
       software:
         !source.isNanoLedger &&
@@ -108,9 +126,13 @@ export class EpixSwapTransactions implements SwapTransactions {
     if (!this.chainsUI.isEnabled(operation.vaultId, OSMOSIS_CHAIN_ID))
       throw new Error("Enable Osmosis before starting.");
     if (
-      this.chains.getChainInfoOrThrow(EPIX_CHAIN_ID).rest !==
+      operation.sourceChainId !==
+        chainPair(operation.direction).sourceChainId ||
+      operation.destinationChainId !==
+        chainPair(operation.direction).destinationChainId ||
+      this.chains.getChainInfoOrThrow(operation.sourceChainId).rest !==
         operation.sourceRest ||
-      this.chains.getChainInfoOrThrow(OSMOSIS_CHAIN_ID).rest !==
+      this.chains.getChainInfoOrThrow(operation.destinationChainId).rest !==
         operation.destinationRest
     )
       throw new Error("Network settings changed. Review again.");
@@ -122,11 +144,10 @@ export class EpixSwapTransactions implements SwapTransactions {
     message: Any,
     fee: StdFee
   ) {
-    const chainId = step === "bridge" ? EPIX_CHAIN_ID : OSMOSIS_CHAIN_ID;
+    const chainId =
+      step === "bridge" ? operation.sourceChainId : OSMOSIS_CHAIN_ID;
     const signer =
-      step === "bridge"
-        ? operation.sourceAddress
-        : operation.destinationAddress;
+      step === "bridge" ? operation.sourceAddress : osmosisAddress(operation);
     const key = await this.cosmos.getKey(operation.vaultId, chainId);
     if (key.bech32Address !== signer || key.isNanoLedger || key.isKeystone)
       throw new Error("The reviewed signing account changed.");
@@ -164,7 +185,7 @@ export class EpixSwapTransactions implements SwapTransactions {
       signatures: [new Uint8Array(64)],
     }).finish();
     return simulateTx(
-      step === "bridge" ? operation.sourceRest : operation.destinationRest,
+      step === "bridge" ? operation.sourceRest : osmosisRest(operation),
       bytes
     );
   }
@@ -197,9 +218,13 @@ export class EpixSwapTransactions implements SwapTransactions {
     }).finish();
   }
 
-  broadcast(step: SwapStep, bytes: Uint8Array): Promise<Uint8Array> {
+  broadcast(
+    operation: EpixSwapOperation,
+    step: SwapStep,
+    bytes: Uint8Array
+  ): Promise<Uint8Array> {
     return this.tx.sendTx(
-      step === "bridge" ? EPIX_CHAIN_ID : OSMOSIS_CHAIN_ID,
+      step === "bridge" ? operation.sourceChainId : OSMOSIS_CHAIN_ID,
       bytes,
       "sync",
       { silent: true, skipTracingTxResult: true }

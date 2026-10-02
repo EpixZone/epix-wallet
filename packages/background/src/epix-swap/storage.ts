@@ -1,8 +1,14 @@
 import { StdFee } from "@keplr-wallet/types";
 import { EpixSwapOperation } from "./types";
-import { assertSelection, publicCopy } from "./plan";
+import { assertSelection, chainPair, publicCopy } from "./plan";
 
 const fields = new Set([
+  "direction",
+  "inputDenom",
+  "sourceChainId",
+  "destinationChainId",
+  "swapConfirmed",
+  "swapAmountOut",
   "id",
   "vaultId",
   "sourceAddress",
@@ -48,11 +54,19 @@ export function readStoredOperation(
   )
     throw new TypeError("Invalid public swap record");
   assertSelection(
+    value.direction,
+    value.inputDenom,
     value.amountIn,
     value.outputDenom,
     value.slippageBps,
     value.feeDenom
   );
+  const pair = chainPair(value.direction);
+  if (
+    value.sourceChainId !== pair.sourceChainId ||
+    value.destinationChainId !== pair.destinationChainId
+  )
+    throw new TypeError("Invalid swap chains");
   validateIdentity(value);
   validateProgress(value);
   validateFee(value.bridgeFee);
@@ -74,7 +88,9 @@ function validateIdentity(value: EpixSwapOperation): void {
   }
   if (
     !statuses.has(value.status) ||
-    typeof value.depositConfirmed !== "boolean"
+    typeof value.depositConfirmed !== "boolean" ||
+    (value.swapConfirmed !== undefined &&
+      typeof value.swapConfirmed !== "boolean")
   )
     throw new TypeError("Invalid public swap status");
 }
@@ -89,6 +105,18 @@ function validateProgress(value: EpixSwapOperation): void {
       throw new TypeError("Invalid swap hash");
   }
   validatePacketAndOutput(value);
+  if (
+    value.swapAmountOut !== undefined &&
+    (typeof value.swapAmountOut !== "string" ||
+      !/^[1-9]\d{0,77}$/.test(value.swapAmountOut) ||
+      BigInt(value.swapAmountOut) < BigInt(value.minimumAmountOut))
+  )
+    throw new TypeError("Invalid received swap output");
+  if (
+    value.swapConfirmed &&
+    (!value.swapTxHash || !value.swapAmountOut || value.direction !== "to-epix")
+  )
+    throw new TypeError("Invalid swap confirmation");
 }
 
 function validatePacketAndOutput(value: EpixSwapOperation): void {

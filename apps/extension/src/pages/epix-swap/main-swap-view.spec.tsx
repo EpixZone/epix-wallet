@@ -45,25 +45,27 @@ jest.mock("../../components/input", () => ({
 const props: EpixMainSwapViewProps = {
   t: (key) => key,
   selection: {
+    direction: "to-osmosis",
+    inputDenom: "aepix",
     amount: "1",
     outputDenom: "usdc",
     slippageBps: 100,
     feeDenom: "uosmo",
   },
-  outputOptions: [
+  tokenOptions: [
     { denom: "usdc", label: "USDC" },
     { denom: "btc", label: "BTC (allBTC)" },
     { denom: "uosmo", label: "OSMO" },
   ],
   feeOptions: [{ denom: "uosmo", label: "OSMO" }],
   availableBalance: "1,000 EPIX",
-  osmosisAddress: "osmo-public-test",
+  destinationAddress: "osmo-public-test",
   osmosisEnabled: true,
   quoteState: "ready",
   quote: {
     expectedOutput: "0.00007 USDC",
     minimumOutput: "0.00006 USDC",
-    epixNetworkFee: "0.003 EPIX",
+    bridgeNetworkFee: "0.003 EPIX",
     osmosisNetworkFeeLimit: "0.03 OSMO",
   },
   restoredDraft: false,
@@ -284,7 +286,7 @@ it.each([
     quote: {
       expectedOutput: "0.00007 USDC",
       minimumOutput: "0.00006 USDC",
-      epixNetworkFee: "0.003 EPIX",
+      bridgeNetworkFee: "0.003 EPIX",
       osmosisNetworkFeeLimit: undefined,
     },
   },
@@ -370,7 +372,7 @@ it("shows the bounded approval duration supplied with the quote", () => {
       quote={{
         expectedOutput: "0.00007 USDC",
         minimumOutput: "0.00006 USDC",
-        epixNetworkFee: "0.003 EPIX",
+        bridgeNetworkFee: "0.003 EPIX",
         osmosisNetworkFeeLimit: "0.03 OSMO",
         approvalExpiresAt: Date.now() + 10 * 60_000,
       }}
@@ -390,4 +392,50 @@ it("leaves read-only recovery refresh available while form controls are disabled
   );
   expect(html).toContain('<button disabled="">swap</button>');
   expect(html).toContain("<button>refresh-quote</button>");
+});
+
+it("shows an accessible direction arrow and disables it while an operation owns the selection", () => {
+  const html = renderToStaticMarkup(<EpixMainSwapView {...props} />);
+  expect(html).toMatch(/<button[^>]*aria-label="reverse-direction"[^>]*>/);
+  expect(html).not.toMatch(
+    /<button[^>]*aria-label="reverse-direction"[^>]*disabled/
+  );
+  const locked = renderToStaticMarkup(
+    <EpixMainSwapView {...props} selectionLocked />
+  );
+  expect(locked).toMatch(
+    /<button[^>]*aria-label="reverse-direction"[^>]*disabled=""/
+  );
+});
+
+it("puts the token selector on the paying side and shows EPIX arriving on Epix after flipping", () => {
+  const html = renderToStaticMarkup(
+    <EpixMainSwapView
+      {...props}
+      selection={{
+        ...props.selection,
+        direction: "to-epix",
+        inputDenom: "usdc",
+        outputDenom: "aepix",
+      }}
+      destinationAddress="epix-return-account"
+      availableBalance="2 USDC"
+      quote={{
+        expectedOutput: "14,000 EPIX",
+        minimumOutput: "13,860 EPIX",
+        bridgeNetworkFee: "0.01 OSMO",
+        osmosisNetworkFeeLimit: "0.02 OSMO",
+      }}
+    />
+  );
+  expect(html).toContain('aria-label="pay-token"');
+  expect(html).not.toContain('aria-label="receive-token"');
+  expect(html).toContain("receive-on-epix");
+  expect(html).toContain("14,000 EPIX");
+  expect(html).toContain("epix-return-account");
+  expect(html).toContain("osmosis-bridge-fee");
+  expect(html).toContain("osmosis-swap-fee");
+  expect(html).toContain("reverse-swap-once-help");
+  expect(html).not.toContain("epix-network-fee");
+  expect(html).not.toContain("receive-on-osmosis");
 });

@@ -29,15 +29,16 @@ export function displayAmount(currency: Currency, minimal: string): string {
     .toString();
 }
 
-function displayFee(fee: StdFee): string | undefined {
-  if (fee.amount.length === 0) return displayAmount(EPIX_CURRENCY, "0");
+function displayFee(fee: StdFee, chainId: string): string | undefined {
+  const epix = chainId === EPIX_CHAIN_ID;
+  if (fee.amount.length === 0)
+    return displayAmount(epix ? EPIX_CURRENCY : OSMOSIS_SWAP_TOKENS[3], "0");
   if (fee.amount.length !== 1) return undefined;
   const coin = fee.amount[0];
-  if (
-    coin.denom !== EPIX_CURRENCY.coinMinimalDenom &&
-    !OSMOSIS_SWAP_FEE_OPTIONS.some((option) => option.denom === coin.denom)
-  )
-    return undefined;
+  const allowed = epix
+    ? coin.denom === EPIX_CURRENCY.coinMinimalDenom
+    : OSMOSIS_SWAP_FEE_OPTIONS.some((option) => option.denom === coin.denom);
+  if (!allowed) return undefined;
   const currency = [EPIX_CURRENCY, ...OSMOSIS_SWAP_TOKENS].find(
     (item) => item.coinMinimalDenom === coin.denom
   );
@@ -48,26 +49,83 @@ export function quoteView(
   review: EpixSwapReview,
   registry?: ReadonlyMap<string, OsmosisAssetMetadata>
 ): MainSwapQuoteView | undefined {
+  const returning = review.direction === "to-epix";
+  const currency = outputCurrency(review);
+  if (!currency) return undefined;
+  const routes = review.swapComplete
+    ? undefined
+    : quoteRouteView(
+        review.routes,
+        registry,
+        returning ? review.inputDenom : OSMOSIS_SWAP_TOKENS[0].coinMinimalDenom
+      );
+  return {
+    expectedOutput: displayAmount(currency, review.estimatedAmountOut),
+    minimumOutput: displayAmount(currency, review.minimumAmountOut),
+    bridgeNetworkFee: displayFee(
+      review.bridgeFee,
+      returning ? OSMOSIS_CHAIN_ID : EPIX_CHAIN_ID
+    ),
+    osmosisNetworkFeeLimit: displayFee(review.swapFeeCap, OSMOSIS_CHAIN_ID),
+    approvalExpiresAt: review.executionExpiresAt,
+    ...(routes ? { routes } : {}),
+    ...(review.bridgeComplete ? { bridgeComplete: true } : {}),
+    ...(review.swapComplete ? { swapComplete: true } : {}),
+  };
+}
+
+function outputCurrency(review: EpixSwapReview): Currency | undefined {
+  if (review.direction === "to-epix")
+    return review.outputDenom === EPIX_CURRENCY.coinMinimalDenom
+      ? EPIX_CURRENCY
+      : undefined;
   if (
     !OSMOSIS_SWAP_OUTPUT_OPTIONS.some(
       (option) => option.denom === review.outputDenom
     )
   )
     return undefined;
-  const currency = OSMOSIS_SWAP_TOKENS.find(
+  return OSMOSIS_SWAP_TOKENS.find(
     (item) => item.coinMinimalDenom === review.outputDenom
   );
-  if (!currency) return undefined;
-  const routes = quoteRouteView(review.routes, registry);
-  return {
-    expectedOutput: displayAmount(currency, review.estimatedAmountOut),
-    minimumOutput: displayAmount(currency, review.minimumAmountOut),
-    epixNetworkFee: displayFee(review.bridgeFee),
-    osmosisNetworkFeeLimit: displayFee(review.swapFeeCap),
-    approvalExpiresAt: review.executionExpiresAt,
-    ...(routes ? { routes } : {}),
-    ...(review.bridgeComplete ? { bridgeComplete: true } : {}),
-  };
+}
+
+function reverseSteps(
+  operation: EpixSwapOperation,
+  t: TranslateProgress
+): MainSwapWorkflowView["steps"] {
+  const complete = operation.status === "complete";
+  const failed = operation.status === "failed";
+  const swapped = operation.swapConfirmed === true;
+  let swapState: "complete" | "active" | "failed" = "active";
+  if (swapped) swapState = "complete";
+  else if (failed) swapState = "failed";
+  let bridgeState: "complete" | "active" | "waiting" | "failed" = "waiting";
+  if (operation.depositConfirmed) bridgeState = "complete";
+  else if (swapped) bridgeState = failed ? "failed" : "active";
+  return [
+    {
+      id: "swap",
+      title: t("route-swap-step"),
+      state: swapState,
+      explorerUrl: operation.swapTxHash
+        ? transactionExplorerUrl(OSMOSIS_CHAIN_ID, operation.swapTxHash)
+        : undefined,
+    },
+    {
+      id: "bridge",
+      title: t("route-return-bridge-step"),
+      state: bridgeState,
+      explorerUrl: operation.bridgeTxHash
+        ? transactionExplorerUrl(OSMOSIS_CHAIN_ID, operation.bridgeTxHash)
+        : undefined,
+    },
+    {
+      id: "received",
+      title: t("route-return-receive-step"),
+      state: complete ? "complete" : "waiting",
+    },
+  ];
 }
 
 export function workflowView(
@@ -75,6 +133,16 @@ export function workflowView(
   checking: boolean,
   t: TranslateProgress
 ): MainSwapWorkflowView {
+  if (operation.direction === "to-epix") {
+    return {
+      id: operation.id,
+      statusText: t(reverseStatusKey(operation.status)),
+      canResume: operation.status === "paused",
+      checking,
+      error: operation.error,
+      steps: reverseSteps(operation, t),
+    };
+  }
   const complete = operation.status === "complete";
   let bridgeState: "complete" | "failed" | "active" = "active";
   if (operation.depositConfirmed) bridgeState = "complete";
@@ -114,4 +182,11 @@ export function workflowView(
       },
     ],
   };
+}
+
+function reverseStatusKey(status: EpixSwapOperation["status"]): string {
+  if (status === "complete") return "route-return-complete";
+  if (status === "bridging") return "route-returning";
+  if (status === "waiting-for-deposit") return "route-waiting-for-return";
+  return `route-${status}`;
 }

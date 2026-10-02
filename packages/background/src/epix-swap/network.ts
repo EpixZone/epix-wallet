@@ -1,6 +1,9 @@
 import { Dec } from "@keplr-wallet/unit";
 import { StdFee } from "@keplr-wallet/types";
 import { Buffer } from "buffer/";
+import { TxMsgData } from "@keplr-wallet/proto-types/cosmos/base/abci/v1beta1/abci";
+import { MsgSwapExactAmountInResponse } from "@keplr-wallet/proto-types/osmosis/poolmanager/v1beta1/tx";
+import type { EpixSwapDirection } from "./types";
 import {
   EPIX_CHAIN_ID,
   OSMOSIS_CHAIN_ID,
@@ -202,11 +205,39 @@ export type SwapQuote = {
 };
 
 type QuoteRequest = {
+  direction: EpixSwapDirection;
+  inputDenom: string;
   amountIn: string;
   outputDenom: string;
   slippageBps: number;
   signal?: AbortSignal;
 };
+
+function validSwapPair(request: QuoteRequest): boolean {
+  const allowed = SUPPORTED_OUTPUT_DENOMS as readonly string[];
+  if (request.direction === "to-osmosis") {
+    return (
+      request.inputDenom === EPIX_OSMOSIS_DENOM &&
+      allowed.includes(request.outputDenom)
+    );
+  }
+  return (
+    request.direction === "to-epix" &&
+    allowed.includes(request.inputDenom) &&
+    request.outputDenom === EPIX_OSMOSIS_DENOM
+  );
+}
+
+function assertQuoteRequest(request: QuoteRequest): void {
+  if (
+    !positiveInteger(request.amountIn) ||
+    !validSwapPair(request) ||
+    !Number.isInteger(request.slippageBps) ||
+    request.slippageBps < 1 ||
+    request.slippageBps > 500
+  )
+    throw new TypeError("Invalid swap amount or token");
+}
 
 function quoteRoute(
   data: Record<string, unknown>,
@@ -245,23 +276,14 @@ export function validateSwapQuote(
   request: QuoteRequest,
   now = Date.now()
 ): SwapQuote {
-  if (
-    !positiveInteger(request.amountIn) ||
-    !(SUPPORTED_OUTPUT_DENOMS as readonly string[]).includes(
-      request.outputDenom
-    ) ||
-    !Number.isInteger(request.slippageBps) ||
-    request.slippageBps < 1 ||
-    request.slippageBps > 500
-  )
-    throw new TypeError("Invalid swap amount or token");
+  assertQuoteRequest(request);
   if (record(data) && data["amount_out"] === "0")
     throw new Error("Swap amount is too small");
   if (
     !record(data) ||
     !record(data["amount_in"]) ||
     data["amount_in"]["amount"] !== request.amountIn ||
-    data["amount_in"]["denom"] !== EPIX_OSMOSIS_DENOM ||
+    data["amount_in"]["denom"] !== request.inputDenom ||
     !positiveInteger(data["amount_out"])
   )
     throw new Error("Quote does not match this swap");
@@ -280,9 +302,10 @@ export function validateSwapQuote(
 export async function fetchSwapQuote(
   request: QuoteRequest
 ): Promise<SwapQuote> {
+  assertQuoteRequest(request);
   const started = Date.now();
   const params = new URLSearchParams({
-    tokenIn: request.amountIn + EPIX_OSMOSIS_DENOM,
+    tokenIn: request.amountIn + request.inputDenom,
     tokenOutDenom: request.outputDenom,
     singleRoute: "true",
   });
@@ -436,32 +459,40 @@ function decodeEvents(value: unknown): PacketEvent[] {
   });
 }
 
-export async function lookupTx(
+async function committedTransaction(
   rest: string,
   hash: string,
   signal?: AbortSignal
-): Promise<{ code: number; events: PacketEvent[] } | undefined> {
+): Promise<
+  | {
+      response: Record<string, unknown>;
+      result: Record<string, unknown>;
+      code: number;
+    }
+  | undefined
+> {
   if (!/^[A-Fa-f0-9]{64}$/.test(hash))
     throw new TypeError("Invalid transaction hash");
   try {
-    const response = await fetchJSON<{
-      tx_response?: {
-        txhash?: string;
-        code?: unknown;
-        height?: unknown;
-        events?: unknown;
-      };
-    }>(rest, `/cosmos/tx/v1beta1/txs/${hash}`, signal);
-    const tx = response.tx_response;
+    const response = await fetchJSON<unknown>(
+      rest,
+      `/cosmos/tx/v1beta1/txs/${hash}`,
+      signal
+    );
+    if (!record(response) || !record(response["tx_response"]))
+      throw new Error("Invalid transaction status");
+    const tx = response["tx_response"];
     if (
-      tx?.txhash?.toUpperCase() !== hash.toUpperCase() ||
-      typeof tx.code !== "number" ||
-      !Number.isSafeInteger(tx.code) ||
-      tx.code < 0 ||
-      !positiveInteger(tx.height, uint64Max)
+      typeof tx["txhash"] !== "string" ||
+      tx["txhash"].toUpperCase() !== hash.toUpperCase() ||
+      typeof tx["code"] !== "number" ||
+      !Number.isSafeInteger(tx["code"]) ||
+      tx["code"] < 0 ||
+      tx["code"] > 0xffffffff ||
+      !positiveInteger(tx["height"], uint64Max)
     )
       throw new Error("Invalid transaction status");
-    return { code: tx.code, events: decodeEvents(tx.events) };
+    return { response, result: tx, code: tx["code"] };
   } catch (error) {
     if (error instanceof SwapHTTPError && error.status === 404)
       return undefined;
@@ -469,17 +500,131 @@ export async function lookupTx(
   }
 }
 
+export async function lookupTx(
+  rest: string,
+  hash: string,
+  signal?: AbortSignal
+): Promise<{ code: number; events: PacketEvent[] } | undefined> {
+  const tx = await committedTransaction(rest, hash, signal);
+  return tx
+    ? { code: tx.code, events: decodeEvents(tx.result["events"]) }
+    : undefined;
+}
+
+export type ExpectedSwapResult = Readonly<{
+  sender: string;
+  inputDenom: string;
+  amountIn: string;
+  minimumAmountOut: string;
+  outputDenom: string;
+}>;
+
+const swapMessageType = "/osmosis.poolmanager.v1beta1.MsgSwapExactAmountIn";
+const swapResponseType = `${swapMessageType}Response`;
+
+function assertExpectedSwap(expected: ExpectedSwapResult): void {
+  if (
+    typeof expected.sender !== "string" ||
+    !expected.sender ||
+    expected.sender.length > 128 ||
+    !positiveInteger(expected.amountIn) ||
+    !positiveInteger(expected.minimumAmountOut) ||
+    !validDenom(expected.inputDenom) ||
+    !validDenom(expected.outputDenom)
+  )
+    throw new TypeError("Invalid expected swap");
+}
+
+function validCommittedRoute(value: unknown, outputDenom: string): boolean {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 8)
+    return false;
+  return (
+    value.every(
+      (pool) =>
+        record(pool) &&
+        positiveInteger(pool["pool_id"], uint64Max) &&
+        validDenom(pool["token_out_denom"])
+    ) && value.at(-1)["token_out_denom"] === outputDenom
+  );
+}
+
+function assertCommittedSwap(tx: unknown, expected: ExpectedSwapResult): void {
+  if (!record(tx) || !record(tx["body"]))
+    throw new Error("Invalid committed swap transaction");
+  const messages = tx["body"]["messages"];
+  if (!Array.isArray(messages) || messages.length !== 1)
+    throw new Error("Expected exactly one committed swap message");
+  const message: unknown = messages[0];
+  if (
+    !record(message) ||
+    message["@type"] !== swapMessageType ||
+    message["sender"] !== expected.sender ||
+    !record(message["token_in"]) ||
+    message["token_in"]["denom"] !== expected.inputDenom ||
+    message["token_in"]["amount"] !== expected.amountIn ||
+    message["token_out_min_amount"] !== expected.minimumAmountOut ||
+    !validCommittedRoute(message["routes"], expected.outputDenom)
+  )
+    throw new Error("Committed swap does not match the approved transaction");
+}
+
+function committedSwapAmount(data: unknown, minimumAmountOut: string): string {
+  if (
+    typeof data !== "string" ||
+    data.length > 65_536 ||
+    !/^(?:[A-Fa-f0-9]{2})+$/.test(data)
+  )
+    throw new Error("Invalid committed swap response data");
+  const messages = TxMsgData.decode(Buffer.from(data, "hex"));
+  if (messages.data.length !== 0 || messages.msgResponses.length !== 1)
+    throw new Error("Expected exactly one modern swap response");
+  const response = messages.msgResponses[0];
+  if (response.typeUrl !== swapResponseType)
+    throw new Error("Unexpected committed swap response type");
+  const amount = MsgSwapExactAmountInResponse.decode(
+    response.value
+  ).tokenOutAmount;
+  if (!positiveInteger(amount) || BigInt(amount) < BigInt(minimumAmountOut))
+    throw new Error("Invalid committed swap output amount");
+  return amount;
+}
+
+/** Read only the exact committed swap result, never an account balance delta. */
+export async function lookupSwapResult(
+  rest: string,
+  hash: string,
+  expected: ExpectedSwapResult,
+  signal?: AbortSignal
+): Promise<{ code: number; amountOut?: string } | undefined> {
+  assertExpectedSwap(expected);
+  const tx = await committedTransaction(rest, hash, signal);
+  if (!tx) return undefined;
+  assertCommittedSwap(tx.response["tx"], expected);
+  if (tx.code !== 0) return { code: tx.code };
+  return {
+    code: 0,
+    amountOut: committedSwapAmount(
+      tx.result["data"],
+      expected.minimumAmountOut
+    ),
+  };
+}
+
 export async function packetAck(
   destinationRest: string,
   sequence: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  direction: EpixSwapDirection = "to-osmosis"
 ): Promise<"pending" | "received" | "unknown"> {
   if (!positiveInteger(sequence, uint64Max))
     throw new TypeError("Invalid packet sequence");
+  if (direction !== "to-osmosis" && direction !== "to-epix")
+    throw new TypeError("Invalid bridge direction");
+  const channel = direction === "to-epix" ? "channel-0" : "channel-108456";
   try {
     const response = await fetchJSON<{ acknowledgement?: string }>(
       destinationRest,
-      `/ibc/core/channel/v1/channels/channel-108456/ports/transfer/packet_acks/${sequence}`,
+      `/ibc/core/channel/v1/channels/${channel}/ports/transfer/packet_acks/${sequence}`,
       signal
     );
     return response.acknowledgement ===

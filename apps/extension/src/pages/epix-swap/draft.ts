@@ -1,13 +1,21 @@
 import { KVStore } from "@keplr-wallet/common";
+import type { EpixSwapDirection } from "@keplr-wallet/background";
 
 export type SwapDraft = {
-  outputIndex: number;
+  direction: EpixSwapDirection;
+  tokenIndex: number;
   amount: string;
   slippage: number;
   feeIndex: number;
 };
 
-const draftKeys = new Set(["outputIndex", "amount", "slippage", "feeIndex"]);
+const draftKeys = new Set([
+  "direction",
+  "tokenIndex",
+  "amount",
+  "slippage",
+  "feeIndex",
+]);
 
 function validOutputIndex(value: unknown): value is number {
   return (
@@ -28,7 +36,8 @@ export function validateSwapDraft(value: unknown): value is SwapDraft {
     return false;
   const draft = value as Partial<SwapDraft>;
   return (
-    validOutputIndex(draft.outputIndex) &&
+    (draft.direction === "to-osmosis" || draft.direction === "to-epix") &&
+    validOutputIndex(draft.tokenIndex) &&
     typeof draft.amount === "string" &&
     draft.amount.length <= 100 &&
     draft.amount.trim() === draft.amount &&

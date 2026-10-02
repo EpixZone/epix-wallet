@@ -10,13 +10,11 @@ import { CoinPretty } from "@keplr-wallet/unit";
 import { useStore } from "../../stores";
 import {
   EPIX_CHAIN_ID,
-  EPIX_CURRENCY,
   OSMOSIS_CHAIN_ID,
   OSMOSIS_SWAP_TOKENS,
   OSMOSIS_SWAP_OUTPUT_OPTIONS,
   OSMOSIS_SWAP_FEE_OPTIONS,
 } from "./tokens";
-import { parseAmountToMinimal } from "./amount";
 import { useSwapDraft } from "./use-draft";
 import { useRouteRegistry } from "./use-route-registry";
 import { swapRequester, useSwapOperations } from "./use-operations";
@@ -24,6 +22,8 @@ import { quoteView, workflowView } from "./flow-view";
 import {
   currentOperation,
   swapSelection,
+  swapInputCurrency,
+  swapInputAmount,
   boundAccountReview,
   quoteDisplayState,
   recoveryMessage,
@@ -35,17 +35,6 @@ import {
   DEFAULT_SWAP_DRAFT,
 } from "./main-swap-state";
 import { EpixMainSwapViewProps, MainSwapSelection } from "./main-swap-view";
-
-function inputAmount(value: string): string | undefined {
-  if (!value || value === ".") return undefined;
-  const withZero = value.startsWith(".") ? `0${value}` : value;
-  const normalized = withZero.endsWith(".") ? withZero.slice(0, -1) : withZero;
-  try {
-    return parseAmountToMinimal(normalized, 18);
-  } catch {
-    return undefined;
-  }
-}
 
 export function useMainSwap(): EpixMainSwapViewProps {
   const intl = useIntl();
@@ -82,7 +71,13 @@ export function useMainSwap(): EpixMainSwapViewProps {
   );
   const routeRunning = !!unfinished && !resumeId;
   const selection = swapSelection(draft.draft, unfinished);
-  const amountMinimal = inputAmount(selection.amount);
+  const inputCurrency = swapInputCurrency(selection);
+  const amountMinimal = swapInputAmount(selection);
+  const reverse = selection.direction === "to-epix";
+  const sourceChainId = reverse ? OSMOSIS_CHAIN_ID : EPIX_CHAIN_ID;
+  const destinationChainId = reverse ? EPIX_CHAIN_ID : OSMOSIS_CHAIN_ID;
+  const sourceAccount = reverse ? osmoAccount : epixAccount;
+  const destinationAccount = reverse ? epixAccount : osmoAccount;
   const [retry, setRetry] = useState(0);
   const [enabled, setEnabled] = useState({ owner, ready: false, error: "" });
   useEffect(() => {
@@ -93,6 +88,7 @@ export function useMainSwap(): EpixMainSwapViewProps {
       try {
         await chainStore.enableChainInfoInUIWithVaultId(
           vaultId,
+          EPIX_CHAIN_ID,
           OSMOSIS_CHAIN_ID
         );
         if (!disposed) setEnabled({ owner, ready: true, error: "" });
@@ -120,6 +116,8 @@ export function useMainSwap(): EpixMainSwapViewProps {
   const requestKey = JSON.stringify([
     owner,
     amountMinimal,
+    selection.direction,
+    selection.inputDenom,
     selection.outputDenom,
     selection.feeDenom,
     selection.slippageBps,
@@ -156,6 +154,8 @@ export function useMainSwap(): EpixMainSwapViewProps {
       BACKGROUND_PORT,
       new PrepareEpixSwapMsg(
         vaultId,
+        selection.direction,
+        selection.inputDenom,
         amountMinimal,
         selection.outputDenom,
         selection.slippageBps,
@@ -166,6 +166,8 @@ export function useMainSwap(): EpixMainSwapViewProps {
   }, [
     vaultId,
     amountMinimal,
+    selection.direction,
+    selection.inputDenom,
     selection.outputDenom,
     selection.slippageBps,
     selection.feeDenom,
@@ -220,8 +222,8 @@ export function useMainSwap(): EpixMainSwapViewProps {
     quote,
     requestKey,
     canPrepare,
-    epixAccount.bech32Address,
-    osmoAccount.bech32Address
+    sourceAccount.bech32Address,
+    destinationAccount.bech32Address
   );
   const routeRegistry = useRouteRegistry(!!boundReview);
   const [confirmation, setConfirmation] = useState({
@@ -240,8 +242,8 @@ export function useMainSwap(): EpixMainSwapViewProps {
       Date.now()
     ) && !confirming;
   const isCurrentApproval = (expected: EpixSwapReview) => {
-    const source = accountStore.getAccount(EPIX_CHAIN_ID);
-    const destination = accountStore.getAccount(OSMOSIS_CHAIN_ID);
+    const source = accountStore.getAccount(sourceChainId);
+    const destination = accountStore.getAccount(destinationChainId);
     const ready =
       preparationReady.current &&
       currentRequest.current === requestKey &&
@@ -303,10 +305,12 @@ export function useMainSwap(): EpixMainSwapViewProps {
       );
     }
   };
-  const balanceQuery = queriesStore
-    .get(EPIX_CHAIN_ID)
-    .queryBalances.getQueryBech32Address(epixAccount.bech32Address)
-    .getBalance(EPIX_CURRENCY);
+  const balanceQuery = inputCurrency
+    ? queriesStore
+        .get(sourceChainId)
+        .queryBalances.getQueryBech32Address(sourceAccount.bech32Address)
+        .getBalance(inputCurrency)
+    : undefined;
   const refresh = async () => {
     if (!draft.ready || draft.error) draft.retry();
     if (!isEnabled) setRetry((value) => value + 1);
@@ -316,12 +320,17 @@ export function useMainSwap(): EpixMainSwapViewProps {
   };
   const changeSelection = (update: Partial<MainSwapSelection>) => {
     if (unfinished) return;
+    // Revoke the displayed approval immediately, before the next render.
+    updateQuote({ key: "", loading: false });
     const next = { ...selection, ...update };
     draft.update({
       amount: next.amount,
+      direction: next.direction,
       slippage: next.slippageBps,
-      outputIndex: OSMOSIS_SWAP_TOKENS.findIndex(
-        (token) => token.coinMinimalDenom === next.outputDenom
+      tokenIndex: OSMOSIS_SWAP_TOKENS.findIndex(
+        (token) =>
+          token.coinMinimalDenom ===
+          (next.direction === "to-epix" ? next.inputDenom : next.outputDenom)
       ),
       feeIndex: OSMOSIS_SWAP_TOKENS.findIndex(
         (token) => token.coinMinimalDenom === next.feeDenom
@@ -339,20 +348,20 @@ export function useMainSwap(): EpixMainSwapViewProps {
   );
   const quoteError = quoteMessage(quote, requestKey, confirmation, owner);
   const inputPrice =
-    ownerReady && amountMinimal
-      ? priceStore.calculatePrice(new CoinPretty(EPIX_CURRENCY, amountMinimal))
+    ownerReady && amountMinimal && inputCurrency
+      ? priceStore.calculatePrice(new CoinPretty(inputCurrency, amountMinimal))
       : undefined;
   return {
     t,
     selection,
-    outputOptions: OSMOSIS_SWAP_OUTPUT_OPTIONS,
+    tokenOptions: OSMOSIS_SWAP_OUTPUT_OPTIONS,
     feeOptions: OSMOSIS_SWAP_FEE_OPTIONS,
     availableBalance:
       ownerReady && balanceQuery?.balance.isReady
         ? balanceQuery.balance.trim(true).toString()
         : undefined,
     inputFiat: inputPrice?.toString(),
-    osmosisAddress: ownerReady ? osmoAccount.bech32Address : "",
+    destinationAddress: ownerReady ? destinationAccount.bech32Address : "",
     osmosisEnabled: isEnabled,
     quoteState,
     quote: boundReview ? quoteView(boundReview, routeRegistry) : undefined,

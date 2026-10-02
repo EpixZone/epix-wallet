@@ -5,6 +5,10 @@ import {
 } from "./operations-state";
 
 const operation: EpixSwapOperation = {
+  direction: "to-osmosis",
+  inputDenom: "aepix",
+  sourceChainId: "epix_1916-1",
+  destinationChainId: "osmosis-1",
   id: "swap-a",
   vaultId: "wallet-a",
   sourceAddress: "epix-source-a",

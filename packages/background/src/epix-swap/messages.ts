@@ -1,6 +1,6 @@
 import { Message } from "@keplr-wallet/router";
 import { ROUTE } from "./constants";
-import { EpixSwapOperation, EpixSwapReview } from "./types";
+import { EpixSwapDirection, EpixSwapOperation, EpixSwapReview } from "./types";
 
 function requireId(value: string): void {
   if (typeof value !== "string" || value.length === 0 || value.length > 200) {
@@ -14,6 +14,8 @@ export class PrepareEpixSwapMsg extends Message<EpixSwapReview> {
   }
   constructor(
     public readonly vaultId: string,
+    public readonly direction: EpixSwapDirection,
+    public readonly inputDenom: string,
     public readonly amountMinimal: string,
     public readonly outputDenom: string,
     public readonly slippageBps: number,
@@ -24,6 +26,8 @@ export class PrepareEpixSwapMsg extends Message<EpixSwapReview> {
   }
   validateBasic(): void {
     requireId(this.vaultId);
+    if (this.direction !== "to-osmosis" && this.direction !== "to-epix")
+      throw new TypeError("Invalid swap direction");
     if (!/^[1-9]\d{0,77}$/.test(this.amountMinimal))
       throw new TypeError("Invalid swap amount");
     if (
@@ -33,6 +37,8 @@ export class PrepareEpixSwapMsg extends Message<EpixSwapReview> {
     )
       throw new TypeError("Invalid slippage");
     if (
+      typeof this.inputDenom !== "string" ||
+      this.inputDenom.length > 200 ||
       typeof this.outputDenom !== "string" ||
       this.outputDenom.length > 200 ||
       typeof this.feeDenom !== "string" ||

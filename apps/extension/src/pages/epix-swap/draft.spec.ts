@@ -2,7 +2,8 @@ import { MemoryKVStore } from "@keplr-wallet/common";
 import { SwapDraft, SwapDraftStore, validateSwapDraft } from "./draft";
 
 const draft: SwapDraft = {
-  outputIndex: 1,
+  direction: "to-osmosis",
+  tokenIndex: 1,
   amount: "1.000000000000000001",
   slippage: 100,
   feeIndex: 3,
@@ -26,9 +27,9 @@ it("restores only form choices for the same owner in a reopened store", async ()
 
 it.each([1, 2, 3, 4])(
   "restores allowed output index %i without changing its amount or fee choice",
-  async (outputIndex) => {
-    const storage = new MemoryKVStore(`swap-draft-output-${outputIndex}`);
-    const saved = { ...draft, outputIndex, feeIndex: 5 };
+  async (tokenIndex) => {
+    const storage = new MemoryKVStore(`swap-draft-output-${tokenIndex}`);
+    const saved = { ...draft, tokenIndex, feeIndex: 5 };
     await new SwapDraftStore(storage).save("wallet", saved);
     expect(await new SwapDraftStore(storage).read("wallet")).toEqual(saved);
   }
@@ -37,9 +38,7 @@ it.each([1, 2, 3, 4])(
 it.each([2, 3, 5])(
   "accepts the supported fee index %i independently of output choices",
   (feeIndex) => {
-    expect(validateSwapDraft({ ...draft, outputIndex: 4, feeIndex })).toBe(
-      true
-    );
+    expect(validateSwapDraft({ ...draft, tokenIndex: 4, feeIndex })).toBe(true);
   }
 );
 
@@ -53,10 +52,10 @@ it("accepts incomplete unsigned decimal editing states but rejects untrusted fie
     { ...draft, signedTx: "must never persist" },
     { ...draft, stage: "unknown" },
     { ...draft, inputIndex: 4 },
-    { ...draft, outputIndex: 0 },
-    { ...draft, outputIndex: 0.5 },
-    { ...draft, outputIndex: 5 },
-    { ...draft, outputIndex: 6 },
+    { ...draft, tokenIndex: 0 },
+    { ...draft, tokenIndex: 0.5 },
+    { ...draft, tokenIndex: 5 },
+    { ...draft, tokenIndex: 6 },
     { ...draft, slippage: 10_000 },
     { ...draft, feeIndex: 0 },
     { ...draft, feeIndex: 1 },
@@ -146,4 +145,20 @@ it("retries a failed initial read instead of caching failure as an empty draft",
   const store = new SwapDraftStore(storage);
   await expect(store.read("wallet")).rejects.toThrow("read unavailable");
   expect(await store.read("wallet")).toEqual(draft);
+});
+
+it("restores reverse direction and the selected input without preserving an approval", async () => {
+  const storage = new MemoryKVStore("swap-draft-reverse");
+  const reverse: SwapDraft = {
+    ...draft,
+    direction: "to-epix",
+    tokenIndex: 4,
+    amount: "0.123456",
+  };
+  await new SwapDraftStore(storage).save("wallet", reverse);
+  expect(await new SwapDraftStore(storage).read("wallet")).toEqual(reverse);
+  expect(validateSwapDraft({ ...reverse, direction: "another-chain" })).toBe(
+    false
+  );
+  expect(validateSwapDraft({ ...reverse, reviewId: "old-review" })).toBe(false);
 });
