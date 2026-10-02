@@ -1,15 +1,16 @@
 import { Dec } from "@keplr-wallet/unit";
 import { StdFee } from "@keplr-wallet/types";
 import { Buffer } from "buffer/";
-import { EPIX_CHAIN_ID, OSMOSIS_CHAIN_ID } from "./constants";
+import {
+  EPIX_CHAIN_ID,
+  OSMOSIS_CHAIN_ID,
+  SUPPORTED_OUTPUT_DENOMS,
+} from "./constants";
+
+export { SUPPORTED_OUTPUT_DENOMS } from "./constants";
 
 export const EPIX_OSMOSIS_DENOM =
   "ibc/776917313EC3252954ED622945D4979651ACD909A18E528283F46D7B166F20BF";
-export const SUPPORTED_OUTPUT_DENOMS = [
-  "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
-  "factory/osmo1z6r6qdknhgsc0zeracktgpcxf43j6sekq07nw8sxduc9lg0qjjlqfu25e3/alloyed/allBTC",
-  "uosmo",
-] as const;
 const uint256Max = (BigInt(1) << BigInt(256)) - BigInt(1);
 const uint64Max = (BigInt(1) << BigInt(64)) - BigInt(1);
 

@@ -21,7 +21,7 @@ const bundledTokenImages = new Map<string, string>([
     require("../../public/assets/logo-256.png"),
   ],
   [
-    OSMOSIS_SWAP_TOKENS[1].coinMinimalDenom,
+    OSMOSIS_SWAP_TOKENS[5].coinMinimalDenom,
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     require("../../public/assets/img/route-usdc.svg"),
   ],

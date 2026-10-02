@@ -36,14 +36,14 @@ export type QuoteRouteHop = Readonly<{
 }>;
 
 function tokenLabel(denom: string, metadata?: OsmosisAssetMetadata): string {
-  const currency = OSMOSIS_SWAP_TOKENS.find(
-    (token) => token.coinMinimalDenom === denom
-  );
-  if (currency) return currency.coinDenom;
   const intermediate = Object.values(OSMOSIS_ROUTE_INTERMEDIATES).find(
     (token) => token.denom === denom
   );
   if (intermediate) return intermediate.label;
+  const currency = OSMOSIS_SWAP_TOKENS.find(
+    (token) => token.coinMinimalDenom === denom
+  );
+  if (currency) return currency.coinDenom;
   if (metadata) return metadata.symbol;
   // An unknown intermediate remains a denomination, never a guessed symbol.
   return denom.length > 24 ? `${denom.slice(0, 12)}…${denom.slice(-8)}` : denom;

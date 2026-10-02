@@ -6,6 +6,13 @@ import {
 } from "@keplr-wallet/types";
 import { EPIX_OSMOSIS_DENOM } from "../price/epix";
 
+// Exact alloyed assets from the primary registry; native USDC remains separate.
+// https://github.com/cosmos/chain-registry/blob/cc1ed04b31326bc79f3208e571fb71fa0fddb987/osmosis/assetlist.json
+export const OSMOSIS_ALL_USDT_DENOM =
+  "factory/osmo1em6xs47hd82806f5cxgyufguxrrc7l0aqx7nzzptjuqgswczk8csavdxek/alloyed/allUSDT";
+export const OSMOSIS_ALL_USDC_DENOM =
+  "factory/osmo147h5x9pcj7lm0cttlaefx6sqq5vdfnmwfcqxkmjd7exqm9gc7grqhr75m0/alloyed/allUSDC";
+
 export const OSMOSIS_SWAP_TOKENS: readonly Currency[] = [
   {
     coinDenom: "EPIX",
@@ -14,11 +21,10 @@ export const OSMOSIS_SWAP_TOKENS: readonly Currency[] = [
     coinGeckoId: "epix",
   },
   {
-    coinDenom: "USDC",
-    coinMinimalDenom:
-      "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+    coinDenom: "USDT",
+    coinMinimalDenom: OSMOSIS_ALL_USDT_DENOM,
     coinDecimals: 6,
-    coinGeckoId: "usd-coin",
+    coinGeckoId: "tether",
   },
   {
     coinDenom: "BTC",
@@ -32,6 +38,19 @@ export const OSMOSIS_SWAP_TOKENS: readonly Currency[] = [
     coinMinimalDenom: "uosmo",
     coinDecimals: 6,
     coinGeckoId: "osmosis",
+  },
+  {
+    coinDenom: "USDC",
+    coinMinimalDenom: OSMOSIS_ALL_USDC_DENOM,
+    coinDecimals: 6,
+    coinGeckoId: "usd-coin",
+  },
+  {
+    coinDenom: "USDC",
+    coinMinimalDenom:
+      "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+    coinDecimals: 6,
+    coinGeckoId: "usd-coin",
   },
 ];
 

@@ -1,6 +1,5 @@
 import {
   EPIX_OSMOSIS_DENOM,
-  SUPPORTED_OUTPUT_DENOMS,
   fetchJSON,
   fetchSwapQuote,
   getOsmosisFeeQuote,
@@ -11,9 +10,14 @@ import {
   validateBridgeRoute,
   validateSwapQuote,
 } from "./network";
+import {
+  OSMOSIS_ALL_USDC_DENOM,
+  OSMOSIS_ALL_USDT_DENOM,
+  OSMOSIS_USDC_DENOM,
+} from "./constants";
 
 const originalFetch = global.fetch;
-const usdc = SUPPORTED_OUTPUT_DENOMS[0];
+const usdc = OSMOSIS_ALL_USDC_DENOM;
 const request = {
   amountIn: "1000000000000000000",
   outputDenom: usdc,
@@ -63,6 +67,62 @@ it("validates exact single-route quotes and floors the absolute approved minimum
     expiresAt: 31000,
   });
 });
+
+it.each([OSMOSIS_ALL_USDT_DENOM, OSMOSIS_ALL_USDC_DENOM])(
+  "preserves exact alloyed output amounts and pool IDs for %s",
+  (outputDenom) => {
+    const amountOut = "9007199254740993";
+    const result = validateSwapQuote(
+      {
+        ...quote,
+        amount_out: amountOut,
+        route: [
+          {
+            ...quote.route[0],
+            out_amount: amountOut,
+            pools: [
+              {
+                id: "18446744073709551615",
+                token_out_denom: outputDenom,
+              },
+            ],
+          },
+        ],
+      },
+      { ...request, outputDenom }
+    );
+    expect(result).toMatchObject({
+      amountOut,
+      minimumAmountOut: "8917127262193583",
+      routes: [{ poolId: "18446744073709551615", tokenOutDenom: outputDenom }],
+    });
+  }
+);
+
+it.each([
+  OSMOSIS_USDC_DENOM,
+  "allUSDT",
+  OSMOSIS_ALL_USDT_DENOM.replace("osmo1em6", "osmo1other"),
+  OSMOSIS_ALL_USDC_DENOM.replace("allUSDC", "allUSDT"),
+])(
+  "rejects an unauthorized output even when the quote matches it: %s",
+  (outputDenom) => {
+    expect(() =>
+      validateSwapQuote(
+        {
+          ...quote,
+          route: [
+            {
+              ...quote.route[0],
+              pools: [{ id: 1, token_out_denom: outputDenom }],
+            },
+          ],
+        },
+        { ...request, outputDenom }
+      )
+    ).toThrow("Invalid swap amount or token");
+  }
+);
 
 it.each([
   ["zero output", { ...quote, amount_out: "0" }],
@@ -118,7 +178,8 @@ it("requests a fixed Epix input with single-route routing and rejects unknown ou
 function feeResponses(url: string): unknown {
   if (url.endsWith("cur_eip_base_fee")) return { base_fee: "0.03" };
   if (url.endsWith("base_denom")) return { base_denom: "uosmo" };
-  if (url.endsWith("fee_tokens")) return { fee_tokens: [{ denom: usdc }] };
+  if (url.endsWith("fee_tokens"))
+    return { fee_tokens: [{ denom: OSMOSIS_USDC_DENOM }] };
   if (url.includes("spot_price_by_denom")) return { spot_price: "20" };
   throw new Error("Unexpected request");
 }
@@ -144,8 +205,13 @@ it("converts alternate fees in base units with one final ceiling", async () => {
     url.endsWith("cur_eip_base_fee") ? { base_fee: "0.01" } : feeResponses(url)
   );
   expect(
-    (await getOsmosisFeeQuote({ ...feeRequest, feeDenom: usdc })).fee.amount
-  ).toEqual([{ denom: usdc, amount: "2525" }]);
+    (
+      await getOsmosisFeeQuote({
+        ...feeRequest,
+        feeDenom: OSMOSIS_USDC_DENOM,
+      })
+    ).fee.amount
+  ).toEqual([{ denom: OSMOSIS_USDC_DENOM, amount: "2525" }]);
 });
 
 it("fails closed for rejected fee assets and invalid conversion data", async () => {
@@ -159,7 +225,7 @@ it("fails closed for rejected fee assets and invalid conversion data", async () 
       : feeResponses(url)
   );
   await expect(
-    getOsmosisFeeQuote({ ...feeRequest, feeDenom: usdc })
+    getOsmosisFeeQuote({ ...feeRequest, feeDenom: OSMOSIS_USDC_DENOM })
   ).rejects.toThrow("unavailable");
 });
 

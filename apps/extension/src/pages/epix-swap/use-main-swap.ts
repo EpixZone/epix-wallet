@@ -13,6 +13,8 @@ import {
   EPIX_CURRENCY,
   OSMOSIS_CHAIN_ID,
   OSMOSIS_SWAP_TOKENS,
+  OSMOSIS_SWAP_OUTPUT_OPTIONS,
+  OSMOSIS_SWAP_FEE_OPTIONS,
 } from "./tokens";
 import { parseAmountToMinimal } from "./amount";
 import { useSwapDraft } from "./use-draft";
@@ -30,6 +32,7 @@ import {
   beginQuoteRefresh,
   failQuoteRefresh,
   isQuoteConfirmable,
+  DEFAULT_SWAP_DRAFT,
 } from "./main-swap-state";
 import { EpixMainSwapViewProps, MainSwapSelection } from "./main-swap-view";
 
@@ -70,12 +73,7 @@ export function useMainSwap(): EpixMainSwapViewProps {
     !!osmoAccount.bech32Address;
   const draft = useSwapDraft(
     ownerReady ? `main-swap/${owner}` : undefined,
-    {
-      amount: "",
-      outputIndex: 1,
-      slippage: 100,
-      feeIndex: 3,
-    },
+    DEFAULT_SWAP_DRAFT,
     true
   );
   const operations = useSwapOperations(ownerReady ? vaultId : undefined, owner);
@@ -347,14 +345,8 @@ export function useMainSwap(): EpixMainSwapViewProps {
   return {
     t,
     selection,
-    outputOptions: OSMOSIS_SWAP_TOKENS.slice(1).map((token) => ({
-      denom: token.coinMinimalDenom,
-      label: token.coinDenom === "BTC" ? "BTC (allBTC)" : token.coinDenom,
-    })),
-    feeOptions: [3, 1, 2].map((index) => ({
-      denom: OSMOSIS_SWAP_TOKENS[index].coinMinimalDenom,
-      label: OSMOSIS_SWAP_TOKENS[index].coinDenom,
-    })),
+    outputOptions: OSMOSIS_SWAP_OUTPUT_OPTIONS,
+    feeOptions: OSMOSIS_SWAP_FEE_OPTIONS,
     availableBalance:
       ownerReady && balanceQuery?.balance.isReady
         ? balanceQuery.balance.trim(true).toString()

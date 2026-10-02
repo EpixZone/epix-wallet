@@ -90,7 +90,7 @@ export const MultiplePools = () => (
         { poolId: "2143", tokenOutDenom: "uosmo" },
         {
           poolId: "678",
-          tokenOutDenom: OSMOSIS_SWAP_TOKENS[1].coinMinimalDenom,
+          tokenOutDenom: OSMOSIS_SWAP_TOKENS[4].coinMinimalDenom,
         },
       ]) ?? []
     }

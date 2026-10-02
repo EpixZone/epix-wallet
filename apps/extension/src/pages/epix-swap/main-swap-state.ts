@@ -17,6 +17,13 @@ export type SwapQuoteState = {
 };
 type OwnerMessage = { owner: string; error: string };
 
+export const DEFAULT_SWAP_DRAFT: SwapDraft = {
+  amount: "",
+  outputIndex: 1,
+  slippage: 100,
+  feeIndex: 3,
+};
+
 export function currentOperation(operations: EpixSwapOperation[]) {
   const ordered = [...operations].sort((a, b) => b.createdAt - a.createdAt);
   const operation =

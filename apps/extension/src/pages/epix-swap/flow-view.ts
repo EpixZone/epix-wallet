@@ -6,6 +6,8 @@ import {
   EPIX_CHAIN_ID,
   OSMOSIS_CHAIN_ID,
   OSMOSIS_SWAP_TOKENS,
+  OSMOSIS_SWAP_OUTPUT_OPTIONS,
+  OSMOSIS_SWAP_FEE_OPTIONS,
 } from "./tokens";
 import {
   MainSwapQuoteView,
@@ -31,6 +33,11 @@ function displayFee(fee: StdFee): string | undefined {
   if (fee.amount.length === 0) return displayAmount(EPIX_CURRENCY, "0");
   if (fee.amount.length !== 1) return undefined;
   const coin = fee.amount[0];
+  if (
+    coin.denom !== EPIX_CURRENCY.coinMinimalDenom &&
+    !OSMOSIS_SWAP_FEE_OPTIONS.some((option) => option.denom === coin.denom)
+  )
+    return undefined;
   const currency = [EPIX_CURRENCY, ...OSMOSIS_SWAP_TOKENS].find(
     (item) => item.coinMinimalDenom === coin.denom
   );
@@ -41,6 +48,12 @@ export function quoteView(
   review: EpixSwapReview,
   registry?: ReadonlyMap<string, OsmosisAssetMetadata>
 ): MainSwapQuoteView | undefined {
+  if (
+    !OSMOSIS_SWAP_OUTPUT_OPTIONS.some(
+      (option) => option.denom === review.outputDenom
+    )
+  )
+    return undefined;
   const currency = OSMOSIS_SWAP_TOKENS.find(
     (item) => item.coinMinimalDenom === review.outputDenom
   );

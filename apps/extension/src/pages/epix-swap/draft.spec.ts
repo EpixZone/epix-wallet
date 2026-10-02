@@ -24,6 +24,25 @@ it("restores only form choices for the same owner in a reopened store", async ()
   expect(await reopened.read("another-vault")).toBeUndefined();
 });
 
+it.each([1, 2, 3, 4])(
+  "restores allowed output index %i without changing its amount or fee choice",
+  async (outputIndex) => {
+    const storage = new MemoryKVStore(`swap-draft-output-${outputIndex}`);
+    const saved = { ...draft, outputIndex, feeIndex: 5 };
+    await new SwapDraftStore(storage).save("wallet", saved);
+    expect(await new SwapDraftStore(storage).read("wallet")).toEqual(saved);
+  }
+);
+
+it.each([2, 3, 5])(
+  "accepts the supported fee index %i independently of output choices",
+  (feeIndex) => {
+    expect(validateSwapDraft({ ...draft, outputIndex: 4, feeIndex })).toBe(
+      true
+    );
+  }
+);
+
 it("accepts incomplete unsigned decimal editing states but rejects untrusted fields and options", () => {
   for (const amount of ["", ".", "1.", ".5", "0", "1.000000000000000001"]) {
     expect(validateSwapDraft({ ...draft, amount })).toBe(true);
@@ -34,9 +53,15 @@ it("accepts incomplete unsigned decimal editing states but rejects untrusted fie
     { ...draft, signedTx: "must never persist" },
     { ...draft, stage: "unknown" },
     { ...draft, inputIndex: 4 },
+    { ...draft, outputIndex: 0 },
     { ...draft, outputIndex: 0.5 },
+    { ...draft, outputIndex: 5 },
+    { ...draft, outputIndex: 6 },
     { ...draft, slippage: 10_000 },
     { ...draft, feeIndex: 0 },
+    { ...draft, feeIndex: 1 },
+    { ...draft, feeIndex: 4 },
+    { ...draft, feeIndex: 6 },
     ...["1e3", "-1", "+1", "1.2.3", " 1", "1\n", "1".repeat(101)].map(
       (amount) => ({ ...draft, amount })
     ),

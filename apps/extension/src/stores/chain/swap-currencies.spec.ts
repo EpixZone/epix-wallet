@@ -1,5 +1,8 @@
 import { ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
+import { CoinPretty } from "@keplr-wallet/unit";
 import {
+  OSMOSIS_ALL_USDC_DENOM,
+  OSMOSIS_ALL_USDT_DENOM,
   OSMOSIS_SWAP_TOKENS,
   withOsmosisSwapCurrencies,
 } from "./swap-currencies";
@@ -39,7 +42,7 @@ it("registers received swap assets without visiting the Swap page", () => {
       )
     ).toMatchObject(token);
   }
-  expect(loaded.currencies).toHaveLength(5);
+  expect(loaded.currencies).toHaveLength(7);
   expect(
     loaded.currencies.find((currency) => currency.coinMinimalDenom === "uion")
   ).toBe(ion);
@@ -49,6 +52,57 @@ it("registers received swap assets without visiting the Swap page", () => {
   expect(chain.currencies).toEqual([osmo, ion]);
   expect(pageTokens).toBe(OSMOSIS_SWAP_TOKENS);
 });
+
+it("keeps alloyed output assets distinct from native USDC fee metadata", () => {
+  expect(
+    OSMOSIS_SWAP_TOKENS.map((token) => [
+      token.coinDenom,
+      token.coinMinimalDenom,
+      token.coinDecimals,
+      token.coinGeckoId,
+    ])
+  ).toEqual([
+    [
+      "EPIX",
+      "ibc/776917313EC3252954ED622945D4979651ACD909A18E528283F46D7B166F20BF",
+      18,
+      "epix",
+    ],
+    ["USDT", OSMOSIS_ALL_USDT_DENOM, 6, "tether"],
+    [
+      "BTC",
+      "factory/osmo1z6r6qdknhgsc0zeracktgpcxf43j6sekq07nw8sxduc9lg0qjjlqfu25e3/alloyed/allBTC",
+      8,
+      "bitcoin",
+    ],
+    ["OSMO", "uosmo", 6, "osmosis"],
+    ["USDC", OSMOSIS_ALL_USDC_DENOM, 6, "usd-coin"],
+    [
+      "USDC",
+      "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
+      6,
+      "usd-coin",
+    ],
+  ]);
+});
+
+it.each([
+  [OSMOSIS_ALL_USDT_DENOM, "tether"],
+  [OSMOSIS_ALL_USDC_DENOM, "usd-coin"],
+])(
+  "uses six-decimal scaling and the matching price identity for %s",
+  (denom, priceId) => {
+    const currency = withOsmosisSwapCurrencies(chain).currencies.find(
+      (entry) => entry.coinMinimalDenom === denom
+    );
+    expect(currency).toBeDefined();
+    if (!currency) throw new Error("Missing alloyed currency metadata");
+    expect(new CoinPretty(currency, "1234567").toDec().toString()).toBe(
+      "1.234567000000000000"
+    );
+    expect(currency.coinGeckoId).toBe(priceId);
+  }
+);
 
 it("keeps custom endpoints, fee policy and unrelated chain metadata intact", () => {
   const loaded = withOsmosisSwapCurrencies(chain);
@@ -61,29 +115,32 @@ it("keeps custom endpoints, fee policy and unrelated chain metadata intact", () 
   expect(loaded.feeCurrencies).toHaveLength(1);
 });
 
-it("restores exact verified metadata and deduplicates currencies across repeated loads", () => {
-  const usdc = OSMOSIS_SWAP_TOKENS[1];
-  const stale = {
-    ...usdc,
-    coinDecimals: 18,
-    coinDenom: "Old USDC label",
-    coinGeckoId: "old-price-id",
-    coinImageUrl: "https://example.com/usdc.svg",
-  };
-  const first = withOsmosisSwapCurrencies({
-    ...chain,
-    currencies: [...chain.currencies, stale, stale, osmo],
-  });
-  const second = withOsmosisSwapCurrencies(first);
-  expect(second).toEqual(first);
-  expect(second.currencies).toHaveLength(5);
-  expect(
-    second.currencies.find(
-      (currency) => currency.coinMinimalDenom === usdc.coinMinimalDenom
-    )
-  ).toEqual({ ...stale, ...usdc });
-  expect(stale.coinDecimals).toBe(18);
-});
+it.each([1, 4, 5])(
+  "restores exact metadata for token %i across repeated loads",
+  (index) => {
+    const token = OSMOSIS_SWAP_TOKENS[index];
+    const stale = {
+      ...token,
+      coinDecimals: 18,
+      coinDenom: "Old token label",
+      coinGeckoId: "old-price-id",
+      coinImageUrl: "https://example.com/usdc.svg",
+    };
+    const first = withOsmosisSwapCurrencies({
+      ...chain,
+      currencies: [...chain.currencies, stale, stale, osmo],
+    });
+    const second = withOsmosisSwapCurrencies(first);
+    expect(second).toEqual(first);
+    expect(second.currencies).toHaveLength(7);
+    expect(
+      second.currencies.find(
+        (currency) => currency.coinMinimalDenom === token.coinMinimalDenom
+      )
+    ).toEqual({ ...stale, ...token });
+    expect(stale.coinDecimals).toBe(18);
+  }
+);
 
 it("restores missing currencies after a fresh restart or stale registry response", () => {
   const first = withOsmosisSwapCurrencies(chain);

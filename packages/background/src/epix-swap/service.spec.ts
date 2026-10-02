@@ -11,6 +11,12 @@ import { EpixSwapOperation } from "./types";
 import { SwapTransactions } from "./transactions";
 import { OSMOSIS_EPIX_DENOM, APPROVAL_DURATION_MS } from "./plan";
 import * as network from "./network";
+import {
+  OSMOSIS_ALL_BTC_DENOM,
+  OSMOSIS_ALL_USDC_DENOM,
+  OSMOSIS_ALL_USDT_DENOM,
+  OSMOSIS_USDC_DENOM,
+} from "./constants";
 
 const realImmediate =
   jest.requireActual<typeof import("timers")>("timers").setImmediate;
@@ -70,10 +76,10 @@ async function fixture() {
   const api = {
     ...network,
     validateBridgeRoute: jest.fn().mockResolvedValue(undefined),
-    fetchSwapQuote: jest.fn().mockImplementation(async () => ({
+    fetchSwapQuote: jest.fn().mockImplementation(async ({ outputDenom }) => ({
       amountOut: "1000",
       minimumAmountOut: "990",
-      routes: [{ poolId: "1", tokenOutDenom: "uosmo" }],
+      routes: [{ poolId: "1", tokenOutDenom: outputDenom }],
       expiresAt: Date.now() + 30000,
     })),
     getOsmosisFeeQuote: jest
@@ -128,8 +134,8 @@ async function fixture() {
   return { store, transactions, api, service };
 }
 
-async function begin(f: Awaited<ReturnType<typeof fixture>>) {
-  const review = await f.service.prepare(env, request());
+async function begin(f: Awaited<ReturnType<typeof fixture>>, msg = request()) {
+  const review = await f.service.prepare(env, msg);
   expect(review.canStart).toBe(true);
   const operation = await f.service.start(env, review.id);
   await advance(0);
@@ -148,40 +154,101 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it("one approval deposits exactly once, waits for receipt, then swaps the exact amount with the approved minimum", async () => {
-  const f = await fixture();
-  const operation = await begin(f);
-  expect(f.transactions.broadcast).toHaveBeenCalledTimes(1);
-  const bridge = MsgTransfer.decode(f.transactions.sign.mock.calls[0][2].value);
-  expect(bridge).toMatchObject({
-    sender: "epix1source",
-    receiver: "osmo1destination",
-    sourceChannel: "channel-0",
-    token: { denom: "aepix", amount },
-  });
-  expect(f.service.getOperations(env, "vault")[0].depositConfirmed).toBe(false);
-  f.api.packetAck.mockResolvedValue("received" as never);
-  await advance(5000);
-  expect(f.transactions.broadcast).toHaveBeenCalledTimes(2);
-  const swap = MsgSwapExactAmountIn.decode(
-    f.transactions.sign.mock.calls[1][2].value
-  );
-  expect(swap).toMatchObject({
-    sender: "osmo1destination",
-    tokenIn: { denom: OSMOSIS_EPIX_DENOM, amount },
-    tokenOutMinAmount: "990",
-  });
-  await advance(5000);
-  expect(f.service.getOperations(env, "vault")[0]).toMatchObject({
-    id: operation.id,
-    status: "complete",
-    depositConfirmed: true,
-  });
-  const stored = JSON.stringify(await f.store.get("operations"));
-  expect(stored).not.toMatch(
-    /signedTx|signature|privateKey|bodyBytes|authInfoBytes/
-  );
-});
+it.each([
+  ["OSMO", "uosmo"],
+  ["allBTC", OSMOSIS_ALL_BTC_DENOM],
+  ["allUSDT", OSMOSIS_ALL_USDT_DENOM],
+  ["allUSDC", OSMOSIS_ALL_USDC_DENOM],
+])(
+  "one approval deposits once and swaps to %s with the exact approved amount and minimum",
+  async (_label, outputDenom) => {
+    const f = await fixture();
+    const operation = await begin(
+      f,
+      new PrepareEpixSwapMsg("vault", amount, outputDenom, 100, "uosmo")
+    );
+    expect(f.transactions.broadcast).toHaveBeenCalledTimes(1);
+    const bridge = MsgTransfer.decode(
+      f.transactions.sign.mock.calls[0][2].value
+    );
+    expect(bridge).toMatchObject({
+      sender: "epix1source",
+      receiver: "osmo1destination",
+      sourceChannel: "channel-0",
+      token: { denom: "aepix", amount },
+    });
+    expect(f.service.getOperations(env, "vault")[0].depositConfirmed).toBe(
+      false
+    );
+    f.api.packetAck.mockResolvedValue("received" as never);
+    await advance(5000);
+    expect(f.transactions.broadcast).toHaveBeenCalledTimes(2);
+    const swap = MsgSwapExactAmountIn.decode(
+      f.transactions.sign.mock.calls[1][2].value
+    );
+    expect(swap).toMatchObject({
+      sender: "osmo1destination",
+      tokenIn: { denom: OSMOSIS_EPIX_DENOM, amount },
+      tokenOutMinAmount: "990",
+      routes: [{ poolId: "1", tokenOutDenom: outputDenom }],
+    });
+    await advance(5000);
+    expect(f.service.getOperations(env, "vault")[0]).toMatchObject({
+      id: operation.id,
+      status: "complete",
+      depositConfirmed: true,
+      outputDenom,
+    });
+    const stored = JSON.stringify(await f.store.get("operations"));
+    expect(stored).not.toMatch(
+      /signedTx|signature|privateKey|bodyBytes|authInfoBytes/
+    );
+  }
+);
+
+it.each([
+  ["native USDC output", OSMOSIS_USDC_DENOM, "uosmo"],
+  [
+    "different factory issuer",
+    OSMOSIS_ALL_USDT_DENOM.replace("osmo1em6", "osmo1other"),
+    "uosmo",
+  ],
+  ["allUSDT fee", "uosmo", OSMOSIS_ALL_USDT_DENOM],
+  ["allUSDC fee", "uosmo", OSMOSIS_ALL_USDC_DENOM],
+])(
+  "rejects %s before quoting or authorization",
+  async (_label, outputDenom, feeDenom) => {
+    const f = await fixture();
+    await expect(
+      f.service.prepare(
+        env,
+        new PrepareEpixSwapMsg("vault", amount, outputDenom, 100, feeDenom)
+      )
+    ).rejects.toThrow("Unsupported swap asset");
+    expect(f.api.fetchSwapQuote).not.toHaveBeenCalled();
+    expect(f.api.getOsmosisFeeQuote).not.toHaveBeenCalled();
+    expect(f.transactions.sign).not.toHaveBeenCalled();
+  }
+);
+
+it.each([OSMOSIS_USDC_DENOM, OSMOSIS_ALL_BTC_DENOM, "uosmo"])(
+  "keeps the existing fee asset %s available with a new alloyed output",
+  async (feeDenom) => {
+    const f = await fixture();
+    const review = await f.service.prepare(
+      env,
+      new PrepareEpixSwapMsg(
+        "vault",
+        amount,
+        OSMOSIS_ALL_USDT_DENOM,
+        100,
+        feeDenom
+      )
+    );
+    expect(review.canStart).toBe(true);
+    expect(review.swapFeeCap.amount[0].denom).toBe(feeDenom);
+  }
+);
 
 it("copies the validated quote route for display and executes the fresh route after deposit", async () => {
   const f = await fixture();
@@ -299,23 +366,41 @@ it("never retries an ambiguous broadcast, including after restart and read-only 
   expect(f.transactions.broadcast).toHaveBeenCalledTimes(1);
 });
 
-it("a restart requires fresh consent before swapping a verified deposit", async () => {
-  const f = await fixture();
-  const op = await begin(f);
-  f.service.revokeApprovals();
-  const restarted = new EpixSwapService(f.store, f.transactions, f.api);
-  await restarted.init();
-  f.api.packetAck.mockResolvedValue("received" as never);
-  await restarted.refresh(env, op.id);
-  expect(f.transactions.sign).toHaveBeenCalledTimes(1);
-  const review = await restarted.prepare(env, request(op.id));
-  expect(review.bridgeComplete).toBe(true);
-  expect(review.bridgeFee.gas).toBe("0");
-  await restarted.start(env, review.id);
-  await advance(0);
-  expect(f.transactions.sign).toHaveBeenCalledTimes(2);
-  expect(f.transactions.sign.mock.calls[1][1]).toBe("swap");
-});
+it.each([OSMOSIS_ALL_USDT_DENOM, OSMOSIS_ALL_USDC_DENOM])(
+  "a restart requires fresh consent before swapping a verified deposit to %s",
+  async (outputDenom) => {
+    const f = await fixture();
+    const msg = new PrepareEpixSwapMsg(
+      "vault",
+      amount,
+      outputDenom,
+      100,
+      "uosmo"
+    );
+    const op = await begin(f, msg);
+    f.service.revokeApprovals();
+    const restarted = new EpixSwapService(f.store, f.transactions, f.api);
+    await restarted.init();
+    f.api.packetAck.mockResolvedValue("received" as never);
+    await restarted.refresh(env, op.id);
+    expect(f.transactions.sign).toHaveBeenCalledTimes(1);
+    const review = await restarted.prepare(
+      env,
+      new PrepareEpixSwapMsg("vault", amount, outputDenom, 100, "uosmo", op.id)
+    );
+    expect(review.bridgeComplete).toBe(true);
+    expect(review.bridgeFee.gas).toBe("0");
+    await restarted.start(env, review.id);
+    await advance(0);
+    expect(f.transactions.sign).toHaveBeenCalledTimes(2);
+    expect(f.transactions.sign.mock.calls[1][1]).toBe("swap");
+    const swap = MsgSwapExactAmountIn.decode(
+      f.transactions.sign.mock.calls[1][2].value
+    );
+    expect(swap.routes.at(-1)?.tokenOutDenom).toBe(outputDenom);
+    expect(swap.tokenOutMinAmount).toBe(review.minimumAmountOut);
+  }
+);
 
 it("does not dispatch when durable hash storage fails or context changes after signing", async () => {
   const f = await fixture();

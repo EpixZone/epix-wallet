@@ -24,7 +24,7 @@ const review: EpixSwapReview = {
   sourceAddress: "epix-public-address",
   destinationAddress: "osmo-public-address",
   amountIn: "1000000000000000000",
-  outputDenom: OSMOSIS_SWAP_TOKENS[1].coinMinimalDenom,
+  outputDenom: OSMOSIS_SWAP_TOKENS[4].coinMinimalDenom,
   estimatedAmountOut: "81",
   minimumAmountOut: "1",
   bridgeFee: { gas: "350000", amount: [{ denom: "aepix", amount: "1" }] },
@@ -57,6 +57,37 @@ it("preserves tiny output, approved minimum and fee-cap units exactly", () => {
   expect(displayAmount(EPIX_CURRENCY, "1000000000000000001")).toBe(
     "1.000000000000000001 EPIX"
   );
+});
+
+it.each([1, 4])(
+  "formats alloyed stablecoin output %s with exact six-decimal units",
+  (index) => {
+    const token = OSMOSIS_SWAP_TOKENS[index];
+    const view = quoteView({ ...review, outputDenom: token.coinMinimalDenom });
+    expect(view?.expectedOutput).toBe(`0.000081 ${token.coinDenom}`);
+    expect(view?.minimumOutput).toBe(`0.000001 ${token.coinDenom}`);
+    expect(view?.osmosisNetworkFeeLimit).toBe("0.072 OSMO");
+    expect(
+      quoteView({
+        ...review,
+        swapFeeCap: {
+          gas: "2000000",
+          amount: [{ denom: token.coinMinimalDenom, amount: "1" }],
+        },
+      })?.osmosisNetworkFeeLimit
+    ).toBeUndefined();
+  }
+);
+
+it("does not offer native USDC as an output while retaining its separate fee units", () => {
+  const native = OSMOSIS_SWAP_TOKENS[5].coinMinimalDenom;
+  expect(quoteView({ ...review, outputDenom: native })).toBeUndefined();
+  expect(
+    quoteView({
+      ...review,
+      swapFeeCap: { gas: "2000000", amount: [{ denom: native, amount: "1" }] },
+    })?.osmosisNetworkFeeLimit
+  ).toBe("0.000001 USDC");
 });
 
 it("uses registry metadata only for route display, never outputs, fees or approved amounts", () => {
@@ -119,7 +150,7 @@ it("includes the validated quote path with exact pool IDs and denomination metad
     {
       poolId: "3567",
       tokenIn: "OSMO",
-      tokenOut: "USDC",
+      tokenOut: "USDC (allUSDC)",
       tokenInDenom: "uosmo",
       tokenOutDenom: review.outputDenom,
     },

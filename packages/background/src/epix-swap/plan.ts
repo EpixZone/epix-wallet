@@ -3,14 +3,12 @@ import { MsgTransfer } from "@keplr-wallet/proto-types/ibc/applications/transfer
 import { MsgSwapExactAmountIn } from "@keplr-wallet/proto-types/osmosis/poolmanager/v1beta1/tx";
 import { Any } from "@keplr-wallet/proto-types/google/protobuf/any";
 import { EpixSwapOperation } from "./types";
+import { SUPPORTED_FEE_DENOMS, SUPPORTED_OUTPUT_DENOMS } from "./constants";
 
 export const OSMOSIS_EPIX_DENOM =
   "ibc/776917313EC3252954ED622945D4979651ACD909A18E528283F46D7B166F20BF";
-export const OUTPUT_DENOMS = new Set([
-  "uosmo",
-  "ibc/498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4",
-  "factory/osmo1z6r6qdknhgsc0zeracktgpcxf43j6sekq07nw8sxduc9lg0qjjlqfu25e3/alloyed/allBTC",
-]);
+export const OUTPUT_DENOMS = new Set<string>(SUPPORTED_OUTPUT_DENOMS);
+const FEE_DENOMS = new Set<string>(SUPPORTED_FEE_DENOMS);
 export const MAX_SWAP_GAS = "2000000";
 export const MAX_BRIDGE_GAS = "350000";
 export const APPROVAL_DURATION_MS = 15 * 60 * 1000;
@@ -29,7 +27,7 @@ export function assertSelection(
       )
   )
     throw new TypeError("Invalid swap amount");
-  if (!OUTPUT_DENOMS.has(output) || !OUTPUT_DENOMS.has(feeDenom))
+  if (!OUTPUT_DENOMS.has(output) || !FEE_DENOMS.has(feeDenom))
     throw new TypeError("Unsupported swap asset");
   if (!Number.isInteger(slippage) || slippage < 1 || slippage > 500)
     throw new TypeError("Slippage must be between 0.01% and 5%");

@@ -11,8 +11,13 @@ import {
   recoveryMessage,
   swapSelection,
   SwapQuoteState,
+  DEFAULT_SWAP_DRAFT,
 } from "./main-swap-state";
-import { OSMOSIS_SWAP_TOKENS } from "./tokens";
+import {
+  OSMOSIS_SWAP_TOKENS,
+  OSMOSIS_SWAP_OUTPUT_OPTIONS,
+  OSMOSIS_SWAP_FEE_OPTIONS,
+} from "./tokens";
 
 const review: EpixSwapReview = {
   id: "review-a",
@@ -40,6 +45,31 @@ const draft: SwapDraft = {
   slippage: 100,
 };
 
+test("offers exactly the four requested outputs and defaults new forms to alloyed USDT", () => {
+  expect(OSMOSIS_SWAP_OUTPUT_OPTIONS.map((option) => option.label)).toEqual([
+    "BTC (allBTC)",
+    "USDT (allUSDT)",
+    "USDC (allUSDC)",
+    "OSMO",
+  ]);
+  const initial = swapSelection(DEFAULT_SWAP_DRAFT);
+  expect(initial).toEqual({
+    amount: "",
+    outputDenom:
+      "factory/osmo1em6xs47hd82806f5cxgyufguxrrc7l0aqx7nzzptjuqgswczk8csavdxek/alloyed/allUSDT",
+    feeDenom: "uosmo",
+    slippageBps: 100,
+  });
+  expect(
+    OSMOSIS_SWAP_OUTPUT_OPTIONS.map((option) => option.denom)
+  ).not.toContain(OSMOSIS_SWAP_TOKENS[5].coinMinimalDenom);
+  expect(OSMOSIS_SWAP_FEE_OPTIONS.map((option) => option.denom)).toEqual([
+    "uosmo",
+    OSMOSIS_SWAP_TOKENS[5].coinMinimalDenom,
+    OSMOSIS_SWAP_TOKENS[2].coinMinimalDenom,
+  ]);
+});
+
 function operation(
   changes: Partial<EpixSwapOperation> = {}
 ): EpixSwapOperation {
@@ -53,7 +83,7 @@ function operation(
     minimumAmountOut: "1980",
     estimatedAmountOut: "2000",
     slippageBps: 50,
-    feeDenom: OSMOSIS_SWAP_TOKENS[1].coinMinimalDenom,
+    feeDenom: OSMOSIS_SWAP_TOKENS[5].coinMinimalDenom,
     bridgeFee: review.bridgeFee,
     swapFeeCap: review.swapFeeCap,
     sourceRest: "https://source.example",

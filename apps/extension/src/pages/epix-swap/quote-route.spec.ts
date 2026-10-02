@@ -3,7 +3,7 @@ import { OSMOSIS_SWAP_TOKENS } from "./tokens";
 import { parseOsmosisAssetRegistry } from "./osmosis-asset-registry";
 
 const epix = OSMOSIS_SWAP_TOKENS[0].coinMinimalDenom;
-const usdc = OSMOSIS_SWAP_TOKENS[1].coinMinimalDenom;
+const usdc = OSMOSIS_SWAP_TOKENS[5].coinMinimalDenom;
 const allEth =
   "factory/osmo1k6c8jln7ejuqwtqmay3yvzrg3kueaczl96pk067ldg8u835w0yhsw27twm/alloyed/allETH";
 const allUsdt =
@@ -114,7 +114,7 @@ it.each([
   });
   expect(
     OSMOSIS_SWAP_TOKENS.some((token) => token.coinMinimalDenom === denom)
-  ).toBe(false);
+  ).toBe(true);
 });
 
 it.each([

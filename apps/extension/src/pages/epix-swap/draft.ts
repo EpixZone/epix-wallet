@@ -9,12 +9,12 @@ export type SwapDraft = {
 
 const draftKeys = new Set(["outputIndex", "amount", "slippage", "feeIndex"]);
 
-function validTokenIndex(value: unknown): value is number {
+function validOutputIndex(value: unknown): value is number {
   return (
     typeof value === "number" &&
     Number.isInteger(value) &&
     value >= 1 &&
-    value <= 3
+    value <= 4
   );
 }
 
@@ -28,13 +28,13 @@ export function validateSwapDraft(value: unknown): value is SwapDraft {
     return false;
   const draft = value as Partial<SwapDraft>;
   return (
-    validTokenIndex(draft.outputIndex) &&
+    validOutputIndex(draft.outputIndex) &&
     typeof draft.amount === "string" &&
     draft.amount.length <= 100 &&
     draft.amount.trim() === draft.amount &&
     /^\d*(?:\.\d*)?$/.test(draft.amount) &&
     [50, 100, 300].includes(draft.slippage ?? 0) &&
-    [1, 2, 3].includes(draft.feeIndex ?? 0)
+    [2, 3, 5].includes(draft.feeIndex ?? 0)
   );
 }
 
