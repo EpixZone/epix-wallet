@@ -235,6 +235,7 @@ it("marks refund only for a decoded matching error acknowledgement", () => {
   expect(tracked.hop.error).toBe("Packet processing failed");
   expect(tracked.onRetry).toHaveBeenCalledTimes(1);
   expect(tracked.onAllCompleted).not.toHaveBeenCalled();
+  expect(tracked.onHopCompleted).not.toHaveBeenCalled();
 });
 
 it.each([
