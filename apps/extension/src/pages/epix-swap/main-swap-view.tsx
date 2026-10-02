@@ -45,6 +45,12 @@ export type MainSwapQuoteView = {
   routes?: ReadonlyArray<QuoteRouteHop>;
   bridgeComplete?: boolean;
   swapComplete?: boolean;
+  feeShortfall?: {
+    available: string;
+    required: string;
+    shortfall: string;
+    address: string;
+  };
 };
 export type MainSwapWorkflowView = {
   id: string;
@@ -416,23 +422,39 @@ function SwapSubmitSection({
   onConfirm,
   onRefresh,
   workflow,
+  feeOptions,
+  selectionLocked,
+  onSelectionChange,
 }: EpixMainSwapViewProps) {
   const action =
     selection.direction === "to-epix" ? "swap-and-bridge" : "bridge-and-swap";
   return (
     <React.Fragment>
-      {blockReason && (
-        <DSTypography as="p" size="textSm" role="status">
-          {blockReason}
+      {quote?.feeShortfall ? (
+        <FeeShortfallNotice
+          t={t}
+          funding={quote.feeShortfall}
+          feeDenom={selection.feeDenom}
+          feeOptions={feeOptions}
+          disabled={controlsDisabled || selectionLocked}
+          onFeeChange={(feeDenom) => onSelectionChange({ feeDenom })}
+        />
+      ) : (
+        blockReason && (
+          <DSTypography as="p" size="textSm" role="status">
+            {blockReason}
+          </DSTypography>
+        )
+      )}
+      {!blockReason && quote && (
+        <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
+          {t(
+            selection.direction === "to-epix"
+              ? "reverse-swap-once-help"
+              : "swap-once-help"
+          )}
         </DSTypography>
       )}
-      <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
-        {t(
-          selection.direction === "to-epix"
-            ? "reverse-swap-once-help"
-            : "swap-once-help"
-        )}
-      </DSTypography>
       <Button
         text={t(workflow?.canResume ? "resume" : action)}
         disabled={
@@ -456,6 +478,54 @@ function SwapSubmitSection({
         onClick={onRefresh}
       />
     </React.Fragment>
+  );
+}
+
+function FeeShortfallNotice({
+  t,
+  funding,
+  feeDenom,
+  feeOptions,
+  disabled = false,
+  onFeeChange,
+}: Readonly<{
+  t: TranslateProgress;
+  funding: NonNullable<MainSwapQuoteView["feeShortfall"]>;
+  feeDenom: string;
+  feeOptions: ReadonlyArray<MainSwapTokenOption>;
+  disabled?: boolean;
+  onFeeChange: (denom: string) => void;
+}>) {
+  return (
+    <Panel aria-label={t("fee-funding-title")}>
+      <DSTypography as="h2" size="textLg">
+        {t("fee-funding-title")}
+      </DSTypography>
+      <DSTypography as="p" size="textSm" role="status">
+        {t("fee-funding-shortfall", { amount: funding.shortfall })}
+      </DSTypography>
+      <QuoteLine label={t("fee-funding-available")} value={funding.available} />
+      <QuoteLine label={t("fee-funding-required")} value={funding.required} />
+      <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
+        {t("fee-funding-help")}
+      </DSTypography>
+      <TokenSelect
+        label={t("fee-token")}
+        value={feeDenom}
+        options={feeOptions}
+        disabled={disabled}
+        onChange={onFeeChange}
+      />
+      <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
+        {t("fee-funding-address")}
+      </DSTypography>
+      <DSTypography
+        size="textXs"
+        style={{ overflowWrap: "anywhere", userSelect: "all" }}
+      >
+        {funding.address}
+      </DSTypography>
+    </Panel>
   );
 }
 

@@ -163,6 +163,93 @@ it("does not offer native USDC as an output while retaining its separate fee uni
   ).toBe("0.000001 USDC");
 });
 
+it.each([
+  {
+    token: 3,
+    available: "0",
+    required: "72000",
+    shortfall: "72000",
+    displayed: ["0 OSMO", "0.072 OSMO", "0.072 OSMO"],
+  },
+  {
+    token: 5,
+    available: "17",
+    required: "29",
+    shortfall: "12",
+    displayed: ["0.000017 USDC", "0.000029 USDC", "0.000012 USDC"],
+  },
+  {
+    token: 2,
+    available: "9007199254740993",
+    required: "9007199254740994",
+    shortfall: "1",
+    displayed: [
+      "90,071,992.54740993 BTC",
+      "90,071,992.54740994 BTC",
+      "0.00000001 BTC",
+    ],
+  },
+])(
+  "formats fee funding for token $token without losing minimal units or zero balances",
+  ({ token, available, required, shortfall, displayed }) => {
+    const funding = quoteView({
+      ...review,
+      canStart: false,
+      feeShortfall: {
+        denom: OSMOSIS_SWAP_TOKENS[token].coinMinimalDenom,
+        available,
+        required,
+        shortfall,
+        address: review.destinationAddress,
+      },
+    })?.feeShortfall;
+    expect(funding).toEqual({
+      available: displayed[0],
+      required: displayed[1],
+      shortfall: displayed[2],
+      address: review.destinationAddress,
+    });
+  }
+);
+
+it("preserves the reserved-input fee balance and actual Osmosis address for a reverse swap", () => {
+  const funding = quoteView({
+    ...reverseReview,
+    inputDenom: "uosmo",
+    amountIn: "1000000",
+    canStart: false,
+    feeShortfall: {
+      denom: "uosmo",
+      available: "4321",
+      required: "84600",
+      shortfall: "80279",
+      address: reverseReview.sourceAddress,
+    },
+  })?.feeShortfall;
+  expect(funding).toEqual({
+    available: "0.004321 OSMO",
+    required: "0.0846 OSMO",
+    shortfall: "0.080279 OSMO",
+    address: "osmo-public-address",
+  });
+});
+
+it("does not invent fee-funding units for an unknown denomination", () => {
+  expect(
+    quoteView({
+      ...review,
+      feeShortfall: {
+        denom: "factory/unknown/usdc",
+        available: "0",
+        required: "1",
+        shortfall: "1",
+        address: review.destinationAddress,
+      },
+    })?.feeShortfall
+  ).toBeUndefined();
+  expect(quoteView(review)?.feeShortfall).toBeUndefined();
+});
+
 it("uses registry metadata only for route display, never outputs, fees or approved amounts", () => {
   const registry = parseOsmosisAssetRegistry(
     JSON.stringify({

@@ -34,6 +34,14 @@ export interface EpixSwapReview {
   swapFeeCap: StdFee;
   canStart: boolean;
   blockReason?: string;
+  /** Osmosis fee balance after reserving any input spent from the same asset. */
+  feeShortfall?: {
+    denom: string;
+    available: string;
+    required: string;
+    shortfall: string;
+    address: string;
+  };
   resumeOperationId?: string;
 }
 

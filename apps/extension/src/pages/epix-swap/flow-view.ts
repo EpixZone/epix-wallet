@@ -67,9 +67,26 @@ export function quoteView(
     ),
     osmosisNetworkFeeLimit: displayFee(review.swapFeeCap, OSMOSIS_CHAIN_ID),
     approvalExpiresAt: review.executionExpiresAt,
+    feeShortfall: feeShortfallView(review.feeShortfall),
     ...(routes ? { routes } : {}),
     ...(review.bridgeComplete ? { bridgeComplete: true } : {}),
     ...(review.swapComplete ? { swapComplete: true } : {}),
+  };
+}
+
+function feeShortfallView(
+  funding: EpixSwapReview["feeShortfall"]
+): MainSwapQuoteView["feeShortfall"] {
+  if (!funding) return undefined;
+  const currency = OSMOSIS_SWAP_TOKENS.find(
+    (item) => item.coinMinimalDenom === funding.denom
+  );
+  if (!currency) return undefined;
+  return {
+    available: displayAmount(currency, funding.available),
+    required: displayAmount(currency, funding.required),
+    shortfall: displayAmount(currency, funding.shortfall),
+    address: funding.address,
   };
 }
 

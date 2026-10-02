@@ -22,6 +22,7 @@ import {
   OSMOSIS_EPIX_DENOM,
   chainPair,
   osmosisRest,
+  osmosisAddress,
   quoteSelection,
   assertFeeWithin,
   assertSelection,
@@ -35,6 +36,27 @@ interface ReviewPlan {
   review: EpixSwapReview;
   operation: EpixSwapOperation;
   resumeState?: string;
+}
+
+type FundingStatus = Pick<EpixSwapReview, "blockReason" | "feeShortfall">;
+
+function feeFundingStatus(
+  operation: EpixSwapOperation,
+  available: bigint,
+  required: bigint,
+  blockReason: string
+): FundingStatus {
+  if (available >= required) return {};
+  return {
+    blockReason,
+    feeShortfall: {
+      denom: operation.feeDenom,
+      available: available.toString(),
+      required: required.toString(),
+      shortfall: (required - available).toString(),
+      address: osmosisAddress(operation),
+    },
+  };
 }
 
 function recoveryState(operation: EpixSwapOperation): string {
@@ -188,7 +210,7 @@ export class EpixSwapService {
     const operation = this.makeOperation(msg, context, previous, now);
     await this.validateRoute(operation);
     const { quote, expiresAt } = await this.prepareBounds(operation, context);
-    const blockReason = await this.checkFunding(operation, context);
+    const funding = await this.checkFunding(operation, context);
     const review: EpixSwapReview = {
       id: crypto.randomUUID(),
       direction: operation.direction,
@@ -209,8 +231,8 @@ export class EpixSwapService {
       swapAmountOut: operation.swapAmountOut,
       bridgeFee: operation.bridgeFee,
       swapFeeCap: operation.swapFeeCap,
-      canStart: !blockReason,
-      blockReason,
+      canStart: !funding.blockReason,
+      ...funding,
       resumeOperationId: msg.resumeOperationId,
     };
     // Public callers receive copies and cannot mutate the held review or plan.
@@ -371,12 +393,17 @@ export class EpixSwapService {
   private async checkFunding(
     operation: EpixSwapOperation,
     context: SwapContext
-  ): Promise<string | undefined> {
+  ): Promise<FundingStatus> {
     this.assertAddresses(operation, context);
     if (!context.software)
-      return "This one-confirmation flow requires a software wallet.";
+      return {
+        blockReason: "This one-confirmation flow requires a software wallet.",
+      };
     if (!context.enabled)
-      return "Enable Osmosis before starting so the received assets are visible.";
+      return {
+        blockReason:
+          "Enable Osmosis before starting so the received assets are visible.",
+      };
     if (operation.direction === "to-epix")
       return this.checkReverseFunding(operation);
     const inputRest = operation.depositConfirmed
@@ -402,15 +429,20 @@ export class EpixSwapService {
         ? BigInt(0)
         : BigInt(operation.bridgeFee.amount[0].amount));
     if (BigInt(input) < requiredInput)
-      return "Insufficient EPIX for the amount and bridge fee.";
-    if (BigInt(feeBalance) < BigInt(operation.swapFeeCap.amount[0].amount))
-      return "Fund the selected Osmosis fee asset before starting. Swap output cannot pay its own initial fee.";
-    return undefined;
+      return {
+        blockReason: "Insufficient EPIX for the amount and bridge fee.",
+      };
+    return feeFundingStatus(
+      operation,
+      BigInt(feeBalance),
+      BigInt(operation.swapFeeCap.amount[0].amount),
+      "Fund the selected Osmosis fee asset before starting. Swap output cannot pay its own initial fee."
+    );
   }
 
   private async checkReverseFunding(
     operation: EpixSwapOperation
-  ): Promise<string | undefined> {
+  ): Promise<FundingStatus> {
     const inputDenom = operation.swapConfirmed
       ? OSMOSIS_EPIX_DENOM
       : operation.inputDenom;
@@ -422,25 +454,32 @@ export class EpixSwapService {
       (operation.swapConfirmed
         ? BigInt(0)
         : BigInt(operation.swapFeeCap.amount[0].amount));
-    const [input, feeBalance] = await Promise.all([
-      this.api.readBalance(
-        operation.sourceRest,
-        operation.sourceAddress,
-        inputDenom
-      ),
-      this.api.readBalance(
-        operation.sourceRest,
-        operation.sourceAddress,
-        operation.feeDenom
-      ),
-    ]);
-    const requiredInput =
-      BigInt(amount) + (inputDenom === operation.feeDenom ? fees : BigInt(0));
-    if (BigInt(input) < requiredInput)
-      return "Insufficient input for the swap amount and approved fees.";
-    if (BigInt(feeBalance) < fees)
-      return "Fund the selected Osmosis fee asset for both the swap and return transfer before starting.";
-    return undefined;
+    const inputBalance = this.api.readBalance(
+      operation.sourceRest,
+      operation.sourceAddress,
+      inputDenom
+    );
+    const sameAsset = inputDenom === operation.feeDenom;
+    const feeBalance = sameAsset
+      ? inputBalance
+      : this.api.readBalance(
+          operation.sourceRest,
+          operation.sourceAddress,
+          operation.feeDenom
+        );
+    const [input, fee] = await Promise.all([inputBalance, feeBalance]);
+    if (BigInt(input) < BigInt(amount))
+      return {
+        blockReason:
+          "Insufficient input for the swap amount and approved fees.",
+      };
+    const available = BigInt(fee) - (sameAsset ? BigInt(amount) : BigInt(0));
+    return feeFundingStatus(
+      operation,
+      available,
+      fees,
+      "Fund the selected Osmosis fee asset for both the swap and return transfer before starting."
+    );
   }
 
   async start(env: Env, reviewId: string): Promise<EpixSwapOperation> {
@@ -585,7 +624,7 @@ export class EpixSwapService {
       operation.direction
     );
     const funding = await this.checkFunding(operation, context);
-    if (funding) throw new Error(funding);
+    if (funding.blockReason) throw new Error(funding.blockReason);
     const message = bridgeMessage(operation);
     const gas = gasWithMargin(
       await this.transactions.simulate(
@@ -640,7 +679,7 @@ export class EpixSwapService {
       operation.direction
     );
     const funding = await this.checkFunding(operation, context);
-    if (funding) throw new Error(funding);
+    if (funding.blockReason) throw new Error(funding.blockReason);
     const freshUntil = Math.min(quote.expiresAt, feeQuote.expiresAt);
     await this.dispatch(operation, "swap", message, feeQuote.fee, freshUntil);
     operation.status = "swapping";

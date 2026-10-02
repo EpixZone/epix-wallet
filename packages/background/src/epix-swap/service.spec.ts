@@ -690,7 +690,12 @@ it("requires the input plus both fee caps when the reverse input is also the fee
     reverseRequest(undefined, "uosmo")
   );
   expect(blocked.canStart).toBe(false);
-  expect(blocked.blockReason).toContain("input");
+  expect(blocked.blockReason).toContain("fee");
+  expect(blocked.feeShortfall).toMatchObject({
+    available: "84599",
+    required: "84600",
+    shortfall: "1",
+  });
   f.api.readBalance.mockResolvedValue("1084600");
   const funded = await f.service.prepare(
     env,
@@ -903,4 +908,112 @@ it("preserves completed receipt history across restart without creating signing 
     "finished"
   );
   expect(f.transactions.sign).toHaveBeenCalledTimes(2);
+});
+
+it.each([
+  ["0", "72000"],
+  ["20000", "52000"],
+])(
+  "reports exact forward fee funding for an available balance of %s",
+  async (available, shortfall) => {
+    const f = await fixture();
+    f.api.readBalance.mockImplementation(async (_rest, _address, denom) =>
+      denom === "uosmo" ? available : "1000000000000000000000"
+    );
+    const review = await f.service.prepare(env, request());
+    expect(review.canStart).toBe(false);
+    expect(review.feeShortfall).toEqual({
+      denom: "uosmo",
+      available,
+      required: "72000",
+      shortfall,
+      address: "osmo1destination",
+    });
+    expect(review.estimatedAmountOut).toBe("1000");
+    review.canStart = true;
+    if (review.feeShortfall) review.feeShortfall.shortfall = "0";
+    await expect(f.service.start(env, review.id)).rejects.toThrow(
+      "cannot start"
+    );
+    expect(f.transactions.sign).not.toHaveBeenCalled();
+  }
+);
+
+it("omits fee shortfall at the exact fee cap and retains generic input funding errors", async () => {
+  const f = await fixture();
+  f.api.readBalance.mockImplementation(async (_rest, _address, denom) =>
+    denom === "uosmo" ? "72000" : "1000000000000000000000"
+  );
+  const funded = await f.service.prepare(env, request());
+  expect(funded.canStart).toBe(true);
+  expect(funded.feeShortfall).toBeUndefined();
+  f.api.readBalance.mockResolvedValue("0");
+  const blocked = await f.service.prepare(env, request());
+  expect(blocked.canStart).toBe(false);
+  expect(blocked.blockReason).toContain("Insufficient EPIX");
+  expect(blocked.feeShortfall).toBeUndefined();
+});
+
+it.each([
+  ["1000000", "0", "84600"],
+  ["1070000", "70000", "14600"],
+])(
+  "reserves reverse same-asset input from one consistent balance read of %s",
+  async (balance, available, shortfall) => {
+    const f = await fixture();
+    f.api.readBalance.mockResolvedValue(balance);
+    const review = await f.service.prepare(
+      env,
+      reverseRequest(undefined, "uosmo")
+    );
+    expect(review.canStart).toBe(false);
+    expect(review.feeShortfall).toEqual({
+      denom: "uosmo",
+      available,
+      required: "84600",
+      shortfall,
+      address: "osmo1destination",
+    });
+    expect(f.api.readBalance).toHaveBeenCalledTimes(1);
+    expect(f.api.readBalance).toHaveBeenCalledWith(
+      "https://osmosis.test",
+      "osmo1destination",
+      "uosmo"
+    );
+  }
+);
+
+it("does not label an insufficient reverse input amount as a fee shortfall", async () => {
+  const f = await fixture();
+  f.api.readBalance.mockResolvedValue("999999");
+  const review = await f.service.prepare(
+    env,
+    reverseRequest(undefined, "uosmo")
+  );
+  expect(review.canStart).toBe(false);
+  expect(review.blockReason).toContain("Insufficient input");
+  expect(review.feeShortfall).toBeUndefined();
+  expect(f.api.readBalance).toHaveBeenCalledTimes(1);
+});
+
+it("reports only the remaining reverse bridge fee after the swap is confirmed", async () => {
+  const f = await fixture();
+  const operation = await begin(f, reverseRequest());
+  f.service.revokeApprovals();
+  await advance(5000);
+  f.api.readBalance.mockImplementation(async (_rest, _address, denom) =>
+    denom === "uosmo" ? "500" : "1000"
+  );
+  const review = await f.service.prepare(env, reverseRequest(operation.id));
+  expect(review.swapComplete).toBe(true);
+  expect(review.swapFeeCap.gas).toBe("0");
+  expect(review.feeShortfall).toEqual({
+    denom: "uosmo",
+    available: "500",
+    required: "12600",
+    shortfall: "12100",
+    address: "osmo1destination",
+  });
+  expect(review.canStart).toBe(false);
+  expect(f.transactions.sign).toHaveBeenCalledTimes(1);
 });

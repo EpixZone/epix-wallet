@@ -99,6 +99,71 @@ it("keeps the estimate visible when missing fee funds block confirmation", () =>
   expect(html).toContain("0.00007 USDC");
   expect(html).toContain("Add OSMO before swapping");
   expect(html).toContain('<button disabled="">bridge-and-swap</button>');
+  expect(html).not.toContain("swap-once-help");
+});
+
+it.each(["ready", "refreshing"] as const)(
+  "keeps exact fee funding and a usable fee selector outside collapsed settings while %s",
+  (quoteState) => {
+    const html = renderToStaticMarkup(
+      <EpixMainSwapView
+        {...props}
+        t={(key, values) => [key, ...Object.values(values ?? {})].join(" ")}
+        quoteState={quoteState}
+        canConfirm={false}
+        blockReason="Fund the selected Osmosis fee asset before starting."
+        feeOptions={[
+          { denom: "uosmo", label: "OSMO" },
+          { denom: "ibc/native-usdc", label: "USDC (native)" },
+          { denom: "factory/allbtc", label: "BTC (allBTC)" },
+        ]}
+        quote={{
+          ...props.quote,
+          expectedOutput: "0.00007 USDC",
+          minimumOutput: "0.00006 USDC",
+          osmosisNetworkFeeLimit: "0.072 OSMO",
+          feeShortfall: {
+            available: "0 OSMO",
+            required: "0.072 OSMO",
+            shortfall: "0.072 OSMO",
+            address: "osmo-public-funding-address",
+          },
+        }}
+      />
+    );
+    const settings = html.match(
+      /<details\b[^>]*aria-label="slippage-and-fees"[^>]*>[\s\S]*?<\/details>/
+    )?.[0];
+    if (!settings) throw new Error("Expected collapsed fee settings");
+    expect(settings).not.toMatch(/^<details\b[^>]*\bopen(?:=|\s|>)/);
+    const visible = html.replace(settings, "");
+    expect(visible).toContain('aria-label="fee-funding-title"');
+    expect(visible).toContain("fee-funding-shortfall 0.072 OSMO");
+    expect(visible).toContain("fee-funding-available");
+    expect(visible).toContain("0 OSMO");
+    expect(visible).toContain("fee-funding-required");
+    expect(visible).toContain("0.072 OSMO");
+    expect(visible).toContain("fee-funding-help");
+    expect(visible).toContain("osmo-public-funding-address");
+    expect(visible).toMatch(/<select[^>]*aria-label="fee-token"[^>]*>/);
+    expect(visible).not.toMatch(/<select[^>]*disabled/);
+    expect(visible).toContain(
+      '<option value="uosmo" selected="">OSMO</option>'
+    );
+    expect(visible).toContain("USDC (native)");
+    expect(visible).toContain("BTC (allBTC)");
+    expect(visible).toContain("0.00007 USDC");
+    expect(visible).not.toContain("Fund the selected Osmosis fee asset");
+    expect(visible).not.toContain("swap-once-help");
+    expect(visible).toContain('<button disabled="">bridge-and-swap</button>');
+  }
+);
+
+it("shows confirmation guidance again when the quote is ready and has no funding block", () => {
+  const html = renderToStaticMarkup(<EpixMainSwapView {...props} />);
+  expect(html).toContain("swap-once-help");
+  expect(html).not.toContain("fee-funding-title");
+  expect(html).toContain("<button>bridge-and-swap</button>");
 });
 
 const routedQuote = {
