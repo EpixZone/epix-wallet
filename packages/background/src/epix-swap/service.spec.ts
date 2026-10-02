@@ -858,3 +858,49 @@ it("never repeats an uncertain return transfer and terminates a known failed ini
   expect(g.service.getOperations(env, "vault")[0].status).toBe("failed");
   expect(g.transactions.sign).toHaveBeenCalledTimes(1);
 });
+
+it.each(["to-osmosis", "to-epix"] as const)(
+  "revalidates a stored %s receipt before approving an unresolved bridge after restart",
+  async (direction) => {
+    const f = await fixture();
+    const msg = direction === "to-osmosis" ? request() : reverseRequest();
+    const op = await begin(f, msg);
+    if (direction === "to-epix") await advance(5000);
+    f.service.revokeApprovals();
+    const records = f.service.getOperations(env, "vault");
+    records[0].status = "paused";
+    records[0].depositConfirmed = true;
+    await f.store.set("operations", records);
+    const restarted = new EpixSwapService(f.store, f.transactions, f.api);
+    await restarted.init();
+    f.api.lookupTx.mockResolvedValue(undefined as never);
+    await restarted.refresh(env, op.id);
+    expect(restarted.getOperations(env, "vault")[0].depositConfirmed).toBe(
+      false
+    );
+    const quotes = f.api.fetchSwapQuote.mock.calls.length;
+    const signatures = f.transactions.sign.mock.calls.length;
+    const resume =
+      direction === "to-osmosis" ? request(op.id) : reverseRequest(op.id);
+    await expect(restarted.prepare(env, resume)).rejects.toThrow("unconfirmed");
+    expect(f.api.fetchSwapQuote).toHaveBeenCalledTimes(quotes);
+    expect(f.transactions.sign).toHaveBeenCalledTimes(signatures);
+  }
+);
+
+it("preserves completed receipt history across restart without creating signing approval", async () => {
+  const f = await fixture();
+  const op = await begin(f, reverseRequest());
+  await advance(5000);
+  f.api.packetAck.mockResolvedValue("received" as never);
+  await advance(5000);
+  const before = f.service.getOperations(env, "vault")[0];
+  expect(before.status).toBe("complete");
+  const restarted = new EpixSwapService(f.store, f.transactions, f.api);
+  await restarted.init();
+  expect(restarted.getOperations(env, "vault")[0]).toEqual(before);
+  await expect(restarted.prepare(env, reverseRequest(op.id))).rejects.toThrow(
+    "finished"
+  );
+  expect(f.transactions.sign).toHaveBeenCalledTimes(2);
+});

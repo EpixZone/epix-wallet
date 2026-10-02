@@ -10,6 +10,8 @@ import {
   quoteMessage,
   recoveryMessage,
   swapSelection,
+  swapSelectionDraft,
+  swapChainIds,
   flipSwapSelection,
   swapInputAmount,
   SwapQuoteState,
@@ -471,4 +473,22 @@ test("changing direction immediately removes the old quote and its approval", ()
   const flipped = beginQuoteRefresh(oldQuote, nextKey, false);
   expect(flipped).toEqual({ key: nextKey, loading: false });
   expect(isQuoteConfirmable(oldQuote, nextKey, review, true, 1)).toBe(false);
+});
+
+test("saving a flipped form restores its direction, units and matching source chain", () => {
+  const reverse = {
+    ...flipSwapSelection(swapSelection(draft)),
+    amount: "1.25",
+  };
+  expect(swapSelection(swapSelectionDraft(reverse))).toEqual(reverse);
+  expect(swapChainIds(reverse.direction)).toEqual({
+    sourceChainId: "osmosis-1",
+    destinationChainId: "epix_1916-1",
+  });
+  const forward = flipSwapSelection(reverse);
+  expect(swapSelection(swapSelectionDraft(forward))).toEqual(forward);
+  expect(swapChainIds(forward.direction)).toEqual({
+    sourceChainId: "epix_1916-1",
+    destinationChainId: "osmosis-1",
+  });
 });

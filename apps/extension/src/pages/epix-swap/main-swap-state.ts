@@ -9,6 +9,8 @@ import {
 } from "./main-swap-view";
 import {
   EPIX_CURRENCY,
+  EPIX_CHAIN_ID,
+  OSMOSIS_CHAIN_ID,
   OSMOSIS_SWAP_TOKENS,
   OSMOSIS_SWAP_OUTPUT_OPTIONS,
 } from "./tokens";
@@ -119,6 +121,30 @@ export function flipSwapSelection(
     outputDenom: selection.inputDenom,
     // A quantity of EPIX must not become the same quantity of BTC or dollars.
     amount: "",
+  };
+}
+
+export function swapChainIds(direction: MainSwapSelection["direction"]) {
+  return direction === "to-epix"
+    ? { sourceChainId: OSMOSIS_CHAIN_ID, destinationChainId: EPIX_CHAIN_ID }
+    : { sourceChainId: EPIX_CHAIN_ID, destinationChainId: OSMOSIS_CHAIN_ID };
+}
+
+export function swapSelectionDraft(selection: MainSwapSelection): SwapDraft {
+  const osmosisDenom =
+    selection.direction === "to-epix"
+      ? selection.inputDenom
+      : selection.outputDenom;
+  return {
+    direction: selection.direction,
+    amount: selection.amount,
+    slippage: selection.slippageBps,
+    tokenIndex: OSMOSIS_SWAP_TOKENS.findIndex(
+      (token) => token.coinMinimalDenom === osmosisDenom
+    ),
+    feeIndex: OSMOSIS_SWAP_TOKENS.findIndex(
+      (token) => token.coinMinimalDenom === selection.feeDenom
+    ),
   };
 }
 

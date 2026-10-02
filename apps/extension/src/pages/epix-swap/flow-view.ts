@@ -52,13 +52,12 @@ export function quoteView(
   const returning = review.direction === "to-epix";
   const currency = outputCurrency(review);
   if (!currency) return undefined;
+  const routeInput = returning
+    ? review.inputDenom
+    : OSMOSIS_SWAP_TOKENS[0].coinMinimalDenom;
   const routes = review.swapComplete
     ? undefined
-    : quoteRouteView(
-        review.routes,
-        registry,
-        returning ? review.inputDenom : OSMOSIS_SWAP_TOKENS[0].coinMinimalDenom
-      );
+    : quoteRouteView(review.routes, registry, routeInput);
   return {
     expectedOutput: displayAmount(currency, review.estimatedAmountOut),
     minimumOutput: displayAmount(currency, review.minimumAmountOut),

@@ -11,7 +11,6 @@ import { useStore } from "../../stores";
 import {
   EPIX_CHAIN_ID,
   OSMOSIS_CHAIN_ID,
-  OSMOSIS_SWAP_TOKENS,
   OSMOSIS_SWAP_OUTPUT_OPTIONS,
   OSMOSIS_SWAP_FEE_OPTIONS,
 } from "./tokens";
@@ -24,6 +23,8 @@ import {
   swapSelection,
   swapInputCurrency,
   swapInputAmount,
+  swapChainIds,
+  swapSelectionDraft,
   boundAccountReview,
   quoteDisplayState,
   recoveryMessage,
@@ -73,11 +74,11 @@ export function useMainSwap(): EpixMainSwapViewProps {
   const selection = swapSelection(draft.draft, unfinished);
   const inputCurrency = swapInputCurrency(selection);
   const amountMinimal = swapInputAmount(selection);
-  const reverse = selection.direction === "to-epix";
-  const sourceChainId = reverse ? OSMOSIS_CHAIN_ID : EPIX_CHAIN_ID;
-  const destinationChainId = reverse ? EPIX_CHAIN_ID : OSMOSIS_CHAIN_ID;
-  const sourceAccount = reverse ? osmoAccount : epixAccount;
-  const destinationAccount = reverse ? epixAccount : osmoAccount;
+  const { sourceChainId, destinationChainId } = swapChainIds(
+    selection.direction
+  );
+  const sourceAccount = accountStore.getAccount(sourceChainId);
+  const destinationAccount = accountStore.getAccount(destinationChainId);
   const [retry, setRetry] = useState(0);
   const [enabled, setEnabled] = useState({ owner, ready: false, error: "" });
   useEffect(() => {
@@ -322,20 +323,7 @@ export function useMainSwap(): EpixMainSwapViewProps {
     if (unfinished) return;
     // Revoke the displayed approval immediately, before the next render.
     updateQuote({ key: "", loading: false });
-    const next = { ...selection, ...update };
-    draft.update({
-      amount: next.amount,
-      direction: next.direction,
-      slippage: next.slippageBps,
-      tokenIndex: OSMOSIS_SWAP_TOKENS.findIndex(
-        (token) =>
-          token.coinMinimalDenom ===
-          (next.direction === "to-epix" ? next.inputDenom : next.outputDenom)
-      ),
-      feeIndex: OSMOSIS_SWAP_TOKENS.findIndex(
-        (token) => token.coinMinimalDenom === next.feeDenom
-      ),
-    });
+    draft.update(swapSelectionDraft({ ...selection, ...update }));
     setConfirmation({ owner, busy: false, error: "" });
   };
   const quoteState = quoteDisplayState(quote, requestKey, boundReview);

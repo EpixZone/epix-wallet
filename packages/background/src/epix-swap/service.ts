@@ -7,7 +7,12 @@ import { bytesToHex } from "@noble/hashes/utils";
 import { Any } from "@keplr-wallet/proto-types/google/protobuf/any";
 import { readStoredOperation } from "./storage";
 import { PrepareEpixSwapMsg } from "./messages";
-import { EpixSwapOperation, EpixSwapReview } from "./types";
+import {
+  EpixSwapDirection,
+  EpixSwapOperation,
+  EpixSwapReview,
+  EpixSwapStatus,
+} from "./types";
 import { SwapContext, SwapStep, SwapTransactions } from "./transactions";
 import * as network from "./network";
 import {
@@ -44,6 +49,15 @@ function recoveryState(operation: EpixSwapOperation): string {
 }
 function finished(operation: EpixSwapOperation): boolean {
   return operation.status === "complete" || operation.status === "failed";
+}
+
+function initialStatus(
+  direction: EpixSwapDirection,
+  previous?: EpixSwapOperation
+): EpixSwapStatus {
+  if (direction === "to-epix")
+    return previous?.swapConfirmed ? "bridging" : "swapping";
+  return previous?.depositConfirmed ? "swapping" : "bridging";
 }
 
 function internal(env: Env): void {
@@ -101,6 +115,7 @@ export class EpixSwapService {
         const operation = readStoredOperation(value);
         // Persistence is progress, never authorization. No automatic restart signing.
         if (operation.status !== "complete" && operation.status !== "failed") {
+          operation.depositConfirmed = false;
           if (operation.direction === "to-epix") {
             operation.swapConfirmed = false;
             operation.swapAmountOut = undefined;
@@ -290,13 +305,7 @@ export class EpixSwapService {
       estimatedAmountOut: "0",
       bridgeFee: { amount: [], gas: MAX_BRIDGE_GAS },
       swapFeeCap: { amount: [], gas: MAX_SWAP_GAS },
-      status: (
-        msg.direction === "to-epix"
-          ? !previous?.swapConfirmed
-          : previous?.depositConfirmed
-      )
-        ? "swapping"
-        : "bridging",
+      status: initialStatus(msg.direction, previous),
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
       expiresAt: now + APPROVAL_DURATION_MS,
@@ -696,6 +705,10 @@ export class EpixSwapService {
       await this.observeReverseSwap(operation);
       if (!operation.swapConfirmed) return;
     } else if (operation.swapTxHash) return this.observeSwap(operation);
+    return this.observeBridge(operation);
+  }
+
+  private async observeBridge(operation: EpixSwapOperation): Promise<void> {
     if (!operation.bridgeTxHash) return;
     if (this.verifiedReceipts.has(operation.id)) {
       operation.depositConfirmed = true;
