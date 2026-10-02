@@ -3,6 +3,7 @@ import { MsgTransfer } from "@keplr-wallet/proto-types/ibc/applications/transfer
 import { MsgSwapExactAmountIn } from "@keplr-wallet/proto-types/osmosis/poolmanager/v1beta1/tx";
 import { Any } from "@keplr-wallet/proto-types/google/protobuf/any";
 import { EpixSwapDirection, EpixSwapOperation } from "./types";
+import { packetAttributes, parsePacketData } from "./packet";
 import {
   EPIX_CHAIN_ID,
   OSMOSIS_CHAIN_ID,
@@ -155,9 +156,7 @@ export function matchingPacketSequence(
 ): string {
   for (const event of events) {
     if (event.type !== "send_packet") continue;
-    const a = Object.fromEntries(
-      event.attributes.map(({ key, value }) => [key, value])
-    );
+    const a = packetAttributes(event.attributes);
     if (
       a["packet_src_port"] !== "transfer" ||
       a["packet_src_channel"] !==
@@ -169,7 +168,7 @@ export function matchingPacketSequence(
         (operation.direction === "to-osmosis" ? "channel-108456" : "channel-0")
     )
       continue;
-    const data = JSON.parse(a["packet_data"]) as Record<string, unknown>;
+    const data = parsePacketData(a);
     if (
       data["sender"] !== operation.sourceAddress ||
       data["receiver"] !== operation.destinationAddress ||

@@ -423,9 +423,27 @@ const packetKeys = new Set([
   "packet_dst_channel",
   "packet_sequence",
   "packet_data",
+  "packet_data_hex",
   "packet_timeout_timestamp",
   "packet_timeout_height",
 ]);
+
+function decodePacketAttribute(key: string, value: string) {
+  const decodedKey = Buffer.from(key, "base64").toString();
+  if (
+    !packetKeys.has(decodedKey) ||
+    Buffer.from(decodedKey).toString("base64") !== key
+  )
+    return { key, value };
+  const bytes = Buffer.from(value, "base64");
+  const decodedValue = bytes.toString("utf8");
+  if (
+    bytes.toString("base64") !== value ||
+    !Buffer.from(decodedValue, "utf8").equals(bytes)
+  )
+    throw new TypeError("Invalid encoded packet attribute");
+  return { key: decodedKey, value: decodedValue };
+}
 
 function decodeEvents(value: unknown): PacketEvent[] {
   if (!Array.isArray(value) || value.length > 1000)
@@ -444,16 +462,7 @@ function decodeEvents(value: unknown): PacketEvent[] {
         typeof attribute["value"] !== "string"
       )
         throw new Error("Invalid transaction attribute");
-      const key = Buffer.from(attribute["key"], "base64").toString();
-      if (
-        packetKeys.has(key) &&
-        Buffer.from(key).toString("base64") === attribute["key"]
-      )
-        return {
-          key,
-          value: Buffer.from(attribute["value"], "base64").toString(),
-        };
-      return { key: attribute["key"], value: attribute["value"] };
+      return decodePacketAttribute(attribute["key"], attribute["value"]);
     });
     return { type: event["type"], attributes };
   });
