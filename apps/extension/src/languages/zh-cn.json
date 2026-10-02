@@ -889,5 +889,6 @@
   "page.epix-swap.route-waiting-for-return": "等待 EPIX 到达 Epix",
   "page.epix-swap.route-returning": "正在将 EPIX 跨链转入 Epix",
   "page.epix-swap.route-return-complete": "兑换完成。您的 EPIX 已到达 Epix。",
-  "page.epix-swap.route-return-resume-help": "兑换已完成。只需将 EPIX 跨链转入 Epix。"
+  "page.epix-swap.route-return-resume-help": "兑换已完成。只需将 EPIX 跨链转入 Epix。",
+  "page.epix-swap.balance-unavailable": "无法获取余额。请刷新后重试。"
 }

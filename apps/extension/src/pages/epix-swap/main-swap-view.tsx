@@ -67,6 +67,7 @@ export type EpixMainSwapViewProps = Readonly<{
   feeOptions: ReadonlyArray<MainSwapTokenOption>;
   /** Exact human-readable input balance, including its symbol. */
   availableBalance?: string;
+  balanceError?: string;
   inputFiat?: string;
   destinationAddress: string;
   osmosisEnabled: boolean;
@@ -136,6 +137,7 @@ function SwapAmountCards({
   selection,
   tokenOptions,
   availableBalance,
+  balanceError,
   inputFiat,
   quoteState,
   quote,
@@ -144,6 +146,7 @@ function SwapAmountCards({
   onSelectionChange,
 }: EpixMainSwapViewProps) {
   const estimatedOutput = quote?.expectedOutput ?? t("enter-amount");
+  const pendingBalance = balanceError ?? t("loading");
   const reverse = selection.direction === "to-epix";
   const selectedToken = tokenOptions.find(
     (option) =>
@@ -200,7 +203,7 @@ function SwapAmountCards({
         <DSTypography size="textXs" color={DSColor.typography.secondary}>
           {availableBalance
             ? t("balance", { amount: availableBalance })
-            : t("loading")}
+            : pendingBalance}
         </DSTypography>
       </Panel>
       <DirectionButton

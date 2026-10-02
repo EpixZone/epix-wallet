@@ -1025,5 +1025,6 @@
   "page.epix-swap.route-waiting-for-return": "Waiting for EPIX to arrive on Epix",
   "page.epix-swap.route-returning": "Bridging EPIX to Epix",
   "page.epix-swap.route-return-complete": "Swap complete. Your EPIX is on Epix.",
-  "page.epix-swap.route-return-resume-help": "Swap completed. Only the EPIX bridge to Epix remains."
+  "page.epix-swap.route-return-resume-help": "Swap completed. Only the EPIX bridge to Epix remains.",
+  "page.epix-swap.balance-unavailable": "Balance unavailable. Refresh to try again."
 }
