@@ -37,6 +37,10 @@ import {
 } from "./main-swap-state";
 import { EpixMainSwapViewProps, MainSwapSelection } from "./main-swap-view";
 
+function availableSwapBalance(ready: boolean, balance?: CoinPretty) {
+  return ready && balance?.isReady ? balance.trim(true).toString() : undefined;
+}
+
 export function useMainSwap(): EpixMainSwapViewProps {
   const intl = useIntl();
   const t = useCallback(
@@ -344,10 +348,7 @@ export function useMainSwap(): EpixMainSwapViewProps {
     selection,
     tokenOptions: OSMOSIS_SWAP_OUTPUT_OPTIONS,
     feeOptions: OSMOSIS_SWAP_FEE_OPTIONS,
-    availableBalance:
-      ownerReady && balanceQuery?.balance.isReady
-        ? balanceQuery.balance.trim(true).toString()
-        : undefined,
+    availableBalance: availableSwapBalance(ownerReady, balanceQuery?.balance),
     inputFiat: inputPrice?.toString(),
     destinationAddress: ownerReady ? destinationAccount.bech32Address : "",
     osmosisEnabled: isEnabled,
