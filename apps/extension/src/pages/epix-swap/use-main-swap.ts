@@ -37,8 +37,8 @@ import {
 } from "./main-swap-state";
 import { EpixMainSwapViewProps, MainSwapSelection } from "./main-swap-view";
 
-function availableSwapBalance(ready: boolean, balance?: CoinPretty) {
-  return ready && balance?.isReady ? balance.trim(true).toString() : undefined;
+function availableSwapBalance(balance?: CoinPretty) {
+  return balance?.isReady ? balance.trim(true).toString() : undefined;
 }
 
 export function useMainSwap(): EpixMainSwapViewProps {
@@ -310,12 +310,13 @@ export function useMainSwap(): EpixMainSwapViewProps {
       );
     }
   };
-  const balanceQuery = inputCurrency
-    ? queriesStore
-        .get(sourceChainId)
-        .queryBalances.getQueryBech32Address(sourceAccount.bech32Address)
-        .getBalance(inputCurrency)
-    : undefined;
+  const balanceQuery =
+    ownerReady && inputCurrency
+      ? queriesStore
+          .get(sourceChainId)
+          .queryBalances.getQueryBech32Address(sourceAccount.bech32Address)
+          .getBalance(inputCurrency)
+      : undefined;
   const refresh = async () => {
     if (!draft.ready || draft.error) draft.retry();
     if (!isEnabled) setRetry((value) => value + 1);
@@ -348,7 +349,7 @@ export function useMainSwap(): EpixMainSwapViewProps {
     selection,
     tokenOptions: OSMOSIS_SWAP_OUTPUT_OPTIONS,
     feeOptions: OSMOSIS_SWAP_FEE_OPTIONS,
-    availableBalance: availableSwapBalance(ownerReady, balanceQuery?.balance),
+    availableBalance: availableSwapBalance(balanceQuery?.balance),
     inputFiat: inputPrice?.toString(),
     destinationAddress: ownerReady ? destinationAccount.bech32Address : "",
     osmosisEnabled: isEnabled,
