@@ -83,7 +83,7 @@ it("shows one swap form and quote with an explicit destination fee cap", () => {
   expect(html).toContain("0.03 OSMO");
   expect(html).toContain("osmosis-network-fee");
   expect(html).toContain("destination-enabled");
-  expect(html).toContain("<button>swap</button>");
+  expect(html).toContain("<button>bridge-and-swap</button>");
   expect(html).not.toContain("<button>deposit</button>");
   expect(html).not.toContain("<button>withdraw</button>");
 });
@@ -98,7 +98,7 @@ it("keeps the estimate visible when missing fee funds block confirmation", () =>
   );
   expect(html).toContain("0.00007 USDC");
   expect(html).toContain("Add OSMO before swapping");
-  expect(html).toContain('<button disabled="">swap</button>');
+  expect(html).toContain('<button disabled="">bridge-and-swap</button>');
 });
 
 const routedQuote = {
@@ -272,7 +272,7 @@ it.each(["refreshing", "stale"] as const)(
     expect(html).toContain(
       quoteState === "refreshing" ? "quote-updating" : "quote-stale"
     );
-    expect(html).toContain('<button disabled="">swap</button>');
+    expect(html).toContain('<button disabled="">bridge-and-swap</button>');
     if (quoteState === "refreshing")
       expect(html).toContain('<button disabled="">refresh-quote</button>');
   }
@@ -300,7 +300,7 @@ it.each([
     const html = renderToStaticMarkup(
       <EpixMainSwapView {...props} {...update} />
     );
-    expect(html).toContain('<button disabled="">swap</button>');
+    expect(html).toContain('<button disabled="">bridge-and-swap</button>');
   }
 );
 
@@ -340,7 +340,7 @@ it("uses the single primary CTA to resume after a fresh review", () => {
     <EpixMainSwapView {...props} workflow={workflow} />
   );
   expect(html.match(/<button>resume<\/button>/g)).toHaveLength(1);
-  expect(html).not.toContain("<button>swap</button>");
+  expect(html).not.toContain("<button>bridge-and-swap</button>");
 });
 
 it("locks a paused route's selections without blocking its reviewed resume CTA", () => {
@@ -389,7 +389,7 @@ it("leaves read-only recovery refresh available while form controls are disabled
       canConfirm={false}
     />
   );
-  expect(html).toContain('<button disabled="">swap</button>');
+  expect(html).toContain('<button disabled="">bridge-and-swap</button>');
   expect(html).toContain("<button>refresh-quote</button>");
 });
 

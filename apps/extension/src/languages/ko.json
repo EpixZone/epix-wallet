@@ -857,6 +857,8 @@
   "page.epix-swap.title": "스왑 및 브리지",
   "page.epix-swap.deposit": "입금",
   "page.epix-swap.swap": "스왑",
+  "page.epix-swap.bridge-and-swap": "브리지 후 스왑",
+  "page.epix-swap.swap-and-bridge": "스왑 후 브리지",
   "page.epix-swap.withdraw": "출금",
   "page.epix-swap.description": "EPIX를 Osmosis로 입금하여 스왑하거나 Epix로 다시 출금하세요.",
   "page.epix-swap.deposit-description": "EPIX를 본인의 Osmosis 계정으로 전송합니다. 스왑 및 출금 수수료를 위해 Osmosis에 OSMO 또는 지원되는 다른 토큰이 필요합니다.",

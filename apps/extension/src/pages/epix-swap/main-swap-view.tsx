@@ -417,6 +417,8 @@ function SwapSubmitSection({
   onRefresh,
   workflow,
 }: EpixMainSwapViewProps) {
+  const action =
+    selection.direction === "to-epix" ? "swap-and-bridge" : "bridge-and-swap";
   return (
     <React.Fragment>
       {blockReason && (
@@ -432,7 +434,7 @@ function SwapSubmitSection({
         )}
       </DSTypography>
       <Button
-        text={t(workflow?.canResume ? "resume" : "swap")}
+        text={t(workflow?.canResume ? "resume" : action)}
         disabled={
           confirming ||
           !canConfirm ||

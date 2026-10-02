@@ -793,6 +793,8 @@
   "page.epix-swap.title": "兑换与跨链",
   "page.epix-swap.deposit": "转入",
   "page.epix-swap.swap": "兑换",
+  "page.epix-swap.bridge-and-swap": "跨链并兑换",
+  "page.epix-swap.swap-and-bridge": "兑换并跨链",
   "page.epix-swap.withdraw": "转出",
   "page.epix-swap.description": "将 EPIX 转入 Osmosis 后兑换，或将 EPIX 转回 Epix。",
   "page.epix-swap.deposit-description": "将 EPIX 发送至您自己的 Osmosis 账户。兑换和转出需要在 Osmosis 持有 OSMO 或其他受支持的代币来支付手续费。",
