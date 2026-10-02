@@ -497,35 +497,48 @@ function FeeShortfallNotice({
   onFeeChange: (denom: string) => void;
 }>) {
   return (
-    <Panel aria-label={t("fee-funding-title")}>
-      <DSTypography as="h2" size="textLg">
-        {t("fee-funding-title")}
-      </DSTypography>
-      <DSTypography as="p" size="textSm" role="status">
-        {t("fee-funding-shortfall", { amount: funding.shortfall })}
-      </DSTypography>
-      <QuoteLine label={t("fee-funding-available")} value={funding.available} />
-      <QuoteLine label={t("fee-funding-required")} value={funding.required} />
-      <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
-        {t("fee-funding-help")}
-      </DSTypography>
-      <TokenSelect
-        label={t("fee-token")}
-        value={feeDenom}
-        options={feeOptions}
-        disabled={disabled}
-        onChange={onFeeChange}
-      />
-      <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
-        {t("fee-funding-address")}
-      </DSTypography>
-      <DSTypography
-        size="textXs"
-        style={{ overflowWrap: "anywhere", userSelect: "all" }}
-      >
-        {funding.address}
-      </DSTypography>
-    </Panel>
+    <SettingsPanel aria-label={t("fee-funding-title")}>
+      <SettingsSummary>
+        <DSTypography size="textSm">{t("fee-funding-title")}</DSTypography>
+        <DSTypography
+          size="textXs"
+          color={DSColor.typography.secondary}
+          style={{ marginLeft: "auto", textAlign: "right" }}
+        >
+          {t("fee-funding-needed", { amount: funding.shortfall })}
+        </DSTypography>
+        <ChevronDownIcon size={16} aria-hidden />
+      </SettingsSummary>
+      <SettingsContent>
+        <DSTypography as="p" size="textSm" role="status">
+          {t("fee-funding-shortfall", { amount: funding.shortfall })}
+        </DSTypography>
+        <QuoteLine
+          label={t("fee-funding-available")}
+          value={funding.available}
+        />
+        <QuoteLine label={t("fee-funding-required")} value={funding.required} />
+        <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
+          {t("fee-funding-help")}
+        </DSTypography>
+        <TokenSelect
+          label={t("fee-token")}
+          value={feeDenom}
+          options={feeOptions}
+          disabled={disabled}
+          onChange={onFeeChange}
+        />
+        <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
+          {t("fee-funding-address")}
+        </DSTypography>
+        <DSTypography
+          size="textXs"
+          style={{ overflowWrap: "anywhere", userSelect: "all" }}
+        >
+          {funding.address}
+        </DSTypography>
+      </SettingsContent>
+    </SettingsPanel>
   );
 }
 

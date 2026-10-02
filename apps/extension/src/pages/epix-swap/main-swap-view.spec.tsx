@@ -103,7 +103,7 @@ it("keeps the estimate visible when missing fee funds block confirmation", () =>
 });
 
 it.each(["ready", "refreshing"] as const)(
-  "keeps exact fee funding and a usable fee selector outside collapsed settings while %s",
+  "keeps the fee shortfall in a collapsed panel summary while %s",
   (quoteState) => {
     const html = renderToStaticMarkup(
       <EpixMainSwapView
@@ -137,7 +137,14 @@ it.each(["ready", "refreshing"] as const)(
     if (!settings) throw new Error("Expected collapsed fee settings");
     expect(settings).not.toMatch(/^<details\b[^>]*\bopen(?:=|\s|>)/);
     const visible = html.replace(settings, "");
-    expect(visible).toContain('aria-label="fee-funding-title"');
+    const funding = visible.match(
+      /<details\b[^>]*aria-label="fee-funding-title"[^>]*>[\s\S]*?<\/details>/
+    )?.[0];
+    if (!funding) throw new Error("Expected collapsed Osmosis fee panel");
+    expect(funding).not.toMatch(/^<details\b[^>]*\bopen(?:=|\s|>)/);
+    const summary = funding.match(/<summary\b[^>]*>[\s\S]*?<\/summary>/)?.[0];
+    expect(summary).toContain("fee-funding-title");
+    expect(summary).toContain("fee-funding-needed 0.072 OSMO");
     expect(visible).toContain("fee-funding-shortfall 0.072 OSMO");
     expect(visible).toContain("fee-funding-available");
     expect(visible).toContain("0 OSMO");
