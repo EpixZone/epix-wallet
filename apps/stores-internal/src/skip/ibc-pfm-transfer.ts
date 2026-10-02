@@ -5,6 +5,7 @@ import { ChainIdHelper } from "@keplr-wallet/cosmos";
 import { InternalChainStore } from "../internal";
 import { IBCChannel, NoneIBCBridgeInfo } from "./types";
 import { ObservableQueryAssetsBatch } from "./assets";
+import { getEpixIBCChannels } from "./epix-ibc";
 export class ObservableQueryIbcPfmTransfer {
   constructor(
     protected readonly chainStore: InternalChainStore,
@@ -80,13 +81,14 @@ export class ObservableQueryIbcPfmTransfer {
         return [];
       }
 
+      const localChannels = getEpixIBCChannels(this.chainStore, chainId, denom);
       const assetsFromSource = this.queryAssetsFromSource.getSourceAsset(
         chainId,
         denom
       ).assetsFromSource;
 
       if (!assetsFromSource) {
-        return [];
+        return localChannels;
       }
 
       const res: {
@@ -295,7 +297,15 @@ export class ObservableQueryIbcPfmTransfer {
         }
       }
 
-      return res
+      return localChannels
+        .concat(
+          res.filter(
+            (route) =>
+              !localChannels.some(
+                (local) => local.destinationChainId === route.destinationChainId
+              )
+          )
+        )
         .filter((r) => {
           // In evmos the ibc token is automatically wrapped in erc20 and currently Keplr cannot handle erc20. For now, block sending to evmos
           if (
