@@ -868,6 +868,7 @@
   "page.epix-swap.balance": "사용 가능: {amount}",
   "page.epix-swap.recipient": "받는 주소",
   "page.epix-swap.slippage": "슬리피지",
+  "page.epix-swap.slippage-and-fees": "슬리피지 및 수수료",
   "page.epix-swap.refresh": "잔액 새로고침",
   "page.epix-swap.review": "검토",
   "page.epix-swap.confirm": "거래 확인",

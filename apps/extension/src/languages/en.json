@@ -927,6 +927,7 @@
   "page.epix-swap.balance": "Available: {amount}",
   "page.epix-swap.recipient": "Recipient",
   "page.epix-swap.slippage": "Slippage",
+  "page.epix-swap.slippage-and-fees": "Slippage & fees",
   "page.epix-swap.refresh": "Refresh balances",
   "page.epix-swap.review": "Review",
   "page.epix-swap.confirm": "Confirm transaction",

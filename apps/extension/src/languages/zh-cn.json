@@ -804,6 +804,7 @@
   "page.epix-swap.balance": "可用：{amount}",
   "page.epix-swap.recipient": "接收地址",
   "page.epix-swap.slippage": "滑点",
+  "page.epix-swap.slippage-and-fees": "滑点与手续费",
   "page.epix-swap.refresh": "刷新余额",
   "page.epix-swap.review": "审核",
   "page.epix-swap.confirm": "确认交易",

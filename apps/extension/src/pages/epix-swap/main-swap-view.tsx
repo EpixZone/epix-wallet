@@ -1,6 +1,10 @@
 import React from "react";
 import styled from "styled-components";
-import { DSColor, DSTypography } from "@keplr-wallet/design-system";
+import {
+  ChevronDownIcon,
+  DSColor,
+  DSTypography,
+} from "@keplr-wallet/design-system";
 import { MainHeaderLayout } from "../main/layouts/header";
 import { Box } from "../../components/box";
 import { Button } from "../../components/button";
@@ -226,53 +230,83 @@ function SwapQuoteDetails({
   selectionLocked = false,
   onSelectionChange,
 }: EpixMainSwapViewProps) {
+  const feeLabel = feeOptions.find(
+    (option) => option.denom === selection.feeDenom
+  )?.label;
   return (
-    <Panel>
-      <Box style={{ flexDirection: "row", alignItems: "end", gap: "0.75rem" }}>
-        <TokenSelect
-          label={t("slippage")}
-          value={String(selection.slippageBps)}
-          options={[
-            { denom: "50", label: "0.5%" },
-            { denom: "100", label: "1%" },
-            { denom: "300", label: "3%" },
-          ]}
-          disabled={controlsDisabled || selectionLocked}
-          onChange={(value) =>
-            onSelectionChange({ slippageBps: Number(value) })
-          }
-        />
-        <TokenSelect
-          label={t("fee-token")}
-          value={selection.feeDenom}
-          options={feeOptions}
-          disabled={controlsDisabled || selectionLocked}
-          onChange={(feeDenom) => onSelectionChange({ feeDenom })}
-        />
-      </Box>
-      {quote && <QuoteAmounts t={t} quote={quote} />}
+    <React.Fragment>
+      <SettingsPanel aria-label={t("slippage-and-fees")}>
+        <SettingsSummary>
+          <DSTypography size="textSm">{t("slippage-and-fees")}</DSTypography>
+          <DSTypography
+            size="textXs"
+            color={DSColor.typography.secondary}
+            style={{ marginLeft: "auto" }}
+          >
+            {[`${selection.slippageBps / 100}%`, feeLabel]
+              .filter(Boolean)
+              .join(" · ")}
+          </DSTypography>
+          <ChevronDownIcon size={16} aria-hidden />
+        </SettingsSummary>
+        <SettingsContent>
+          <Box
+            style={{ flexDirection: "row", alignItems: "end", gap: "0.75rem" }}
+          >
+            <TokenSelect
+              label={t("slippage")}
+              value={String(selection.slippageBps)}
+              options={[
+                { denom: "50", label: "0.5%" },
+                { denom: "100", label: "1%" },
+                { denom: "300", label: "3%" },
+              ]}
+              disabled={controlsDisabled || selectionLocked}
+              onChange={(value) =>
+                onSelectionChange({ slippageBps: Number(value) })
+              }
+            />
+            <TokenSelect
+              label={t("fee-token")}
+              value={selection.feeDenom}
+              options={feeOptions}
+              disabled={controlsDisabled || selectionLocked}
+              onChange={(feeDenom) => onSelectionChange({ feeDenom })}
+            />
+          </Box>
+          {quote && <QuoteAmounts t={t} quote={quote} />}
+          <DSTypography
+            as="p"
+            size="textXs"
+            color={DSColor.typography.secondary}
+          >
+            {t("fee-help")}
+          </DSTypography>
+          <DSTypography
+            as="p"
+            size="textXs"
+            color={DSColor.typography.secondary}
+            style={{ overflowWrap: "anywhere" }}
+          >
+            {t("recipient")}: {osmosisAddress || "..."}
+          </DSTypography>
+          {osmosisEnabled && (
+            <DSTypography
+              as="p"
+              size="textXs"
+              color={DSColor.typography.secondary}
+            >
+              {t("destination-enabled")}
+            </DSTypography>
+          )}
+        </SettingsContent>
+      </SettingsPanel>
       {quoteError && (
         <DSTypography as="p" size="textSm" role="alert">
           {quoteError}
         </DSTypography>
       )}
-      <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
-        {t("fee-help")}
-      </DSTypography>
-      <DSTypography
-        as="p"
-        size="textXs"
-        color={DSColor.typography.secondary}
-        style={{ overflowWrap: "anywhere" }}
-      >
-        {t("recipient")}: {osmosisAddress || "..."}
-      </DSTypography>
-      {osmosisEnabled && (
-        <DSTypography as="p" size="textXs" color={DSColor.typography.secondary}>
-          {t("destination-enabled")}
-        </DSTypography>
-      )}
-    </Panel>
+    </React.Fragment>
   );
 }
 
@@ -501,6 +535,42 @@ const Panel = styled.div`
   border: 1px solid ${DSColor.stroke.separator.primary};
   border-radius: 0.75rem;
   background: ${DSColor.background.surface.surface};
+`;
+const SettingsPanel = styled.details`
+  min-width: 0;
+  padding: 0.5rem 1rem;
+  border: 1px solid ${DSColor.stroke.separator.primary};
+  border-radius: 0.75rem;
+  background: ${DSColor.background.surface.surface};
+  &[open] > summary > svg {
+    transform: rotate(180deg);
+  }
+`;
+const SettingsSummary = styled.summary`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  cursor: pointer;
+  list-style: none;
+  &::-webkit-details-marker {
+    display: none;
+  }
+  > svg {
+    flex-shrink: 0;
+    color: ${DSColor.typography.secondary};
+  }
+  &:focus-visible {
+    outline: 2px solid ${DSColor.typography.brand};
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+`;
+const SettingsContent = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-block: 0.75rem 0.5rem;
 `;
 const Select = styled.select`
   display: block;
