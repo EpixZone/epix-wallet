@@ -68,7 +68,6 @@ const props: EpixMainSwapViewProps = {
     bridgeNetworkFee: "0.003 EPIX",
     osmosisNetworkFeeLimit: "0.03 OSMO",
   },
-  restoredDraft: false,
   controlsDisabled: false,
   canConfirm: true,
   confirming: false,

@@ -1,6 +1,5 @@
 import { EpixSwapOperation, EpixSwapReview } from "@keplr-wallet/background";
 import { CoinPretty } from "@keplr-wallet/unit";
-import { SwapDraft } from "./draft";
 import { isRouteFinished } from "./flow-view";
 import {
   MainSwapSelection,
@@ -15,6 +14,14 @@ import {
   OSMOSIS_SWAP_OUTPUT_OPTIONS,
 } from "./tokens";
 import { parseAmountToMinimal } from "./amount";
+
+export type SwapDraft = {
+  direction: MainSwapSelection["direction"];
+  tokenIndex: number;
+  amount: string;
+  slippage: number;
+  feeIndex: number;
+};
 
 export type SwapQuoteState = {
   key: string;
@@ -218,13 +225,11 @@ export function quoteDisplayState(
 }
 
 export function recoveryMessage(
-  draftError: boolean,
   operationsError: boolean,
   enabled: OwnerMessage,
   owner: string,
   t: TranslateProgress
 ): string | undefined {
-  if (draftError) return t("storage-unavailable");
   if (operationsError) return t("tracking-unavailable");
   if (enabled.owner === owner && enabled.error) return enabled.error;
   return undefined;

@@ -14,7 +14,6 @@ import {
   OSMOSIS_SWAP_OUTPUT_OPTIONS,
   OSMOSIS_SWAP_FEE_OPTIONS,
 } from "./tokens";
-import { useSwapDraft } from "./use-draft";
 import { useRouteRegistry } from "./use-route-registry";
 import { swapRequester, useSwapOperations } from "./use-operations";
 import { quoteView, workflowView } from "./flow-view";
@@ -95,17 +94,19 @@ export function useMainSwap(): EpixMainSwapViewProps {
     osmoAccount.bech32Address,
   ]);
   const ownerReady = isSwapOwnerReady(stores);
-  const draft = useSwapDraft(
-    ownerReady ? `main-swap/${owner}` : undefined,
-    DEFAULT_SWAP_DRAFT,
-    true
-  );
+  const [form, setForm] = useState({ owner, draft: DEFAULT_SWAP_DRAFT });
+  useEffect(() => {
+    setForm({ owner, draft: DEFAULT_SWAP_DRAFT });
+  }, [owner]);
   const operations = useSwapOperations(ownerReady ? vaultId : undefined, owner);
   const { operation, unfinished, resumeId } = currentOperation(
     operations.operations
   );
   const routeRunning = !!unfinished && !resumeId;
-  const selection = swapSelection(draft.draft, unfinished);
+  const selection = swapSelection(
+    form.owner === owner ? form.draft : DEFAULT_SWAP_DRAFT,
+    unfinished
+  );
   const amountMinimal = swapInputAmount(selection);
   const { sourceChainId, destinationChainId } = swapChainIds(
     selection.direction
@@ -141,12 +142,7 @@ export function useMainSwap(): EpixMainSwapViewProps {
   }, [ownerReady, vaultId, owner, chainStore, retry, t]);
   const isEnabled = ownerReady && enabled.owner === owner && enabled.ready;
   const canPrepare =
-    isEnabled &&
-    draft.ready &&
-    !draft.error &&
-    operations.ready &&
-    !operations.error &&
-    !routeRunning;
+    isEnabled && operations.ready && !operations.error && !routeRunning;
   const requestKey = JSON.stringify([
     owner,
     amountMinimal,
@@ -313,8 +309,6 @@ export function useMainSwap(): EpixMainSwapViewProps {
     confirmingRef.current = true;
     setConfirmation({ owner, busy: true, error: "" });
     try {
-      await draft.save();
-      if (!isCurrentApproval(boundReview)) return;
       await swapRequester.sendMessage(
         BACKGROUND_PORT,
         new StartEpixSwapMsg(boundReview.id)
@@ -344,7 +338,6 @@ export function useMainSwap(): EpixMainSwapViewProps {
     selection
   );
   const refresh = async () => {
-    if (!draft.ready || draft.error) draft.retry();
     if (!isEnabled) setRetry((value) => value + 1);
     requestQuoteRefresh();
     await operations.refresh(unfinished?.id);
@@ -354,17 +347,14 @@ export function useMainSwap(): EpixMainSwapViewProps {
     if (unfinished) return;
     // Revoke the displayed approval immediately, before the next render.
     updateQuote({ key: "", loading: false });
-    draft.update(swapSelectionDraft({ ...selection, ...update }));
+    setForm({
+      owner,
+      draft: swapSelectionDraft({ ...selection, ...update }),
+    });
     setConfirmation({ owner, busy: false, error: "" });
   };
   const quoteState = quoteDisplayState(quote, requestKey, boundReview);
-  const recoveryError = recoveryMessage(
-    draft.error,
-    operations.error,
-    enabled,
-    owner,
-    t
-  );
+  const recoveryError = recoveryMessage(operations.error, enabled, owner, t);
   const quoteError = quoteMessage(quote, requestKey, confirmation, owner);
   return {
     t,
@@ -381,10 +371,8 @@ export function useMainSwap(): EpixMainSwapViewProps {
     quote: boundReview ? quoteView(boundReview, routeRegistry) : undefined,
     quoteError,
     blockReason: boundReview?.blockReason,
-    restoredDraft: draft.restored,
     recoveryError,
-    controlsDisabled:
-      !ownerReady || !draft.ready || !isEnabled || routeRunning || confirming,
+    controlsDisabled: !ownerReady || !isEnabled || routeRunning || confirming,
     selectionLocked: !!unfinished,
     canConfirm,
     confirming,

@@ -76,7 +76,6 @@ export type EpixMainSwapViewProps = Readonly<{
   quoteError?: string;
   /** Quote estimation remains visible when fees or another prerequisite block execution. */
   blockReason?: string;
-  restoredDraft: boolean;
   recoveryError?: string;
   controlsDisabled: boolean;
   selectionLocked?: boolean;
@@ -90,7 +89,7 @@ export type EpixMainSwapViewProps = Readonly<{
 
 /** Presentation only. The adapter owns quotes, enablement, approval and the background workflow. */
 export function EpixMainSwapView(props: EpixMainSwapViewProps) {
-  const { t, restoredDraft, recoveryError, workflow } = props;
+  const { t, recoveryError, workflow } = props;
   return (
     <MainHeaderLayout>
       <SwapContent
@@ -107,11 +106,6 @@ export function EpixMainSwapView(props: EpixMainSwapViewProps) {
               : "main-description"
           )}
         </DSTypography>
-        {restoredDraft && (
-          <DSTypography as="p" size="textSm" role="status">
-            {t("draft-restored")}
-          </DSTypography>
-        )}
         {recoveryError && (
           <DSTypography as="p" size="textSm" role="alert">
             {recoveryError}

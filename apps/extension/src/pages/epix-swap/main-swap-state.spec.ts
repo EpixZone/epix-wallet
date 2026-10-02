@@ -1,5 +1,4 @@
 import { EpixSwapOperation, EpixSwapReview } from "@keplr-wallet/background";
-import { SwapDraft } from "./draft";
 import {
   boundAccountReview,
   beginQuoteRefresh,
@@ -16,6 +15,7 @@ import {
   swapInputAmount,
   SwapQuoteState,
   DEFAULT_SWAP_DRAFT,
+  SwapDraft,
 } from "./main-swap-state";
 import {
   OSMOSIS_SWAP_TOKENS,
@@ -327,7 +327,7 @@ test("never shows another owner's quote error, confirmation error, or loading st
   ).toBeUndefined();
   expect(quoteDisplayState(oldQuote, "wallet-b-request")).toBe("idle");
   expect(
-    recoveryMessage(false, false, oldConfirmation, "wallet-b", (key) => key)
+    recoveryMessage(false, oldConfirmation, "wallet-b", (key) => key)
   ).toBeUndefined();
 });
 
@@ -391,7 +391,7 @@ test("a running operation remains selected but never offers another resume", () 
   });
 });
 
-test("completed history permits a new swap using the saved form rather than old approved inputs", () => {
+test("completed history permits a new swap using the current form rather than old approved inputs", () => {
   const older = operation({ status: "failed", createdAt: 1 });
   const newer = operation({ id: "newer", status: "complete", createdAt: 2 });
   const result = currentOperation([older, newer]);
@@ -475,7 +475,7 @@ test("changing direction immediately removes the old quote and its approval", ()
   expect(isQuoteConfirmable(oldQuote, nextKey, review, true, 1)).toBe(false);
 });
 
-test("saving a flipped form restores its direction, units and matching source chain", () => {
+test("a flipped form retains its direction, units and matching source chain", () => {
   const reverse = {
     ...flipSwapSelection(swapSelection(draft)),
     amount: "1.25",
