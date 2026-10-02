@@ -968,7 +968,7 @@
   "page.epix-swap.progress-submitted": "Submitted to the network",
   "page.epix-swap.progress-confirmed": "Confirmed on the source network",
   "page.epix-swap.progress-delivered": "Delivered to the destination",
-  "page.epix-swap.recovery-help": "You can close the wallet. Saved transfers will be checked when you return. Do not resend while confirmation is pending.",
+  "page.epix-swap.recovery-help": "If you close your wallet, you can resume the transfer when you return. Do not resend while confirmation is pending.",
   "page.epix-swap.submission-uncertain": "Submission is being checked. A network error does not mean the transaction failed. Do not send it again.",
   "page.epix-swap.tracking-unavailable": "Unable to check the network right now. Your saved transaction remains pending.",
   "page.epix-swap.check-status": "Check transaction status",
