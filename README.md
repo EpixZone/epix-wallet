@@ -61,9 +61,9 @@ The extension build output is in `apps/extension/build/manifest-v3`. This output
 - `yarn test`: run tests
 - `yarn lint-test` / `yarn lint-fix`: check or fix lint and formatting
 
-## Note on the private submodule
+## Private integrations
 
-The upstream repo references a private submodule (`apps/extension/src/keplr-wallet-private`) that is only available to Chainapsis. All primary features of the extension build and work without it.
+This fork uses the bundled `apps/extension/noop-keplr-wallet-private` package for upstream private integration hooks. It does not require or fetch Chainapsis's private repository, so normal and recursive clones work without private-repository access.
 
 ## Attribution
 
