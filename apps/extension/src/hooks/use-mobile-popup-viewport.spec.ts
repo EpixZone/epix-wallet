@@ -53,7 +53,7 @@ function fixture() {
   const win = new FakeWindow();
   const viewport = win.visualViewport as FakeVisualViewport;
   const properties = new Map<string, string>();
-  const attributes = new Map<string, string>();
+  const dataset: DOMStringMap = {};
   const root = {
     style: {
       setProperty: jest.fn((key: string, value: string) => {
@@ -63,19 +63,14 @@ function fixture() {
         properties.delete(key);
       }),
     },
-    setAttribute: jest.fn((key: string, value: string) => {
-      attributes.set(key, value);
-    }),
-    removeAttribute: jest.fn((key: string) => {
-      attributes.delete(key);
-    }),
+    dataset,
   };
   return {
     win,
     viewport,
     root,
     properties,
-    attributes,
+    dataset,
     start: () =>
       trackMobilePopupViewport(
         win as unknown as Window,
@@ -85,12 +80,12 @@ function fixture() {
 }
 
 it("uses the visual height immediately when Gecko retains a stale innerHeight", () => {
-  const { start, win, properties, attributes } = fixture();
+  const { start, win, properties, dataset } = fixture();
   const stop = start();
   expect(win.innerHeight).toBe(1182);
   expect(properties.get("--wallet-viewport-height")).toBe("840px");
   expect(properties.get("--wallet-viewport-top")).toBe("0px");
-  expect(attributes.get("data-mobile-popup-viewport")).toBe("true");
+  expect(dataset["mobilePopupViewport"]).toBe("true");
   expect(win.frames.size).toBe(0);
   stop();
 });
@@ -162,11 +157,11 @@ it("does not reflow during pinch zoom and resumes when normal scale returns", ()
 it.each([0, -1, NaN, Infinity, -Infinity])(
   "ignores invalid initial and subsequent height %p",
   (height) => {
-    const { start, win, viewport, properties, attributes } = fixture();
+    const { start, win, viewport, properties, dataset } = fixture();
     viewport.height = height;
     const stop = start();
     expect(properties.size).toBe(0);
-    expect(attributes.size).toBe(0);
+    expect(dataset).toEqual({});
     viewport.height = 840;
     viewport.emit("resize");
     win.flushFrame();
@@ -209,14 +204,14 @@ it("batches resize and scroll events into one update using the latest geometry",
   expect(properties.get("--wallet-viewport-height")).toBe("600px");
   expect(properties.get("--wallet-viewport-top")).toBe("32px");
   expect(root.style.setProperty).toHaveBeenCalledTimes(4);
-  expect(root.setAttribute).toHaveBeenCalledTimes(2);
+  expect(root.dataset["mobilePopupViewport"]).toBe("true");
   stop();
 });
 
-it("cleans up pending frames, listeners and only its own root styles", () => {
-  const { start, win, viewport, root, properties, attributes } = fixture();
+it("cleans up pending frames, listeners and only its own root styles and marker", () => {
+  const { start, win, viewport, root, properties, dataset } = fixture();
   properties.set("color", "red");
-  attributes.set("data-other", "kept");
+  dataset["other"] = "kept";
   const stop = start();
   viewport.height = 476;
   viewport.emit("resize");
@@ -228,11 +223,11 @@ it("cleans up pending frames, listeners and only its own root styles", () => {
   expect(win.listeners.size).toBe(0);
   expect(viewport.listeners.size).toBe(0);
   expect([...properties.entries()]).toEqual([["color", "red"]]);
-  expect([...attributes.entries()]).toEqual([["data-other", "kept"]]);
+  expect(dataset).toEqual({ other: "kept" });
   win.emit("resize");
   viewport.emit("resize");
   viewport.emit("scroll");
   win.flushFrame();
   expect(root.style.setProperty).toHaveBeenCalledTimes(2);
-  expect(root.setAttribute).toHaveBeenCalledTimes(1);
+  expect(dataset).toEqual({ other: "kept" });
 });

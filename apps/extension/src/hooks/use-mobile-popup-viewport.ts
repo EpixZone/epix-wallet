@@ -14,7 +14,7 @@ export function trackMobilePopupViewport(win: Window, root: HTMLElement) {
       return;
     root.style.setProperty("--wallet-viewport-height", `${height}px`);
     root.style.setProperty("--wallet-viewport-top", `${Math.max(0, top)}px`);
-    root.setAttribute("data-mobile-popup-viewport", "true");
+    root.dataset["mobilePopupViewport"] = "true";
   };
   const scheduleUpdate = () => {
     win.cancelAnimationFrame(frame);
@@ -29,7 +29,7 @@ export function trackMobilePopupViewport(win: Window, root: HTMLElement) {
     win.removeEventListener("resize", scheduleUpdate);
     viewport?.removeEventListener("resize", scheduleUpdate);
     viewport?.removeEventListener("scroll", scheduleUpdate);
-    root.removeAttribute("data-mobile-popup-viewport");
+    delete root.dataset["mobilePopupViewport"];
     root.style.removeProperty("--wallet-viewport-height");
     root.style.removeProperty("--wallet-viewport-top");
   };
