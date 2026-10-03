@@ -1,16 +1,23 @@
-import React, { FunctionComponent, useEffect, useRef, useState } from "react";
+import React, {
+  FunctionComponent,
+  PropsWithChildren,
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { observer } from "mobx-react-lite";
 import { useStore } from "../../../../stores";
 import { useSpringValue, animated, easings } from "@react-spring/web";
-import { SidePanelMaxWidth } from "../../../../styles";
 import {
   DSColor,
   DSTypography,
   LoadingIcon,
 } from "@keplr-wallet/design-system";
 import { useIntl } from "react-intl";
-import { Gutter } from "../../../../components/gutter";
-import { BottomTabsHeightRem } from "../../../../bottom-tabs";
+import styled from "styled-components";
 import { AutoFetchingAssetsInterval } from "../../../../config.ui";
 import { useLocation } from "react-router";
 import { refreshWalletBalances } from "./refresh-balances";
@@ -20,9 +27,17 @@ import {
   WalletRefreshEvent,
 } from "./refresh-controller";
 
-export const RefreshButton: FunctionComponent = observer(() => {
+const WalletRefreshContext = createContext<{
+  isLoading: boolean;
+  hasError: boolean;
+  visible: boolean;
+} | null>(null);
+
+// Keep one controller alive across route changes; headers only render its state.
+export const WalletRefreshProvider = observer<
+  PropsWithChildren<{ enabled: boolean }>
+>(({ enabled, children }) => {
   const stores = useStore();
-  const intl = useIntl();
   const { pathname } = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -32,6 +47,13 @@ export const RefreshButton: FunctionComponent = observer(() => {
   const previousAccount = useRef({ status, accountId });
 
   useEffect(() => {
+    setIsLoading(false);
+    setHasError(false);
+    if (!enabled) return;
+    previousAccount.current = {
+      status: stores.keyRingStore.status,
+      accountId: stores.keyRingStore.selectedKeyInfo?.id,
+    };
     const refresh = startWalletRefresh({
       document,
       window,
@@ -58,7 +80,7 @@ export const RefreshButton: FunctionComponent = observer(() => {
       refresh.dispose();
       controller.current = undefined;
     };
-  }, [stores]);
+  }, [stores, enabled]);
 
   // Read the selected account again when a queued refresh runs. Never retain
   // the previous account's addresses in the timer or focus handlers.
@@ -72,6 +94,55 @@ export const RefreshButton: FunctionComponent = observer(() => {
     }
   }, [status, accountId]);
 
+  const value = useMemo(
+    () =>
+      enabled && status === "unlocked"
+        ? { isLoading, hasError, visible: isWalletRefreshRoute(pathname) }
+        : null,
+    [enabled, status, isLoading, hasError, pathname]
+  );
+  return (
+    <WalletRefreshContext.Provider value={value}>
+      {children}
+    </WalletRefreshContext.Provider>
+  );
+});
+
+export function useWalletRefreshVisible() {
+  const state = useContext(WalletRefreshContext);
+  return state?.visible ?? false;
+}
+
+const HeaderRefreshButton = styled.button`
+  position: relative;
+  min-width: 4.5rem;
+  min-height: 44px;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: ${DSColor.typography.primary};
+  cursor: pointer;
+  &:hover:not(:disabled) {
+    background: ${DSColor.background.surface.elevated};
+  }
+  &:focus-visible {
+    outline: 2px solid ${DSColor.fill.accent.purple};
+    outline-offset: -2px;
+  }
+  &:disabled {
+    cursor: progress;
+  }
+`;
+
+export const RefreshButton: FunctionComponent = () => {
+  const state = useContext(WalletRefreshContext);
+  const visible = useWalletRefreshVisible();
+  const intl = useIntl();
+  const isLoading = state?.isLoading ?? false;
   const rotate = useSpringValue(0, {
     config: { duration: 1250, easing: easings.linear },
   });
@@ -87,34 +158,53 @@ export const RefreshButton: FunctionComponent = observer(() => {
     };
   }, [rotate, isLoading]);
 
-  if (status !== "unlocked" || !isWalletRefreshRoute(pathname)) return null;
-
+  if (!visible) return null;
+  const label = intl.formatMessage({
+    id: isLoading
+      ? "wallet.refresh.loading"
+      : "wallet.refresh.accessible-label",
+  });
   return (
-    <div
-      style={{
-        pointerEvents: "none",
-        position: "fixed",
-        marginBottom: BottomTabsHeightRem,
-        bottom: "0.75rem",
-        zIndex: 10,
-        left: "50%",
-        transform: "translateX(-50%)",
-        width: "100%",
-        maxWidth: SidePanelMaxWidth,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: "0.5rem",
-      }}
-    >
-      {hasError ? (
+    <div style={{ position: "relative", flexShrink: 0 }}>
+      <HeaderRefreshButton
+        type="button"
+        aria-label={label}
+        title={label}
+        aria-busy={isLoading}
+        disabled={isLoading}
+        onClick={() => window.dispatchEvent(new Event(WalletRefreshEvent))}
+      >
+        <DSTypography
+          size="textSm"
+          weight="medium"
+          style={{ visibility: isLoading ? "hidden" : undefined }}
+        >
+          {intl.formatMessage({ id: "wallet.refresh.label" })}
+        </DSTypography>
+        {isLoading ? (
+          <animated.span
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              display: "flex",
+              transform: rotate.to((v) => `rotate(${v}deg)`),
+            }}
+          >
+            <LoadingIcon size={20} />
+          </animated.span>
+        ) : null}
+      </HeaderRefreshButton>
+      {state?.hasError ? (
         <DSTypography
           as="div"
           size="textSm"
           role="alert"
           style={{
+            position: "absolute",
+            top: "100%",
+            right: 0,
+            width: "min(16rem, calc(100vw - 10rem))",
             padding: "0.5rem 1rem",
-            maxWidth: "90%",
             borderRadius: "0.5rem",
             background: DSColor.background.surface.elevated,
             color: DSColor.typography.primary,
@@ -123,49 +213,6 @@ export const RefreshButton: FunctionComponent = observer(() => {
           {intl.formatMessage({ id: "wallet.refresh.error" })}
         </DSTypography>
       ) : null}
-      <button
-        type="button"
-        aria-label={intl.formatMessage({
-          id: "wallet.refresh.accessible-label",
-        })}
-        aria-busy={isLoading}
-        disabled={isLoading}
-        onClick={() => window.dispatchEvent(new Event(WalletRefreshEvent))}
-        style={{
-          pointerEvents: "auto",
-          minHeight: "44px",
-          padding: "0.75rem 1rem",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          border: 0,
-          borderRadius: "999999px",
-          background: DSColor.background.surface.elevated,
-          color: DSColor.typography.primary,
-          boxShadow: `0 2px 8px ${DSColor.background.surface.scrim}`,
-          cursor: isLoading ? "progress" : "pointer",
-        }}
-      >
-        <DSTypography size="textSm" weight="medium">
-          {intl.formatMessage({
-            id: isLoading ? "wallet.refresh.loading" : "wallet.refresh.label",
-          })}
-        </DSTypography>
-        {isLoading ? (
-          <React.Fragment>
-            <Gutter size="0.25rem" />
-            <animated.span
-              aria-hidden="true"
-              style={{
-                display: "flex",
-                transform: rotate.to((v) => `rotate(${v}deg)`),
-              }}
-            >
-              <LoadingIcon size={16} />
-            </animated.span>
-          </React.Fragment>
-        ) : null}
-      </button>
     </div>
   );
-});
+};

@@ -24,6 +24,10 @@ import { useSpringValue, animated } from "@react-spring/web";
 import { defaultSpringConfig } from "../../styles/spring";
 import { PageSimpleBarProvider } from "../../hooks/page-simplebar";
 import { HeaderBorderScrollHandler } from "./components";
+import {
+  RefreshButton,
+  useWalletRefreshVisible,
+} from "../../pages/main/components/refresh-button";
 
 const bottomButtonPaddingRem = 0.75;
 
@@ -176,6 +180,8 @@ export const HeaderLayout: FunctionComponent<
 
   bottomBackground,
 }) => {
+  const showRefresh = useWalletRefreshVisible();
+  const flexibleHeader = title === "" || showRefresh;
   const hasBottomButton =
     bottomButtons && bottomButtons.length > 0 && !hideBottomButtons;
   const hasMultipleBottomButton =
@@ -232,12 +238,40 @@ export const HeaderLayout: FunctionComponent<
     <Styles.Container as={onSubmit ? "form" : undefined} onSubmit={onSubmit}>
       <Styles.HeaderContainer
         showBorderBottom={showBorderBottom}
-        style={headerContainerStyle}
+        style={{
+          ...(flexibleHeader ? { display: "flex", alignItems: "center" } : {}),
+          ...headerContainerStyle,
+        }}
       >
         {left && !isNotReady ? (
-          <Styles.HeaderLeft>{left}</Styles.HeaderLeft>
+          <Styles.HeaderLeft
+            style={
+              flexibleHeader
+                ? {
+                    position: "relative",
+                    flex: title === "" ? 1 : undefined,
+                    flexShrink: 0,
+                    minWidth: 0,
+                    justifyContent: "flex-start",
+                  }
+                : undefined
+            }
+          >
+            {left}
+          </Styles.HeaderLeft>
         ) : null}
-        <Styles.HeaderTitle>
+        <Styles.HeaderTitle
+          style={
+            showRefresh && title !== ""
+              ? {
+                  position: "relative",
+                  flex: 1,
+                  minWidth: 0,
+                  overflow: "hidden",
+                }
+              : undefined
+          }
+        >
           <Skeleton
             isNotReady={isNotReady}
             dummyMinWidth="6.25rem"
@@ -245,12 +279,36 @@ export const HeaderLayout: FunctionComponent<
             horizontalBleed="0.15rem"
             verticalBleed="0.15rem"
           >
-            <Subtitle1 color={titleColor}>{title}</Subtitle1>
+            <Subtitle1
+              color={titleColor}
+              style={
+                showRefresh && title !== ""
+                  ? { textAlign: "center" }
+                  : undefined
+              }
+            >
+              {title}
+            </Subtitle1>
           </Skeleton>
         </Styles.HeaderTitle>
 
-        {right && !isNotReady ? (
-          <Styles.HeaderRight>{right}</Styles.HeaderRight>
+        {(right || showRefresh) && !isNotReady ? (
+          <Styles.HeaderRight
+            style={{
+              ...(flexibleHeader
+                ? { position: "relative", flexShrink: 0 }
+                : {}),
+              ...(showRefresh
+                ? {
+                    gap: "0.25rem",
+                    paddingRight: right ? undefined : "0.75rem",
+                  }
+                : {}),
+            }}
+          >
+            {showRefresh ? <RefreshButton /> : null}
+            {right}
+          </Styles.HeaderRight>
         ) : null}
       </Styles.HeaderContainer>
 

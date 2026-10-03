@@ -41,12 +41,15 @@ import { AccountNameIcon } from "../components/account-icon";
 const Styles = {
   NameContainer: styled.div`
     display: flex;
+    flex: 1;
+    min-width: 0;
     align-items: center;
     justify-content: center;
   `,
 
   NameHoverArea: styled(Box)<{ isHover: boolean }>`
     display: flex;
+    min-width: 0;
     flex-direction: row;
     transition: opacity 0.1s ease-in-out;
     cursor: pointer;
@@ -267,12 +270,13 @@ export const MainHeaderLayout = observer<
           left={
             <React.Fragment>
               <Gutter size="0.75rem" />
-              <Box>
+              <Box style={{ flex: 1, minWidth: 0 }}>
                 <XAxis alignY="center">
                   <Styles.NameContainer
                     ref={accountSwitchFloatingModal.refs.setReference}
                   >
                     <NameHoverArea
+                      style={{ flexShrink: 0 }}
                       onHover={setIsNameHover}
                       isHover={isNameHover}
                       onClick={() => {
@@ -285,11 +289,13 @@ export const MainHeaderLayout = observer<
                       />
                       <Gutter size="0.5rem" />
                     </NameHoverArea>
-                    <Box alignY="center">
+                    <Box alignY="center" style={{ flex: 1, minWidth: 0 }}>
                       <XAxis alignY="center">
                         <Box
                           position="relative"
                           style={{
+                            flex: 1,
+                            minWidth: "1.75rem",
                             paddingRight: "1.75rem",
                           }}
                         >
@@ -308,6 +314,7 @@ export const MainHeaderLayout = observer<
                               }
                               style={{
                                 lineHeight: 1.25,
+                                minWidth: 0,
                                 maxWidth: "8.75rem",
                                 textOverflow: "ellipsis",
                                 overflow: "hidden",
@@ -354,7 +361,7 @@ export const MainHeaderLayout = observer<
 
                       <VerticalCollapseTransition
                         collapsed={!isShowTotalPrice}
-                        width="15rem"
+                        width="100%"
                       >
                         <NameHoverArea
                           onHover={setIsNameHover}
@@ -363,7 +370,15 @@ export const MainHeaderLayout = observer<
                             setIsOpenAccountSwitchModal(true);
                           }}
                         >
-                          <Subtitle4 color={ColorPalette["gray-300"]}>
+                          <Subtitle4
+                            color={ColorPalette["gray-300"]}
+                            style={{
+                              minWidth: 0,
+                              textOverflow: "ellipsis",
+                              overflow: "hidden",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
                             {totalPrice?.toString() ?? "-"}
                           </Subtitle4>
                         </NameHoverArea>

@@ -44,7 +44,7 @@ import manifest from "./manifest.v2.json";
 import { WalletStatus } from "@keplr-wallet/stores";
 import { UnlockPage } from "./pages/unlock";
 import { MainPage } from "./pages/main";
-import { RefreshButton } from "./pages/main/components/refresh-button";
+import { WalletRefreshProvider } from "./pages/main/components/refresh-button";
 import { SettingPage } from "./pages/setting";
 import { SettingGeneralPage } from "./pages/setting/general";
 import { SettingGeneralFiatPage } from "./pages/setting/general/fiat";
@@ -359,7 +359,7 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
   ]);
 
   return (
-    <HashRouter>
+    <WalletRouter refreshEnabled={isReady && !shouldUnlockPage}>
       <BottomTabsRouteProvider
         isNotReady={!isReady || mainPageIsNotReady}
         forceHideBottomTabs={shouldUnlockPage}
@@ -422,7 +422,6 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
         ]}
       >
         <RoutePageAnalytics />
-        {isReady && !shouldUnlockPage ? <RefreshButton /> : null}
         {isReady ? (
           shouldUnlockPage ? (
             <UnlockPage />
@@ -636,9 +635,19 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
           shouldUnlockPage={shouldUnlockPage}
         />
       </BottomTabsRouteProvider>
-    </HashRouter>
+    </WalletRouter>
   );
 });
+
+const WalletRouter: FunctionComponent<
+  React.PropsWithChildren<{ refreshEnabled: boolean }>
+> = ({ refreshEnabled, children }) => (
+  <HashRouter>
+    <WalletRefreshProvider enabled={refreshEnabled}>
+      {children}
+    </WalletRefreshProvider>
+  </HashRouter>
+);
 
 const LightModeBackground: FunctionComponent<{
   isReady: boolean;
