@@ -20,4 +20,17 @@ export const GlobalSidePanelStyle = createGlobalStyle`
     width: 100%;
     max-width: ${SidePanelMaxWidth};
   }
+
+  html[data-mobile-popup-viewport="true"] body {
+    height: var(--wallet-viewport-height);
+    min-height: 0;
+    // Give fixed headers, actions and body-level modals the visible viewport
+    // as their containing block, including after the mobile keyboard closes.
+    transform: translateY(var(--wallet-viewport-top));
+  }
+
+  html[data-mobile-popup-viewport="true"] #app {
+    height: 100%;
+    min-height: 0;
+  }
 `;

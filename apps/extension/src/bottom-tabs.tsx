@@ -68,7 +68,7 @@ export const BottomTabsRouteProvider: FunctionComponent<
   return (
     <div
       style={{
-        height: "100vh",
+        height: "var(--wallet-viewport-height, 100vh)",
         display: "flex",
         flexDirection: "column",
       }}

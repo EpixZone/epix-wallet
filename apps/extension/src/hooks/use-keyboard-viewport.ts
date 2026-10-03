@@ -4,10 +4,12 @@ import { useEffect } from "react";
 export function useKeyboardViewport() {
   useEffect(() => {
     if (navigator.maxTouchPoints === 0) return;
-    let height = window.innerHeight;
+    const viewport = window.visualViewport;
+    let height = viewport?.height ?? window.innerHeight;
     let frame = 0;
     const resize = () => {
-      const next = window.innerHeight;
+      if (viewport && viewport.scale !== 1) return;
+      const next = viewport?.height ?? window.innerHeight;
       const shrinking = next < height;
       height = next;
       if (!shrinking) return;
@@ -19,16 +21,23 @@ export function useKeyboardViewport() {
           input.matches("input, textarea, [contenteditable=true]")
         ) {
           const rect = input.getBoundingClientRect();
-          if (rect.bottom > next || rect.top < 0) {
+          // Android reports layout-relative client rectangles; WebKit can
+          // already report them relative to the visible viewport.
+          const top = /Android/i.test(navigator.userAgent)
+            ? viewport?.offsetTop ?? 0
+            : 0;
+          if (rect.bottom > top + next || rect.top < top) {
             input.scrollIntoView({ block: "center" });
           }
         }
       });
     };
     window.addEventListener("resize", resize);
+    viewport?.addEventListener("resize", resize);
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", resize);
+      viewport?.removeEventListener("resize", resize);
     };
   }, []);
 }
