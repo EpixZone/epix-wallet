@@ -7,24 +7,18 @@ import { Columns } from "../../../../components/column";
 import { Subtitle2 } from "../../../../components/typography";
 import { XAxis, YAxis } from "../../../../components/axis";
 import { Gutter } from "../../../../components/gutter";
-import { CheckIcon, LinkItem, PinView, TwitterIcon } from "./components";
+import { CheckIcon, PinView, TwitterIcon } from "./components";
 import { Styles } from "./styled";
-import { observer } from "mobx-react-lite";
-import { useStore } from "../../../../stores";
 import { Button } from "../../../../components/button";
 import { FormattedMessage, useIntl } from "react-intl";
 import { useTheme } from "styled-components";
 import { closeRegistrationPage } from "../../utils/close-page";
 
-export const WelcomePage: FunctionComponent = observer(() => {
-  const { chainStore } = useStore();
+export const WelcomePage: FunctionComponent = () => {
   const intl = useIntl();
   const theme = useTheme();
   const [isDesktop, setIsDesktop] = React.useState(true);
 
-  const osmosisInfo = chainStore.modularChainInfos.find(
-    (chainInfo) => chainInfo.chainId === "osmosis-1"
-  );
   useLayoutEffect(() => {
     if (window.innerWidth < 1150) {
       setIsDesktop(false);
@@ -128,51 +122,6 @@ export const WelcomePage: FunctionComponent = observer(() => {
                   });
                 }}
               />
-
-              <Gutter size="1.5rem" />
-
-              <Box style={{ fontWeight: 500, fontSize: "1.25rem" }}>
-                <FormattedMessage id="pages.register.pages.welcome.paragraph" />
-              </Box>
-
-              <Gutter size="1.5rem" />
-
-              <Box width="100%">
-                <Stack gutter="0.5rem">
-                  <Styles.LinkItemRow>
-                    <LinkItem
-                      title={intl.formatMessage({
-                        id: "pages.register.pages.welcome.osmosis-link.title",
-                      })}
-                      paragraph={intl.formatMessage({
-                        id: "pages.register.pages.welcome.osmosis-link.paragraph",
-                      })}
-                      src={osmosisInfo?.chainSymbolImageUrl}
-                      url="https://app.osmosis.zone/"
-                    />
-                    <LinkItem
-                      title={intl.formatMessage({
-                        id: "pages.register.pages.welcome.swapped-link.title",
-                      })}
-                      paragraph={intl.formatMessage({
-                        id: "pages.register.pages.welcome.swapped-link.paragraph",
-                      })}
-                      src={require("../../../../public/assets/img/fiat-on-ramp/swapped.svg")}
-                      url="https://swapped.com/"
-                    />
-                    <LinkItem
-                      title={intl.formatMessage({
-                        id: "pages.register.pages.welcome.stargaze-link.title",
-                      })}
-                      paragraph={intl.formatMessage({
-                        id: "pages.register.pages.welcome.stargaze-link.paragraph",
-                      })}
-                      src={require("../../../../public/assets/img/stargaze-logo.png")}
-                      url="https://www.stargaze.zone/"
-                    />
-                  </Styles.LinkItemRow>
-                </Stack>
-              </Box>
             </YAxis>
           </Box>
 
@@ -238,7 +187,7 @@ export const WelcomePage: FunctionComponent = observer(() => {
       </Stack>
     </Styles.Container>
   );
-});
+};
 
 const CongratsImage: FunctionComponent<{ size: string }> = ({ size }) => {
   const theme = useTheme();

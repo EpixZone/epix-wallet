@@ -1,0 +1,46 @@
+{
+  "tx_response": {
+    "txhash": "A864FFE4EA66838D88136FE5EE7F52C8CCFD0195B3C69A71C6F7275735BAD9D7",
+    "height": "5870372",
+    "code": 0,
+    "events": [
+      {
+        "type": "send_packet",
+        "attributes": [
+          {
+            "key": "packet_data_hex",
+            "value": "7b2264656e6f6d223a226165706978222c22616d6f756e74223a22353431303030303030303030303030303030303030222c2273656e646572223a226570697831766e37717a3363336874786e676a6e6a6e726b746c68797668766b733674717372646e7a3776222c227265636569766572223a226f736d6f316a786b6e397173773361376a79763479656e7732727763346e77636e6d7a6e796c7a33777872227d"
+          },
+          {
+            "key": "packet_timeout_height",
+            "value": "0-0"
+          },
+          {
+            "key": "packet_timeout_timestamp",
+            "value": "1790954282720000000"
+          },
+          {
+            "key": "packet_sequence",
+            "value": "881"
+          },
+          {
+            "key": "packet_src_port",
+            "value": "transfer"
+          },
+          {
+            "key": "packet_src_channel",
+            "value": "channel-0"
+          },
+          {
+            "key": "packet_dst_port",
+            "value": "transfer"
+          },
+          {
+            "key": "packet_dst_channel",
+            "value": "channel-108456"
+          }
+        ]
+      }
+    ]
+  }
+}

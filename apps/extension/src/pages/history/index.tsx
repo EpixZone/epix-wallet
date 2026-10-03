@@ -23,7 +23,10 @@ import {
 } from "@keplr-wallet/stores";
 import { action, computed, makeObservable, observable } from "mobx";
 import { Bech32Address } from "@keplr-wallet/cosmos";
-import { FormattedMessage } from "react-intl";
+import { FormattedMessage, useIntl } from "react-intl";
+import { NativeHistory } from "./native";
+import { hasNativeHistory } from "./native/query";
+import { Button } from "../../components/button";
 
 // React hook으로 처리하기 귀찮은 부분이 많아서
 // 그냥 대충 mobx로...
@@ -378,6 +381,39 @@ const HistoryPageInner: FunctionComponent = observer(() => {
 
 export const HistoryPage: FunctionComponent = observer(() => {
   const theme = useTheme();
+  const intl = useIntl();
+  const { chainStore } = useStore();
+  const nativeChain = chainStore.modularChainInfosInUI.find((chain) =>
+    hasNativeHistory(chain.chainId)
+  );
+  const indexedHistory =
+    !!process.env["KEPLR_EXT_TX_HISTORY_BASE_URL"] &&
+    !!process.env["KEPLR_EXT_CONFIG_SERVER"];
+  const [showOtherNetworks, setShowOtherNetworks] = useState(false);
+
+  let content: React.ReactNode;
+  if (nativeChain && !showOtherNetworks) {
+    content = (
+      <React.Fragment>
+        <Box alignX="center" paddingY="1.25rem">
+          <H4>
+            <FormattedMessage id="page.history.title" />
+          </H4>
+        </Box>
+        <NativeHistory chainId={nativeChain.chainId} />
+      </React.Fragment>
+    );
+  } else if (indexedHistory) {
+    content = <HistoryPageInner />;
+  } else {
+    content = (
+      <Box padding="1.25rem">
+        <Subtitle3>
+          <FormattedMessage id="page.history.native.unavailable" />
+        </Subtitle3>
+      </Box>
+    );
+  }
 
   return (
     <MainHeaderLayout
@@ -390,7 +426,21 @@ export const HistoryPage: FunctionComponent = observer(() => {
             : ColorPalette["gray-500"],
       }}
     >
-      <HistoryPageInner />
+      {nativeChain && indexedHistory ? (
+        <Box padding="0.75rem">
+          <Button
+            text={intl.formatMessage({
+              id: showOtherNetworks
+                ? "page.history.native.epix"
+                : "page.history.native.other-networks",
+            })}
+            color="secondary"
+            size="small"
+            onClick={() => setShowOtherNetworks((value) => !value)}
+          />
+        </Box>
+      ) : null}
+      {content}
     </MainHeaderLayout>
   );
 });

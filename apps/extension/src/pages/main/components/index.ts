@@ -1,5 +1,4 @@
 export * from "./spendable-card";
-export * from "./buy-crypto-modal";
 export * from "./token";
 export * from "./floating-menu-bar";
 export * from "./copy-address";
@@ -9,6 +8,5 @@ export * from "./token-found-modal";
 export * from "./looking-for-chains";
 export * from "./update-note-modal";
 export * from "./receive-button";
-export * from "./buy-button";
 export * from "./copy-check-animation";
 export * from "./refresh-button";

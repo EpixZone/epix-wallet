@@ -1,0 +1,45 @@
+{
+  "txhash": "5A6A84DFCE9337797A8C870AC8F889F993078FC5184B7CDDA927BFDFEB70FDB1",
+  "height": "5871387",
+  "code": 0,
+  "events": [
+    {
+      "type": "recv_packet",
+      "attributes": [
+        {
+          "key": "packet_sequence",
+          "value": "308"
+        },
+        {
+          "key": "packet_src_port",
+          "value": "transfer"
+        },
+        {
+          "key": "packet_src_channel",
+          "value": "channel-108456"
+        }
+      ]
+    },
+    {
+      "type": "write_acknowledgement",
+      "attributes": [
+        {
+          "key": "packet_sequence",
+          "value": "308"
+        },
+        {
+          "key": "packet_src_port",
+          "value": "transfer"
+        },
+        {
+          "key": "packet_src_channel",
+          "value": "channel-108456"
+        },
+        {
+          "key": "packet_ack_hex",
+          "value": "7b22726573756c74223a2241513d3d227d"
+        }
+      ]
+    }
+  ]
+}

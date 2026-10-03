@@ -32,6 +32,7 @@ export const EmbedChainInfos: EmbedChainInfo[] = [
       coinDenom: "EPIX",
       coinMinimalDenom: "aepix",
       coinDecimals: 18,
+      coinGeckoId: "epix",
       coinImageUrl: EPIX_LOGO,
     },
     bip44: {
@@ -43,6 +44,7 @@ export const EmbedChainInfos: EmbedChainInfo[] = [
         coinDenom: "EPIX",
         coinMinimalDenom: "aepix",
         coinDecimals: 18,
+        coinGeckoId: "epix",
         coinImageUrl: EPIX_LOGO,
       },
     ],
@@ -51,6 +53,7 @@ export const EmbedChainInfos: EmbedChainInfo[] = [
         coinDenom: "EPIX",
         coinMinimalDenom: "aepix",
         coinDecimals: 18,
+        coinGeckoId: "epix",
         coinImageUrl: EPIX_LOGO,
         // The live feemarket sits around 20-25 gwei (eth_gasPrice probe);
         // aepix is 18 decimals so these are wei-scale like Injective's.

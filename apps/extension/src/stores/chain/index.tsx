@@ -44,6 +44,8 @@ import {
 import { BACKGROUND_PORT, MessageRequester } from "@keplr-wallet/router";
 import { KVStore, toGenerator } from "@keplr-wallet/common";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
+import { withEpixPriceMetadata } from "../price/metadata";
+import { withOsmosisSwapCurrencies } from "./swap-currencies";
 
 export type RequiredCurrencyTokenScan = Omit<
   TokenScan,
@@ -62,6 +64,16 @@ export type RequiredCurrencyTokenScan = Omit<
 };
 
 export class ChainStore extends BaseChainStore {
+  protected override setEmbeddedChainInfos(
+    chainInfos: (ChainInfo | ModularChainInfo)[]
+  ) {
+    super.setEmbeddedChainInfos(
+      chainInfos.map((chain) =>
+        withOsmosisSwapCurrencies(withEpixPriceMetadata(chain))
+      )
+    );
+  }
+
   @observable
   protected _isInitializing: boolean = false;
 

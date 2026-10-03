@@ -11,7 +11,6 @@ import { Subtitle1, Subtitle4 } from "../../../../components/typography";
 import { Gutter } from "../../../../components/gutter";
 import { SearchTextInput } from "../../../../components/input";
 import SimpleBar from "simplebar-react";
-import { ArrowRightSolidIcon } from "../../../../components/icon";
 import {
   useSceneEvents,
   useSceneTransition,
@@ -23,8 +22,6 @@ import { useGetSearchChains } from "../../../../hooks/use-get-search-chains";
 import { LookingForChainItem } from "../looking-for-chains";
 import { useSearch } from "../../../../hooks/use-search";
 import { Column, Columns } from "../../../../components/column";
-import { TextButton } from "../../../../components/button-text";
-import { useBuySupportServiceInfos } from "../../../../hooks/use-buy-support-service-infos";
 import { useGetAddressesOnCopyAddress } from "../../hooks/use-get-addresses-copy-address";
 import { NoResultBox } from "../deposit-modal-no-search-box";
 import {
@@ -76,7 +73,6 @@ export const CopyAddressScene: FunctionComponent<{
 
   const searchRef = useFocusOnMount<HTMLInputElement>();
   const sceneTransition = useSceneTransition();
-  const buySupportServiceInfos = useBuySupportServiceInfos();
   const [showEnterTag, setShowEnterTag] = useState(false);
 
   useSceneEvents({
@@ -208,29 +204,6 @@ export const CopyAddressScene: FunctionComponent<{
           <FormattedMessage id="page.main.components.deposit-modal.title" />
         </Subtitle1>
         <Column weight={1} />
-        <TextButton
-          text={intl.formatMessage({
-            id: "page.main.components.deposit-modal.buy-crypto-button",
-          })}
-          color="blue"
-          onClick={() => {
-            sceneTransition.push("buy-crypto", {
-              buySupportServiceInfos,
-              showBackButton: true,
-              close,
-            });
-          }}
-          right={
-            <ArrowRightSolidIcon
-              width="1rem"
-              height="1rem"
-              color={ColorPalette["purple-400"]}
-            />
-          }
-          style={{
-            margin: "0.5rem -0.75rem",
-          }}
-        />
       </Columns>
 
       <Gutter size="0.75rem" />

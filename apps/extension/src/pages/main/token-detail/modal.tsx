@@ -21,8 +21,6 @@ import { useNavigate } from "react-router";
 import { TokenInfos } from "./token-info";
 import { RenderMessages } from "./messages";
 import { Modal } from "../../../components/modal";
-import { BuyCryptoModal } from "../components";
-import { useBuySupportServiceInfos } from "../../../hooks/use-buy-support-service-infos";
 import { CoinPretty, Dec, DecUtils } from "@keplr-wallet/unit";
 import { CircleButton } from "./circle-button";
 import { AddressChip, QRCodeChip } from "./address-chip";
@@ -44,6 +42,8 @@ import { FormattedMessage } from "react-intl";
 import { NOBLE_CHAIN_ID } from "../../../config.ui";
 import { MintPhotonButton } from "./mint-photon-button";
 import { supportsNativeStaking } from "../../stake/utils";
+import { NativeHistory } from "../../history/native";
+import { hasNativeHistory } from "../../history/native/query";
 
 const Styles = {
   Container: styled.div`
@@ -76,6 +76,13 @@ const Styles = {
     padding: 0 1rem;
   `,
 };
+
+function getChainNameColor(isIBCCurrency: boolean, isLightTheme: boolean) {
+  if (isIBCCurrency) {
+    return isLightTheme ? ColorPalette["purple-400"] : ColorPalette["white"];
+  }
+  return isLightTheme ? ColorPalette["gray-500"] : ColorPalette["gray-200"];
+}
 
 export const TokenDetailModal: FunctionComponent<{
   close: () => void;
@@ -116,15 +123,6 @@ export const TokenDetailModal: FunctionComponent<{
   const isNonTransferable = !!currency.nonTransferable;
 
   const [isReceiveOpen, setIsReceiveOpen] = React.useState(false);
-  const [isOpenBuy, setIsOpenBuy] = React.useState(false);
-
-  const buySupportServiceInfos = useBuySupportServiceInfos({
-    chainId,
-    currency,
-  });
-  const isSomeBuySupport = buySupportServiceInfos.some(
-    (serviceInfo) => !!serviceInfo.getBuyUrl
-  );
   const balance = (() => {
     const u = modularChainInfo.unwrapped;
     if (u.type === "cosmos" || u.type === "ethermint") {
@@ -184,10 +182,17 @@ export const TokenDetailModal: FunctionComponent<{
 
   const navigate = useNavigate();
 
-  const querySupported = queriesStore.simpleQuery.queryGet<string[]>(
-    process.env["KEPLR_EXT_CONFIG_SERVER"],
-    "/tx-history/supports"
-  );
+  const nativeHistory = hasNativeHistory(chainId);
+  const indexedHistory =
+    !nativeHistory &&
+    !!process.env["KEPLR_EXT_TX_HISTORY_BASE_URL"] &&
+    !!process.env["KEPLR_EXT_CONFIG_SERVER"];
+  const querySupported = indexedHistory
+    ? queriesStore.simpleQuery.queryGet<string[]>(
+        process.env["KEPLR_EXT_CONFIG_SERVER"],
+        "/tx-history/supports"
+      )
+    : undefined;
 
   const isSupported: boolean = useMemo(() => {
     const u = modularChainInfo.unwrapped;
@@ -201,14 +206,14 @@ export const TokenDetailModal: FunctionComponent<{
       }
 
       const map = new Map<string, boolean>();
-      for (const chainIdentifier of querySupported.response?.data ?? []) {
+      for (const chainIdentifier of querySupported?.response?.data ?? []) {
         map.set(chainIdentifier, true);
       }
 
       return map.get(modularChainInfo.chainIdentifier) ?? false;
     }
     return false;
-  }, [modularChainInfo, querySupported.response, chainId, isERC20]);
+  }, [modularChainInfo, querySupported?.response, chainId, isERC20]);
 
   const buttons: {
     icon: React.ReactElement;
@@ -216,30 +221,6 @@ export const TokenDetailModal: FunctionComponent<{
     onClick: () => void;
     disabled?: boolean;
   }[] = [
-    {
-      icon: (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="20"
-          height="20"
-          fill="none"
-          viewBox="0 0 20 20"
-        >
-          <path
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="1.556"
-            d="M10 3.75v12.5M16.25 10H3.75"
-          />
-        </svg>
-      ),
-      text: "Buy",
-      onClick: () => {
-        setIsOpenBuy(true);
-      },
-      disabled: !isSomeBuySupport,
-    },
     {
       icon: (
         <svg
@@ -379,7 +360,10 @@ export const TokenDetailModal: FunctionComponent<{
         return true;
       }
       return false;
-    }
+    },
+    `${chainId}/${account.bech32Address}/${account.ethereumHexAddress}/${coinMinimalDenom}/${indexedHistory}`,
+    () =>
+      indexedHistory && !!(account.bech32Address || account.ethereumHexAddress)
   );
 
   const simpleBarRef = useRef<SimpleBarCore>(null);
@@ -466,15 +450,7 @@ export const TokenDetailModal: FunctionComponent<{
               </Body1>
               <Body1
                 as="span"
-                color={
-                  isIBCCurrency
-                    ? theme.mode === "light"
-                      ? ColorPalette["purple-400"]
-                      : ColorPalette["white"]
-                    : theme.mode === "light"
-                    ? ColorPalette["gray-500"]
-                    : ColorPalette["gray-200"]
-                }
+                color={getChainNameColor(isIBCCurrency, theme.mode === "light")}
               >
                 {modularChainInfo.chainName}
               </Body1>
@@ -758,6 +734,21 @@ export const TokenDetailModal: FunctionComponent<{
 
           <Gutter size="1.25rem" />
           {(() => {
+            if (nativeHistory)
+              return (
+                <NativeHistory
+                  chainId={chainId}
+                  targetDenom={coinMinimalDenom}
+                />
+              );
+            if (!indexedHistory)
+              return (
+                <Box padding="0.75rem">
+                  <Subtitle3>
+                    <FormattedMessage id="page.history.native.unavailable" />
+                  </Subtitle3>
+                </Box>
+              );
             // 최초 loading 중인 경우
             if (msgHistory.pages.length === 0) {
               return (
@@ -877,17 +868,6 @@ export const TokenDetailModal: FunctionComponent<{
           })()}
         </SimpleBar>
       </Styles.Body>
-
-      <Modal
-        isOpen={isOpenBuy}
-        align="bottom"
-        close={() => setIsOpenBuy(false)}
-      >
-        <BuyCryptoModal
-          close={() => setIsOpenBuy(false)}
-          buySupportServiceInfos={buySupportServiceInfos}
-        />
-      </Modal>
 
       <Modal
         isOpen={isReceiveOpen}

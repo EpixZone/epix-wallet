@@ -24,6 +24,8 @@ import lottie, { AnimationItem } from "lottie-web";
 import AnimCheckLight from "../../public/assets/lottie/register/check-circle-icon-light.json";
 import AnimCheck from "../../public/assets/lottie/register/check-circle-icon.json";
 import { ChainIdHelper } from "@keplr-wallet/cosmos";
+import { hasNativeHistory } from "../history/native/query";
+import { EPIX_TX_EXPLORER } from "../../config.ui";
 
 export const HistoryDetailCommonBottomSection: FunctionComponent<{
   msg: MsgHistory;
@@ -35,6 +37,21 @@ export const HistoryDetailCommonBottomSection: FunctionComponent<{
   const fee: string | undefined = (() => {
     const modularChainInfo = chainStore.getModularChain(msg.chainId);
     const u = modularChainInfo.unwrapped;
+    if (hasNativeHistory(msg.chainId)) {
+      if (!msg.nativeFee?.length) return "-";
+      return msg.nativeFee
+        .map((coin) => {
+          const currency = modularChainInfo.findCurrency(coin.denom);
+          return currency
+            ? new CoinPretty(currency, coin.amount)
+                .maxDecimals(currency.coinDecimals)
+                .trim(true)
+                .inequalitySymbol(true)
+                .toString()
+            : `${coin.amount} ${coin.denom}`;
+        })
+        .join(", ");
+    }
     if (u.type === "evm") {
       const queries = queriesStore.get(msg.chainId);
       const receiptQuery =
@@ -132,14 +149,19 @@ export const HistoryDetailCommonBottomSection: FunctionComponent<{
     }
   })();
 
-  const queryExplorer = queriesStore.simpleQuery.queryGet<{
-    link: string;
-  }>(
-    process.env["KEPLR_EXT_CONFIG_SERVER"],
-    `/tx-history/explorer/${ChainIdHelper.parse(msg.chainId).identifier}`
-  );
+  const queryExplorer =
+    !hasNativeHistory(msg.chainId) && process.env["KEPLR_EXT_CONFIG_SERVER"]
+      ? queriesStore.simpleQuery.queryGet<{
+          link: string;
+        }>(
+          process.env["KEPLR_EXT_CONFIG_SERVER"],
+          `/tx-history/explorer/${ChainIdHelper.parse(msg.chainId).identifier}`
+        )
+      : undefined;
 
-  const explorerUrl = queryExplorer.response?.data.link || "";
+  const explorerUrl = hasNativeHistory(msg.chainId)
+    ? EPIX_TX_EXPLORER
+    : queryExplorer?.response?.data.link || "";
 
   return (
     <React.Fragment>

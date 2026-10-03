@@ -44,6 +44,7 @@ import manifest from "./manifest.v2.json";
 import { WalletStatus } from "@keplr-wallet/stores";
 import { UnlockPage } from "./pages/unlock";
 import { MainPage } from "./pages/main";
+import { WalletRefreshProvider } from "./pages/main/components/refresh-button";
 import { SettingPage } from "./pages/setting";
 import { SettingGeneralPage } from "./pages/setting/general";
 import { SettingGeneralFiatPage } from "./pages/setting/general/fiat";
@@ -80,6 +81,7 @@ import { AppIntlProvider } from "./languages";
 import { SettingSecurityAutoLockPage } from "./pages/setting/security/auto-lock";
 import { useLoadFonts } from "./use-load-fonts";
 import { useKeyboardViewport } from "./hooks/use-keyboard-viewport";
+import { useMobilePopupViewport } from "./hooks/use-mobile-popup-viewport";
 import { useAutoLockMonitoring } from "./use-auto-lock-monitoring";
 import { Splash } from "./components/splash";
 import { IBCTransferPage } from "./pages/ibc-transfer";
@@ -90,7 +92,7 @@ import { SignEthereumTxPage } from "./pages/sign/ethereum";
 import "simplebar-react/dist/simplebar.min.css";
 import { AppThemeProvider } from "./theme";
 import { useTheme } from "styled-components";
-import { IBCSwapPage } from "./pages/ibc-swap";
+import { IBCSwapEntryPage } from "./pages/ibc-swap/entry";
 import {
   BottomTabHistoryIcon,
   BottomTabHomeIcon,
@@ -357,7 +359,7 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
   ]);
 
   return (
-    <HashRouter>
+    <WalletRouter refreshEnabled={isReady && !shouldUnlockPage}>
       <BottomTabsRouteProvider
         isNotReady={!isReady || mainPageIsNotReady}
         forceHideBottomTabs={shouldUnlockPage}
@@ -434,7 +436,7 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
               <Route path="/starknet/send" element={<StarknetSendPage />} />
               <Route path="/bitcoin/send" element={<BitcoinSendPage />} />
 
-              <Route path="/ibc-swap" element={<IBCSwapPage />} />
+              <Route path="/ibc-swap" element={<IBCSwapEntryPage />} />
               <Route
                 path="/send/select-asset"
                 element={<SendSelectAssetPage />}
@@ -633,9 +635,19 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
           shouldUnlockPage={shouldUnlockPage}
         />
       </BottomTabsRouteProvider>
-    </HashRouter>
+    </WalletRouter>
   );
 });
+
+const WalletRouter: FunctionComponent<
+  React.PropsWithChildren<{ refreshEnabled: boolean }>
+> = ({ refreshEnabled, children }) => (
+  <HashRouter>
+    <WalletRefreshProvider enabled={refreshEnabled}>
+      {children}
+    </WalletRefreshProvider>
+  </HashRouter>
+);
 
 const LightModeBackground: FunctionComponent<{
   isReady: boolean;
@@ -669,6 +681,7 @@ const LightModeBackground: FunctionComponent<{
 };
 
 const App: FunctionComponent = () => {
+  useMobilePopupViewport();
   useKeyboardViewport();
   useMatchPopupSize();
 

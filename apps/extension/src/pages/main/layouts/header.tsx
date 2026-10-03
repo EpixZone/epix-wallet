@@ -41,12 +41,15 @@ import { AccountNameIcon } from "../components/account-icon";
 const Styles = {
   NameContainer: styled.div`
     display: flex;
+    flex: 1;
+    min-width: 0;
     align-items: center;
     justify-content: center;
   `,
 
   NameHoverArea: styled(Box)<{ isHover: boolean }>`
     display: flex;
+    min-width: 0;
     flex-direction: row;
     transition: opacity 0.1s ease-in-out;
     cursor: pointer;
@@ -214,8 +217,8 @@ export const MainHeaderLayout = observer<
       whileElementsMounted: autoUpdate,
     });
     const { totalPrice } = useTotalPrices();
-    // The Tor/I2P strip pins under the fixed header; when it shows, the
-    // scrollable content needs the extra top padding to not start beneath it.
+    // Keep network status above the wallet selector and reserve space for
+    // both fixed rows before the scrollable content.
     const { available: hasEpixStatusBar } = useEpixStatus();
     // On the mobile shells the strip opens an inline popover whose tap-away
     // backdrop must cover the header row; lift the strip's stacking context
@@ -249,17 +252,31 @@ export const MainHeaderLayout = observer<
 
     return (
       <Fragment>
+        {hasEpixStatusBar ? (
+          <Box
+            position="fixed"
+            style={{
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: isEpixPopoverOpen ? 101 : 99,
+            }}
+          >
+            <EpixNetworkStatusBar onOpenChange={setIsEpixPopoverOpen} />
+          </Box>
+        ) : null}
         <HeaderLayout
           title={""}
           left={
             <React.Fragment>
               <Gutter size="0.75rem" />
-              <Box>
+              <Box style={{ flex: 1, minWidth: 0 }}>
                 <XAxis alignY="center">
                   <Styles.NameContainer
                     ref={accountSwitchFloatingModal.refs.setReference}
                   >
                     <NameHoverArea
+                      style={{ flexShrink: 0 }}
                       onHover={setIsNameHover}
                       isHover={isNameHover}
                       onClick={() => {
@@ -272,11 +289,13 @@ export const MainHeaderLayout = observer<
                       />
                       <Gutter size="0.5rem" />
                     </NameHoverArea>
-                    <Box alignY="center">
+                    <Box alignY="center" style={{ flex: 1, minWidth: 0 }}>
                       <XAxis alignY="center">
                         <Box
                           position="relative"
                           style={{
+                            flex: "0 1 auto",
+                            minWidth: "1.75rem",
                             paddingRight: "1.75rem",
                           }}
                         >
@@ -295,6 +314,7 @@ export const MainHeaderLayout = observer<
                               }
                               style={{
                                 lineHeight: 1.25,
+                                minWidth: 0,
                                 maxWidth: "8.75rem",
                                 textOverflow: "ellipsis",
                                 overflow: "hidden",
@@ -341,7 +361,7 @@ export const MainHeaderLayout = observer<
 
                       <VerticalCollapseTransition
                         collapsed={!isShowTotalPrice}
-                        width="15rem"
+                        width="100%"
                       >
                         <NameHoverArea
                           onHover={setIsNameHover}
@@ -350,8 +370,16 @@ export const MainHeaderLayout = observer<
                             setIsOpenAccountSwitchModal(true);
                           }}
                         >
-                          <Subtitle4 color={ColorPalette["gray-300"]}>
-                            {totalPrice?.toString()}
+                          <Subtitle4
+                            color={ColorPalette["gray-300"]}
+                            style={{
+                              minWidth: 0,
+                              textOverflow: "ellipsis",
+                              overflow: "hidden",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {totalPrice?.toString() ?? "-"}
                           </Subtitle4>
                         </NameHoverArea>
                       </VerticalCollapseTransition>
@@ -456,13 +484,9 @@ export const MainHeaderLayout = observer<
             </Columns>
           }
           {...otherProps}
-          // With the strip pinned right under the header, the header's
-          // scroll-triggered bottom border would draw a stray line between
-          // two identical chrome rows; the strip's own hairline takes over
-          // as the chrome/content separator.
           headerContainerStyle={
             hasEpixStatusBar
-              ? { ...headerContainerStyle, borderBottomColor: "transparent" }
+              ? { ...headerContainerStyle, top: EpixStatusBarHeight }
               : headerContainerStyle
           }
           contentContainerStyle={
@@ -473,19 +497,6 @@ export const MainHeaderLayout = observer<
         >
           {children}
         </HeaderLayout>
-        {hasEpixStatusBar ? (
-          <Box
-            position="fixed"
-            style={{
-              top: HeaderHeight,
-              left: 0,
-              right: 0,
-              zIndex: isEpixPopoverOpen ? 101 : 99,
-            }}
-          >
-            <EpixNetworkStatusBar onOpenChange={setIsEpixPopoverOpen} />
-          </Box>
-        ) : null}
         <AccountSwitchFloatModal
           isOpen={isOpenAccountSwitchModal}
           closeModal={() => setIsOpenAccountSwitchModal(false)}

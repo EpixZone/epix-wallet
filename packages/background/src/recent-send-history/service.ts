@@ -1,4 +1,5 @@
 import { ChainsService } from "../chains";
+import { readIBCWriteAcknowledgement } from "./ibc-acknowledgement";
 import { AnalyticsService } from "../analytics";
 import {
   Bech32Address,
@@ -3329,8 +3330,6 @@ export class RecentSendHistoryService {
       swapReceiver,
       destinationAsset,
       onHopCompleted: (resAmount, tx) => {
-        onHopCompleted?.(resAmount, tx);
-
         const sequence = targetChannel.sequence;
         if (!sequence) {
           hopFailed = true;
@@ -3373,7 +3372,15 @@ export class RecentSendHistoryService {
               }
             }
           } catch {
-            // noop
+            // A malformed acknowledgement is unknown, not a verified refund.
+            // Undo the receive tracer's provisional completion and let the
+            // existing error retry re-read the packet without sending anything.
+            runInAction(() => {
+              targetChannel.completed = false;
+            });
+            hopFailed = true;
+            onErrorOnce();
+            return;
           }
 
           const index = this.getIBCRecvPacketIndexFromTx(
@@ -3387,6 +3394,7 @@ export class RecentSendHistoryService {
             break;
           }
         }
+        onHopCompleted?.(resAmount, tx);
       },
       onAllCompleted: () => {
         if (hopFailed) {
@@ -3690,98 +3698,12 @@ export class RecentSendHistoryService {
     sourceChannelId: string,
     sequence: string
   ): Uint8Array | undefined {
-    const events = tx.events;
-    if (!events) {
-      throw new Error("Invalid tx");
-    }
-    if (!Array.isArray(events)) {
-      throw new Error("Invalid tx");
-    }
-
-    // In injective, events from tendermint rpc is not encoded as base64.
-    // I don't know that this is the difference from tendermint version, or just custom from injective.
-    const compareStringWithBase64OrPlain = (
-      target: string,
-      value: string
-    ): [boolean, boolean] => {
-      if (target === value) {
-        return [true, false];
-      }
-
-      if (target === Buffer.from(value).toString("base64")) {
-        return [true, true];
-      }
-
-      return [false, false];
-    };
-
-    const packetEvent = events.find((event: any) => {
-      if (event.type !== "write_acknowledgement") {
-        return false;
-      }
-      const sourcePortAttr = event.attributes.find((attr: { key: string }) => {
-        return compareStringWithBase64OrPlain(attr.key, "packet_src_port")[0];
-      });
-      if (!sourcePortAttr) {
-        return false;
-      }
-      const sourceChannelAttr = event.attributes.find(
-        (attr: { key: string }) => {
-          return compareStringWithBase64OrPlain(
-            attr.key,
-            "packet_src_channel"
-          )[0];
-        }
-      );
-      if (!sourceChannelAttr) {
-        return false;
-      }
-      let isBase64 = false;
-      const sequenceAttr = event.attributes.find((attr: { key: string }) => {
-        const c = compareStringWithBase64OrPlain(attr.key, "packet_sequence");
-        isBase64 = c[1];
-        return c[0];
-      });
-      if (!sequenceAttr) {
-        return false;
-      }
-
-      if (isBase64) {
-        return (
-          Buffer.from(sourcePortAttr.value, "base64").toString() ===
-            sourcePortId &&
-          Buffer.from(sourceChannelAttr.value, "base64").toString() ===
-            sourceChannelId &&
-          Buffer.from(sequenceAttr.value, "base64").toString() === sequence
-        );
-      } else {
-        return (
-          sourcePortAttr.value === sourcePortId &&
-          sourceChannelAttr.value === sourceChannelId &&
-          sequenceAttr.value === sequence
-        );
-      }
-    });
-    if (!packetEvent) {
-      return;
-    }
-
-    let isBase64 = false;
-    const ackAttr = packetEvent.attributes.find((attr: { key: string }) => {
-      const r = compareStringWithBase64OrPlain(attr.key, "packet_ack");
-      isBase64 = r[1];
-      return r[0];
-    });
-
-    if (ackAttr) {
-      if (isBase64) {
-        return Buffer.from(ackAttr.value, "base64");
-      } else {
-        return Buffer.from(ackAttr.value);
-      }
-    }
-
-    return;
+    return readIBCWriteAcknowledgement(
+      tx,
+      sourcePortId,
+      sourceChannelId,
+      sequence
+    );
   }
 
   protected getIBCSwapResAmountFromTx(

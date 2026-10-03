@@ -18,7 +18,7 @@ import {
 
 /**
  * Height of the always-visible network status strip. Exported so layouts that
- * pin it under a fixed header can pad their content by the same amount.
+ * pin it above a fixed header can offset that header by the same amount.
  */
 export const EpixStatusBarHeight = "2rem";
 

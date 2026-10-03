@@ -72,7 +72,7 @@ export const RegisterIntroExistingUserScene: FunctionComponent = () => {
             <Button
               text={intl.formatMessage({
                 id: "wallet-transfer.import-title",
-                defaultMessage: "Scan desktop QR",
+                defaultMessage: "Scan QR code",
               })}
               size="large"
               color="secondary"

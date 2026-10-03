@@ -9,28 +9,31 @@ import { useIntl } from "react-intl";
 import { Gutter } from "../../components/gutter";
 import { Subtitle3 } from "../../components/typography";
 import { XAxis } from "../../components/axis";
-import {
-  BuyButtonWhenFirstTime,
-  BuyCryptoModal,
-  ReceiveButtonWhenFirstTime,
-} from "../main/components";
+import { ReceiveButtonWhenFirstTime } from "../main/components";
 import { Modal } from "../../components/modal";
 import { DepositModal } from "../main/components/deposit-modal";
-import { useBuySupportServiceInfos } from "../../hooks/use-buy-support-service-infos";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { IconProps } from "../../components/icon/types";
 import { COMMON_HOVER_OPACITY } from "../../styles/constant";
+import { useStore } from "../../stores";
+import { supportsNativeStaking } from "./utils";
+import { Button } from "../../components/button";
+import { Stack } from "../../components/stack";
 
 export const StakeExplorePage: FunctionComponent = observer(() => {
   const theme = useTheme();
   const intl = useIntl();
+  const navigate = useNavigate();
+  const { chainStore } = useStore();
 
   const [searchParams] = useSearchParams();
 
   const [isOpenDepositModal, setIsOpenDepositModal] = React.useState(false);
-  const [isOpenBuy, setIsOpenBuy] = React.useState(false);
-
-  const buySupportServiceInfos = useBuySupportServiceInfos();
+  // Browsing validators must not depend on an available balance. This also
+  // keeps the entry point visible while balances and delegations are loading.
+  const stakingChains = chainStore.modularChainInfosInUI.filter(
+    (chain) => !chain.isTestnet && supportsNativeStaking(chain)
+  );
 
   const showBackButton = searchParams.get("showBackButton") === "true";
 
@@ -69,14 +72,35 @@ export const StakeExplorePage: FunctionComponent = observer(() => {
 
         <Gutter size="1.25rem" />
 
+        {stakingChains.length > 0 ? (
+          <React.Fragment>
+            <Stack gutter="0.5rem">
+              {stakingChains.map((chain) => (
+                <Button
+                  key={chain.chainId}
+                  text={intl.formatMessage(
+                    { id: "page.stake.explore.validators-button" },
+                    { chainName: chain.chainName }
+                  )}
+                  size="large"
+                  onClick={() => {
+                    navigate(
+                      `/stake/validators?chainId=${encodeURIComponent(
+                        chain.chainId
+                      )}`
+                    );
+                  }}
+                />
+              ))}
+            </Stack>
+            <Gutter size="1.25rem" />
+          </React.Fragment>
+        ) : null}
+
         <XAxis>
           <ReceiveButtonWhenFirstTime
             onClick={() => setIsOpenDepositModal(true)}
           />
-          <Gutter size="0.75rem" />
-          {/* Buying is not wired up for EPIX yet: the button stays visible
-              but disabled until a buy provider is available. */}
-          <BuyButtonWhenFirstTime onClick={() => setIsOpenBuy(true)} disabled />
         </XAxis>
       </Box>
 
@@ -93,17 +117,6 @@ export const StakeExplorePage: FunctionComponent = observer(() => {
           close={() => {
             setIsOpenDepositModal(false);
           }}
-        />
-      </Modal>
-
-      <Modal
-        isOpen={isOpenBuy}
-        align="bottom"
-        close={() => setIsOpenBuy(false)}
-      >
-        <BuyCryptoModal
-          close={() => setIsOpenBuy(false)}
-          buySupportServiceInfos={buySupportServiceInfos}
         />
       </Modal>
     </MainHeaderLayout>
