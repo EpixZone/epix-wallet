@@ -294,7 +294,7 @@ export const MainHeaderLayout = observer<
                         <Box
                           position="relative"
                           style={{
-                            flex: 1,
+                            flex: "0 1 auto",
                             minWidth: "1.75rem",
                             paddingRight: "1.75rem",
                           }}
