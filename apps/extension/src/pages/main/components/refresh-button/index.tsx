@@ -126,7 +126,7 @@ const HeaderRefreshButton = styled.button`
   border: 0;
   border-radius: 0.5rem;
   background: transparent;
-  color: ${DSColor.typography.primary};
+  color: ${DSColor.typography.tertiary};
   cursor: pointer;
   &:hover:not(:disabled) {
     background: ${DSColor.background.surface.elevated};
@@ -188,7 +188,7 @@ export const RefreshButton: FunctionComponent = () => {
               transform: rotate.to((v) => `rotate(${v}deg)`),
             }}
           >
-            <RefreshIcon size={20} />
+            <RefreshIcon size={16} />
           </animated.span>
         </HeaderRefreshButton>
       </Tooltip>
