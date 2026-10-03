@@ -14,10 +14,11 @@ import { useSpringValue, animated, easings } from "@react-spring/web";
 import {
   DSColor,
   DSTypography,
-  LoadingIcon,
+  RefreshIcon,
 } from "@keplr-wallet/design-system";
 import { useIntl } from "react-intl";
 import styled from "styled-components";
+import { Tooltip } from "../../../../components/tooltip";
 import { AutoFetchingAssetsInterval } from "../../../../config.ui";
 import { useLocation } from "react-router";
 import { refreshWalletBalances } from "./refresh-balances";
@@ -115,7 +116,8 @@ export function useWalletRefreshVisible() {
 
 const HeaderRefreshButton = styled.button`
   position: relative;
-  min-width: 4.5rem;
+  width: 44px;
+  min-width: 44px;
   min-height: 44px;
   padding: 0.5rem;
   display: flex;
@@ -166,34 +168,30 @@ export const RefreshButton: FunctionComponent = () => {
   });
   return (
     <div style={{ position: "relative", flexShrink: 0 }}>
-      <HeaderRefreshButton
-        type="button"
-        aria-label={label}
-        title={label}
-        aria-busy={isLoading}
-        disabled={isLoading}
-        onClick={() => window.dispatchEvent(new Event(WalletRefreshEvent))}
+      <Tooltip
+        content={intl.formatMessage({
+          id: isLoading ? "wallet.refresh.loading" : "wallet.refresh.label",
+        })}
+        allowedPlacements={["bottom"]}
       >
-        <DSTypography
-          size="textSm"
-          weight="medium"
-          style={{ visibility: isLoading ? "hidden" : undefined }}
+        <HeaderRefreshButton
+          type="button"
+          aria-label={label}
+          aria-busy={isLoading}
+          disabled={isLoading}
+          onClick={() => window.dispatchEvent(new Event(WalletRefreshEvent))}
         >
-          {intl.formatMessage({ id: "wallet.refresh.label" })}
-        </DSTypography>
-        {isLoading ? (
           <animated.span
             aria-hidden="true"
             style={{
-              position: "absolute",
               display: "flex",
               transform: rotate.to((v) => `rotate(${v}deg)`),
             }}
           >
-            <LoadingIcon size={20} />
+            <RefreshIcon size={20} />
           </animated.span>
-        ) : null}
-      </HeaderRefreshButton>
+        </HeaderRefreshButton>
+      </Tooltip>
       {state?.hasError ? (
         <DSTypography
           as="div"
