@@ -6,6 +6,7 @@ import {
 } from "@keplr-wallet/types";
 import { ROUTE } from "./constants";
 import { ChainInfoWithCoreTypes } from "./types";
+import { EndpointHealthSnapshot } from "./endpoint-health";
 
 export class PingMsg extends Message<void> {
   public static type() {
@@ -32,6 +33,7 @@ export class PingMsg extends Message<void> {
 export class GetChainInfosWithCoreTypesMsg extends Message<{
   chainInfos: ChainInfoWithCoreTypes[];
   modularChainInfos: ModularChainInfo[];
+  endpointHealth: readonly EndpointHealthSnapshot[];
 }> {
   public static type() {
     return "get-chain-infos-with-core-types";
@@ -47,6 +49,82 @@ export class GetChainInfosWithCoreTypesMsg extends Message<{
 
   type(): string {
     return GetChainInfosWithCoreTypesMsg.type();
+  }
+}
+
+/** Internal extension controls. Webpages cannot select or authorize backups. */
+export class CheckEndpointHealthMsg extends Message<void> {
+  constructor(
+    public readonly chainId?: string,
+    public readonly recover = false
+  ) {
+    super();
+  }
+  static type() {
+    return "check-endpoint-health";
+  }
+  type() {
+    return CheckEndpointHealthMsg.type();
+  }
+  route() {
+    return ROUTE;
+  }
+  validateBasic() {
+    if (
+      this.chainId !== undefined &&
+      (typeof this.chainId !== "string" ||
+        !this.chainId ||
+        this.chainId.length > 128)
+    ) {
+      throw new KeplrError("chains", 101, "Invalid chain id");
+    }
+    if (typeof this.recover !== "boolean" || (this.recover && !this.chainId)) {
+      throw new KeplrError("chains", 101, "Invalid recovery request");
+    }
+  }
+}
+
+export class SetEndpointPublicFallbackMsg extends Message<void> {
+  constructor(
+    public readonly chainId: string,
+    public readonly enabled: boolean
+  ) {
+    super();
+  }
+  static type() {
+    return "set-endpoint-public-fallback";
+  }
+  type() {
+    return SetEndpointPublicFallbackMsg.type();
+  }
+  route() {
+    return ROUTE;
+  }
+  validateBasic() {
+    if (
+      typeof this.chainId !== "string" ||
+      !this.chainId ||
+      this.chainId.length > 128 ||
+      typeof this.enabled !== "boolean"
+    ) {
+      throw new KeplrError("chains", 101, "Invalid fallback preference");
+    }
+  }
+}
+
+/** Invalidation hint only; views fetch authoritative metadata after receipt. */
+export class EndpointHealthChangedMsg extends Message<void> {
+  static type() {
+    return "endpoint-health-changed";
+  }
+  type() {
+    return EndpointHealthChangedMsg.type();
+  }
+  route() {
+    return "endpoint-health";
+  }
+  validateBasic() {
+    /* No payload. */
   }
 }
 

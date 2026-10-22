@@ -14,7 +14,7 @@ import {
   JsonRpcResponse,
   isEthSignChain,
 } from "@keplr-wallet/types";
-import { Bech32Address } from "@keplr-wallet/cosmos";
+import { Bech32Address, ChainIdHelper } from "@keplr-wallet/cosmos";
 import { Buffer } from "buffer/";
 import {
   domainHash,
@@ -1082,8 +1082,19 @@ export class KeyRingEthereumService {
 
           const evmChainId = validateEVMChainId(parseInt(param.chainId, 16));
 
+          const existingChainInfo =
+            this.chainsService.getChainInfoByEVMChainId(evmChainId);
+          if (existingChainInfo) {
+            await this.chainsService
+              .checkEndpointHealth(existingChainInfo.chainId, "connect")
+              .catch(() => {
+                console.warn(
+                  "Endpoint health check failed while connecting a known EVM chain"
+                );
+              });
+          }
           const chainInfo =
-            this.chainsService.getChainInfoByEVMChainId(evmChainId) ??
+            existingChainInfo ??
             (await (async () => {
               const rpc = param.rpcUrls.find((url) => {
                 try {
@@ -1272,6 +1283,40 @@ export class KeyRingEthereumService {
 
           return true;
         }
+        case "eth_getTransactionReceipt": {
+          const requestedChainId = this.forceGetCurrentChainId(origin, chainId);
+          const current =
+            this.chainsService.getModularChainInfoOrThrow(requestedChainId);
+          if (
+            (current.type !== "evm" && current.type !== "ethermint") ||
+            (requestedChainId !== current.chainId &&
+              requestedChainId !==
+                ChainIdHelper.parse(current.chainId).identifier)
+          ) {
+            throw new Error("The transaction's network has changed");
+          }
+          const expectedChainId = current.chainId;
+          const response = await simpleFetch<JsonRpcResponse<any>>(
+            current.evm.rpc,
+            {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                "request-source": origin,
+              },
+              body: JSON.stringify({ jsonrpc: "2.0", method, params, id: 1 }),
+            }
+          );
+          const latest =
+            this.chainsService.getModularChainInfoOrThrow(requestedChainId);
+          if (
+            latest.chainId !== expectedChainId ||
+            (latest.type !== "evm" && latest.type !== "ethermint")
+          ) {
+            throw new Error("The transaction's network has changed");
+          }
+          return response.data.result;
+        }
         case "eth_call":
         case "eth_estimateGas":
         case "eth_getTransactionCount":
@@ -1279,7 +1324,6 @@ export class KeyRingEthereumService {
         case "eth_getTransactionByBlockHashAndIndex":
         case "eth_getTransactionByBlockNumberAndIndex":
         case "eth_getTransactionByHash":
-        case "eth_getTransactionReceipt":
         case "eth_sendRawTransaction":
         case "eth_protocolVersion":
         case "eth_syncing":

@@ -579,6 +579,19 @@ export class EthereumAccountBase {
         throw new Error("No EVM info provided");
       }
 
+      const receiptChainId = u.chainId;
+      const assertReceiptNetwork = () => {
+        const current = this.chainGetter.getModularChain(
+          this.chainId
+        ).unwrapped;
+        if (
+          current.chainId !== receiptChainId ||
+          (current.type !== "evm" && current.type !== "ethermint")
+        ) {
+          throw new Error("The transaction's network has changed");
+        }
+      };
+
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const keplr = (await this.getKeplr())!;
 
@@ -626,27 +639,30 @@ export class EthereumAccountBase {
       }
 
       retry(
-        () => {
-          return new Promise<void>(async (resolve, reject) => {
-            const txReceipt = await keplr.ethereum.request<EthTxReceipt>({
-              method: "eth_getTransactionReceipt",
-              params: [txHash],
-              chainId: this.chainId,
-            });
-            if (txReceipt) {
-              onTxEvents?.onFulfill?.(txReceipt);
-              resolve();
-            }
-
-            reject();
+        async () => {
+          assertReceiptNetwork();
+          const txReceipt = await keplr.ethereum.request<EthTxReceipt | null>({
+            method: "eth_getTransactionReceipt",
+            params: [txHash],
+            chainId: receiptChainId,
           });
+          assertReceiptNetwork();
+          if (!txReceipt) throw new Error("Transaction receipt is pending");
+          return txReceipt;
         },
         {
           maxRetries: 10,
           waitMsAfterError: 500,
           maxWaitMsAfterError: 4000,
         }
-      );
+      )
+        .then((txReceipt) => {
+          assertReceiptNetwork();
+          onTxEvents?.onFulfill?.(txReceipt);
+        })
+        .catch((e) => {
+          console.error("Transaction confirmation is unavailable", txHash, e);
+        });
 
       return txHash;
     } catch (e) {

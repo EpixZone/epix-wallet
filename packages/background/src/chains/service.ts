@@ -18,6 +18,7 @@ import {
   computed,
   makeObservable,
   observable,
+  reaction,
   runInAction,
   toJS,
 } from "mobx";
@@ -35,6 +36,14 @@ import { ChainInfoWithCoreTypes, ChainInfoWithSuggestedOptions } from "./types";
 import { convertChainInfoToModularChainInfo } from "./convert";
 import { AnalyticsService } from "../analytics";
 import { runIfOnlyAppStart } from "../utils";
+import {
+  EndpointCheckReason,
+  EndpointHealthCoordinator,
+  EndpointHealthOptions,
+  EndpointHealthSnapshot,
+  PreferredEndpoints,
+} from "./endpoint-health";
+import { ENDPOINT_RECEIPT_TTL } from "./endpoint-health-probe";
 
 type ChainRemovedHandler = (chainId: string) => void;
 type ChainSuggestedHandler = (
@@ -74,6 +83,12 @@ export class ChainsService {
   }[] = [];
   protected endpointsKVStore: KVStore;
 
+  @observable.ref
+  protected endpointHealthSnapshots: readonly EndpointHealthSnapshot[] = [];
+  protected readonly endpointHealth: EndpointHealthCoordinator;
+  private endpointHealthChanged?: () => void;
+  private endpointPreferenceDisposer?: () => void;
+
   protected onChainRemovedHandlers: ChainRemovedHandler[] = [];
   protected onChainSuggestedHandlers: ChainSuggestedHandler[] = [];
 
@@ -101,7 +116,11 @@ export class ChainsService {
           service: ChainsService,
           lastEmbedChainInfos: ChainInfoWithCoreTypes[]
         ) => void | Promise<void>)
-      | undefined
+      | undefined,
+    endpointHealthOptions: Pick<
+      EndpointHealthOptions,
+      "fetch" | "now" | "workerEpoch"
+    > = {}
   ) {
     this.modularChainInfos = embedModularChainInfos.map((modularChainInfo) => {
       if ("currencies" in modularChainInfo) {
@@ -125,6 +144,17 @@ export class ChainsService {
     );
     this.repoChainInfoKVStore = new PrefixKVStore(kvStore, "repoChainInfo");
     this.endpointsKVStore = new PrefixKVStore(kvStore, "endpoints");
+    this.endpointHealth = new EndpointHealthCoordinator({
+      ...endpointHealthOptions,
+      kvStore: new PrefixKVStore(kvStore, "endpoint-health"),
+      getPreferred: (chainId) => this.getPreferredHealthEndpoints(chainId),
+      onChange: () => {
+        runInAction(() => {
+          this.endpointHealthSnapshots = this.endpointHealth.getSnapshots();
+        });
+        this.endpointHealthChanged?.();
+      },
+    });
 
     this.suggestChainPrivilegedOrigins = this.suggestChainPrivilegedOrigins.map(
       (origin) => {
@@ -308,6 +338,33 @@ export class ChainsService {
       }
     }
 
+    // Loading health state does not start network work or delay router startup
+    // on an external service. Preference changes invalidate any old selection.
+    await this.endpointHealth.init().catch((error) => {
+      console.warn("Could not load endpoint recovery state", error);
+    });
+    this.endpointPreferenceDisposer?.();
+    this.endpointPreferenceDisposer = reaction(
+      () =>
+        sortedJsonByKeyStringify(
+          ["epix_1916-1", "osmosis-1"].map((id) =>
+            this.getPreferredHealthEndpoints(id)
+          )
+        ),
+      () => {
+        const saved = this.endpointHealth.preferencesChanged();
+        // Removal has no remaining coordinator record to publish. Refresh the
+        // complete array synchronously, including an empty one.
+        runInAction(() => {
+          this.endpointHealthSnapshots = this.endpointHealth.getSnapshots();
+        });
+        this.endpointHealthChanged?.();
+        void saved.catch((error) => {
+          console.warn("Could not save endpoint recovery state", error);
+        });
+      }
+    );
+
     runIfOnlyAppStart("analytics/test-cointypes", async () => {
       const coinTypes = new Map<number, boolean>();
       const chainInfos = this.getChainInfos();
@@ -328,6 +385,72 @@ export class ChainsService {
         coinTypes: Array.from(coinTypes.keys()),
       });
     });
+  }
+
+  private getPreferredHealthEndpoints(
+    chainId: string
+  ): PreferredEndpoints | undefined {
+    if (chainId !== "epix_1916-1" && chainId !== "osmosis-1") return undefined;
+    const info = this.mergeChainInfosWithDynamics(
+      this.embedChainInfos.concat(this.suggestedChainInfos),
+      false
+    ).find((chain) => chain.chainId === chainId);
+    if (!info || (chainId === "epix_1916-1" && info.evm?.chainId !== 1916))
+      return undefined;
+    return {
+      chainId,
+      endpoints: { rpc: info.rpc, rest: info.rest, evmRpc: info.evm?.rpc },
+      manual: this.getEndpoint(chainId) !== undefined,
+    };
+  }
+
+  getEndpointHealthSnapshots(): readonly EndpointHealthSnapshot[] {
+    return this.endpointHealthSnapshots;
+  }
+
+  setEndpointHealthChangedHandler(handler: () => void): void {
+    this.endpointHealthChanged = handler;
+  }
+
+  checkEndpointHealth(
+    chainId: string,
+    reason: EndpointCheckReason = "connect"
+  ) {
+    return this.endpointHealth.check(chainId, reason);
+  }
+
+  checkDueEndpointHealth(): Promise<void> {
+    return this.endpointHealth.checkDue();
+  }
+
+  setEndpointPublicFallback(chainId: string, enabled: boolean) {
+    return this.endpointHealth.setPublicFallback(chainId, enabled);
+  }
+
+  // Only confirmation reads use this alternative. A persisted selection is
+  // not a fresh receipt, and never changes an operation's submission context.
+  getVerifiedObservationRest(chainId: string, storedRest: string): string {
+    const chain = this.getModularChainInfo(chainId);
+    const receipt = this.endpointHealthSnapshots.find(
+      (state) => state.chainId === chainId
+    )?.capabilities.rest;
+    const now = Date.now();
+    return chain?.chainId === chainId &&
+      "cosmos" in chain &&
+      receipt?.status === "healthy" &&
+      receipt.endpoint === chain.cosmos.rest &&
+      receipt.checkedAt !== undefined &&
+      receipt.checkedAt <= now &&
+      now - receipt.checkedAt <= ENDPOINT_RECEIPT_TTL
+      ? chain.cosmos.rest
+      : storedRest;
+  }
+
+  disposeEndpointHealth(): void {
+    this.endpointPreferenceDisposer?.();
+    this.endpointPreferenceDisposer = undefined;
+    this.endpointHealth.dispose();
+    this.endpointHealthChanged = undefined;
   }
 
   /**
@@ -1018,7 +1141,8 @@ export class ChainsService {
   }
 
   protected mergeChainInfosWithDynamics<C extends ChainInfo>(
-    chainInfos: C[]
+    chainInfos: C[],
+    applyRecovery = true
   ): C[] {
     return chainInfos.map((chainInfo) => {
       let newChainInfo = {
@@ -1078,6 +1202,33 @@ export class ChainsService {
               },
             }),
         };
+      }
+
+      if (applyRecovery) {
+        const recovery = this.endpointHealthSnapshots.find(
+          (state) => state.chainId === newChainInfo.chainId
+        );
+        // Never apply a selection made for an earlier manual edit or network
+        // revision, even before the preference reaction has run.
+        if (
+          recovery &&
+          (newChainInfo.chainId !== "epix_1916-1" ||
+            newChainInfo.evm?.chainId === 1916) &&
+          recovery.manual === (endpoint !== undefined) &&
+          recovery.preferred.rpc === newChainInfo.rpc &&
+          recovery.preferred.rest === newChainInfo.rest &&
+          recovery.preferred.evmRpc === newChainInfo.evm?.rpc
+        ) {
+          newChainInfo = {
+            ...newChainInfo,
+            rpc: recovery.effective.rpc,
+            rest: recovery.effective.rest,
+            ...(newChainInfo.evm &&
+              recovery.effective.evmRpc && {
+                evm: { ...newChainInfo.evm, rpc: recovery.effective.evmRpc },
+              }),
+          };
+        }
       }
 
       // Reduce the confusion from different coin type on ecosystem.

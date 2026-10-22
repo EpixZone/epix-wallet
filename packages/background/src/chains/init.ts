@@ -12,6 +12,8 @@ import {
   ClearAllChainEndpointsMsg,
   GetChainInfoWithoutEndpointsMsg,
   NeedSuggestChainInfoInteractionMsg,
+  CheckEndpointHealthMsg,
+  SetEndpointPublicFallbackMsg,
 } from "./messages";
 import { ROUTE } from "./constants";
 import { getHandler } from "./handler";
@@ -26,6 +28,8 @@ export function init(
   permissionInteractiveService: PermissionInteractiveService
 ): void {
   router.registerMessage(PingMsg);
+  router.registerMessage(CheckEndpointHealthMsg);
+  router.registerMessage(SetEndpointPublicFallbackMsg);
   router.registerMessage(GetChainInfosWithCoreTypesMsg);
   router.registerMessage(GetChainInfosWithoutEndpointsMsg);
   router.registerMessage(GetChainInfoWithoutEndpointsMsg);

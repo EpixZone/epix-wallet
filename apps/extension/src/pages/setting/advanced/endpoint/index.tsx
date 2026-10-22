@@ -1,4 +1,4 @@
-import React, { FunctionComponent, useEffect, useState } from "react";
+import React, { FunctionComponent, useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { BackButton } from "../../../../layouts/header/components";
 import { HeaderLayout } from "../../../../layouts/header";
@@ -27,6 +27,13 @@ import { BACKGROUND_PORT } from "@keplr-wallet/router";
 import { FormattedMessage, useIntl } from "react-intl";
 import { ModularChainInfo } from "@keplr-wallet/types";
 import { filterModularChainInfosByKeyType } from "../../../../utils/is-chain-supported-by-key-type";
+import { useSearchParams } from "react-router-dom";
+import { EndpointConnectionStatus } from "../../../../components/endpoint-connection-status";
+import {
+  EndpointFormData as FormData,
+  syncCleanEndpointFields,
+  preferredEndpointFormValues,
+} from "./endpoint-form";
 
 const Styles = {
   Container: styled(Stack)`
@@ -39,12 +46,6 @@ const Styles = {
 };
 
 // --- Types ---
-
-interface FormData {
-  rpc: string;
-  lcd?: string;
-  evmRpc?: string;
-}
 
 interface OriginalEndpoint {
   rpc: string;
@@ -76,8 +77,6 @@ const FIELD_EVM_RPC: EndpointField = {
   originalKey: "evmRpc",
   label: "EVM RPC",
 };
-
-const ALL_FORM_KEYS: (keyof FormData)[] = ["rpc", "lcd", "evmRpc"];
 
 // --- Generic Field Operations ---
 
@@ -203,12 +202,14 @@ function getChainEndpointConfig(
 const EndpointInputs: FunctionComponent<{
   fields: EndpointField[];
   register: UseFormRegister<FormData>;
-}> = ({ fields, register }) => (
+  disabled?: boolean;
+}> = ({ fields, register, disabled }) => (
   <React.Fragment>
     {fields.map((field) => (
       <TextInput
         key={field.formKey}
         label={field.label}
+        disabled={disabled}
         {...register(field.formKey)}
       />
     ))}
@@ -238,13 +239,20 @@ export const SettingAdvancedEndpointPage: FunctionComponent = observer(() => {
   const notification = useNotification();
   const confirm = useConfirm();
   const intl = useIntl();
+  const [searchParams] = useSearchParams();
 
   const selectableChains = getEndpointSelectableChains(
     chainStore,
     keyRingStore.selectedKeyInfo?.type
   );
 
-  const [chainId, setChainId] = useState<string>(selectableChains[0].chainId);
+  const [chainId, setChainId] = useState<string>(() => {
+    const requested = searchParams.get("chainId");
+    return (
+      selectableChains.find((chain) => chain.chainId === requested)?.chainId ??
+      selectableChains[0].chainId
+    );
+  });
   const [originalEndpoint, setOriginalEndpoint] = useState<
     OriginalEndpoint | undefined
   >();
@@ -263,36 +271,69 @@ export const SettingAdvancedEndpointPage: FunctionComponent = observer(() => {
     modularChainInfo.unwrapped,
     activeChainId
   );
+  const health = chainStore.endpointHealth.find(
+    (snapshot) => snapshot.chainId === activeChainId
+  );
+  config.currentValues = preferredEndpointFormValues(
+    modularChainInfo.type,
+    config.currentValues,
+    health?.preferred
+  );
 
-  const { setValue, watch, register, handleSubmit } = useForm<FormData>({
+  const {
+    setValue,
+    watch,
+    register,
+    handleSubmit,
+    reset,
+    resetField,
+    getFieldState,
+  } = useForm<FormData>({
     defaultValues: config.currentValues,
   });
+  const formChain = useRef(activeChainId);
+  const selectedChain = useRef(activeChainId);
+  selectedChain.current = activeChainId;
 
   useEffect(() => {
-    const activeKeys = new Set(config.fields.map((f) => f.formKey));
-    for (const key of ALL_FORM_KEYS) {
-      setValue(
-        key,
-        activeKeys.has(key) ? config.currentValues[key] : undefined
-      );
+    if (formChain.current !== activeChainId) {
+      formChain.current = activeChainId;
+      reset(config.currentValues);
+      return;
     }
-
-    const msg = new GetChainOriginalEndpointsMsg(activeChainId);
-    new InExtensionMessageRequester()
-      .sendMessage(BACKGROUND_PORT, msg)
-      .then((r) => setOriginalEndpoint(r))
-      .catch((e) => {
-        console.log(e);
-        setOriginalEndpoint(undefined);
-      });
+    syncCleanEndpointFields(config.currentValues, {
+      getFieldState,
+      resetField,
+    });
+    // Health-only updates must never replace a draft with the effective backup.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     activeChainId,
     config.currentValues.rpc,
     config.currentValues.lcd,
     config.currentValues.evmRpc,
-    setValue,
+    getFieldState,
+    reset,
+    resetField,
   ]);
+
+  useEffect(() => {
+    let current = true;
+    setOriginalEndpoint(undefined);
+    const msg = new GetChainOriginalEndpointsMsg(activeChainId);
+    new InExtensionMessageRequester()
+      .sendMessage(BACKGROUND_PORT, msg)
+      .then((r) => {
+        if (current) setOriginalEndpoint(r);
+      })
+      .catch((e) => {
+        console.log(e);
+        if (current) setOriginalEndpoint(undefined);
+      });
+    return () => {
+      current = false;
+    };
+  }, [activeChainId]);
 
   const watchedValues: Partial<FormData> = {
     rpc: watch("rpc"),
@@ -431,7 +472,8 @@ export const SettingAdvancedEndpointPage: FunctionComponent = observer(() => {
                 for (const field of config.fields) {
                   setValue(
                     field.formKey,
-                    originalEndpoint[field.originalKey] as string | undefined
+                    originalEndpoint[field.originalKey] as string | undefined,
+                    { shouldDirty: true }
                   );
                 }
               }
@@ -439,7 +481,48 @@ export const SettingAdvancedEndpointPage: FunctionComponent = observer(() => {
           />
         </Columns>
 
-        <EndpointInputs fields={config.fields} register={register} />
+        <EndpointInputs
+          fields={config.fields}
+          register={register}
+          disabled={isLoading}
+        />
+
+        {health && (
+          <EndpointConnectionStatus
+            key={activeChainId}
+            snapshot={health}
+            chainName={modularChainInfo.chainName}
+            disabled={isLoading}
+            hasUnsavedChanges={!isEndpointNothingChanged}
+            onCheck={() => chainStore.checkEndpointHealth(activeChainId, true)}
+            onPublicFallback={(enabled) =>
+              chainStore.setEndpointPublicFallback(activeChainId, enabled)
+            }
+            onRecommended={async () => {
+              setIsLoading(true);
+              try {
+                await chainStore.resetChainEndpoints(activeChainId);
+                if (selectedChain.current === activeChainId) {
+                  const info =
+                    chainStore.getModularChain(activeChainId).unwrapped;
+                  const updated = chainStore.endpointHealth.find(
+                    (snapshot) => snapshot.chainId === activeChainId
+                  );
+                  reset(
+                    preferredEndpointFormValues(
+                      info.type,
+                      getChainEndpointConfig(info, activeChainId).currentValues,
+                      updated?.preferred
+                    )
+                  );
+                }
+                await chainStore.checkEndpointHealth(activeChainId, true);
+              } finally {
+                setIsLoading(false);
+              }
+            }}
+          />
+        )}
 
         <Styles.Flex1 />
 

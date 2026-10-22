@@ -40,6 +40,9 @@ import {
   TryUpdateEnabledChainInfosMsg,
   DismissNewTokenFoundInMainMsg,
   TokenScanInfo,
+  EndpointHealthSnapshot,
+  CheckEndpointHealthMsg,
+  SetEndpointPublicFallbackMsg,
 } from "@keplr-wallet/background";
 import { BACKGROUND_PORT, MessageRequester } from "@keplr-wallet/router";
 import { KVStore, toGenerator } from "@keplr-wallet/common";
@@ -64,6 +67,11 @@ export type RequiredCurrencyTokenScan = Omit<
 };
 
 export class ChainStore extends BaseChainStore {
+  @observable.ref
+  endpointHealth: readonly EndpointHealthSnapshot[] = [];
+
+  private chainInfoRequest = 0;
+
   protected override setEmbeddedChainInfos(
     chainInfos: (ChainInfo | ModularChainInfo)[]
   ) {
@@ -561,13 +569,42 @@ export class ChainStore extends BaseChainStore {
     }
   }
 
-  @flow
-  *updateChainInfosFromBackground() {
+  async updateChainInfosFromBackground(): Promise<void> {
+    const request = ++this.chainInfoRequest;
     const msg = new GetChainInfosWithCoreTypesMsg();
-    const result = yield* toGenerator(
-      this.requester.sendMessage(BACKGROUND_PORT, msg)
-    );
-    this.setEmbeddedChainInfos(result.modularChainInfos);
+    const result = await this.requester.sendMessage(BACKGROUND_PORT, msg);
+    if (request !== this.chainInfoRequest) return;
+    // Metadata and health belong to one background snapshot. Request order
+    // also fences a late response from a previous background worker epoch.
+    runInAction(() => {
+      this.setEmbeddedChainInfos(result.modularChainInfos);
+      this.endpointHealth = result.endpointHealth;
+    });
+  }
+
+  async checkEndpointHealth(chainId?: string, recover = false): Promise<void> {
+    try {
+      await this.requester.sendMessage(
+        BACKGROUND_PORT,
+        new CheckEndpointHealthMsg(chainId, recover)
+      );
+    } finally {
+      await this.updateChainInfosFromBackground();
+    }
+  }
+
+  async setEndpointPublicFallback(
+    chainId: string,
+    enabled: boolean
+  ): Promise<void> {
+    try {
+      await this.requester.sendMessage(
+        BACKGROUND_PORT,
+        new SetEndpointPublicFallbackMsg(chainId, enabled)
+      );
+    } finally {
+      await this.updateChainInfosFromBackground();
+    }
   }
 
   @flow
@@ -694,12 +731,10 @@ export class ChainStore extends BaseChainStore {
 
   @flow
   *removeChainInfo(chainId: string) {
+    ++this.chainInfoRequest;
     const msg = new RemoveSuggestedChainInfoMsg(chainId);
-    const res = yield* toGenerator(
-      this.requester.sendMessage(BACKGROUND_PORT, msg)
-    );
-
-    this.setEmbeddedChainInfos(res.modularChainInfos);
+    yield* toGenerator(this.requester.sendMessage(BACKGROUND_PORT, msg));
+    yield* toGenerator(this.updateChainInfosFromBackground());
   }
 
   @flow
@@ -709,33 +744,33 @@ export class ChainStore extends BaseChainStore {
     rest: string | undefined,
     evmRpc: string | undefined
   ) {
+    ++this.chainInfoRequest;
     const msg = new SetChainEndpointsMsg(chainId, rpc, rest, evmRpc);
-    const res = yield* toGenerator(
-      this.requester.sendMessage(BACKGROUND_PORT, msg)
-    );
-
-    this.setEmbeddedChainInfos(res.modularChainInfos);
+    yield* toGenerator(this.requester.sendMessage(BACKGROUND_PORT, msg));
+    yield* toGenerator(this.updateChainInfosFromBackground());
   }
 
   @flow
   *resetChainEndpoints(chainId: string) {
+    ++this.chainInfoRequest;
     const msg = new ClearChainEndpointsMsg(chainId);
-    const res = yield* toGenerator(
-      this.requester.sendMessage(BACKGROUND_PORT, msg)
-    );
-
-    this.setEmbeddedChainInfos(res.modularChainInfos);
+    yield* toGenerator(this.requester.sendMessage(BACKGROUND_PORT, msg));
+    yield* toGenerator(this.updateChainInfosFromBackground());
   }
 
   // I use Async, Await because it doesn't change the state value.
   async clearClearAllSuggestedChainInfos() {
+    ++this.chainInfoRequest;
     const msg = new ClearAllSuggestedChainInfosMsg();
     await this.requester.sendMessage(BACKGROUND_PORT, msg);
+    await this.updateChainInfosFromBackground();
   }
 
   // I use Async, Await because it doesn't change the state value.
   async clearAllChainEndpoints() {
+    ++this.chainInfoRequest;
     const msg = new ClearAllChainEndpointsMsg();
     await this.requester.sendMessage(BACKGROUND_PORT, msg);
+    await this.updateChainInfosFromBackground();
   }
 }

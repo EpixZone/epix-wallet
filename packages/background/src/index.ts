@@ -1,4 +1,4 @@
-import { MessageRequester, Router } from "@keplr-wallet/router";
+import { APP_PORT, MessageRequester, Router } from "@keplr-wallet/router";
 
 import * as KeyRingLegacy from "./keyring/legacy";
 
@@ -66,7 +66,7 @@ export * from "./epix-swap";
 import { KVStore } from "@keplr-wallet/common";
 import { ChainInfo, ModularChainInfo } from "@keplr-wallet/types";
 import { Notification } from "./tx";
-import { ChainInfoWithCoreTypes } from "./chains";
+import { ChainInfoWithCoreTypes, EndpointHealthChangedMsg } from "./chains";
 
 export function init(
   router: Router,
@@ -110,6 +110,7 @@ export function init(
   keyRingService: KeyRingV2.KeyRingService;
   analyticsService: Analytics.AnalyticsService;
   phishingListService: PhishingList.PhishingListService;
+  chainsService: Chains.ChainsService;
 } {
   const analyticsService = new Analytics.AnalyticsService(
     storeCreator("background.analytics"),
@@ -344,8 +345,19 @@ export function init(
       keyRingV2Service,
       keyRingCosmosService,
       backgroundTxService
-    )
+    ),
+    undefined,
+    (chainId, storedRest) =>
+      chainsService.getVerifiedObservationRest(chainId, storedRest)
   );
+
+  chainsService.setEndpointHealthChangedHandler(() => {
+    // Each open extension view refreshes an authoritative snapshot. Having no
+    // open view is normal and must not interrupt background recovery.
+    void extensionMessageRequesterToUI
+      ?.sendMessage(APP_PORT, new EndpointHealthChangedMsg())
+      .catch(() => undefined);
+  });
 
   Interaction.init(router, interactionService);
   Permission.init(router, permissionService);
@@ -458,5 +470,6 @@ export function init(
     keyRingService: keyRingV2Service,
     analyticsService: analyticsService,
     phishingListService: phishingListService,
+    chainsService,
   };
 }

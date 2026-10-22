@@ -28,6 +28,17 @@ export class ObservableChainQuery<
     this.chainGetter = chainGetter;
   }
 
+  protected override resolveBaseURL(): string {
+    if (!this.chainGetter.hasModularChain(this.chainId)) return "";
+    return (
+      getCosmosInfo(this.chainGetter.getModularChain(this.chainId))?.rest || ""
+    );
+  }
+
+  protected override isEndpointAvailable(): boolean {
+    return this.baseURL !== "";
+  }
+
   protected override canFetch(): boolean {
     return this.isCosmos && this.baseURL !== "";
   }

@@ -125,7 +125,11 @@ export class EpixSwapService {
   constructor(
     private readonly store: KVStore,
     private readonly transactions: SwapTransactions,
-    private readonly api: typeof network = network
+    private readonly api: typeof network = network,
+    private readonly resolveObservationRest: (
+      chainId: string,
+      storedRest: string
+    ) => string = (_chainId, storedRest) => storedRest
   ) {}
 
   async init(): Promise<void> {
@@ -755,7 +759,10 @@ export class EpixSwapService {
       return;
     }
     const tx = await this.api.lookupTx(
-      operation.sourceRest,
+      this.resolveObservationRest(
+        operation.sourceChainId,
+        operation.sourceRest
+      ),
       operation.bridgeTxHash
     );
     if (!tx) return;
@@ -765,7 +772,10 @@ export class EpixSwapService {
     }
     operation.packetSequence = matchingPacketSequence(tx.events, operation);
     const ack = await this.api.packetAck(
-      operation.destinationRest,
+      this.resolveObservationRest(
+        operation.destinationChainId,
+        operation.destinationRest
+      ),
       operation.packetSequence,
       undefined,
       operation.direction
@@ -818,7 +828,10 @@ export class EpixSwapService {
       return;
     }
     const tx = await this.api.lookupSwapResult(
-      operation.sourceRest,
+      this.resolveObservationRest(
+        operation.sourceChainId,
+        operation.sourceRest
+      ),
       operation.swapTxHash,
       {
         sender: operation.sourceAddress,
@@ -845,7 +858,10 @@ export class EpixSwapService {
 
   private async observeSwap(operation: EpixSwapOperation): Promise<void> {
     const tx = await this.api.lookupTx(
-      operation.destinationRest,
+      this.resolveObservationRest(
+        operation.destinationChainId,
+        operation.destinationRest
+      ),
       operation.swapTxHash!
     );
     if (!tx) return;

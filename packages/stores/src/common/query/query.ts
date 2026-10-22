@@ -242,6 +242,9 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
   private stateQueue = new FunctionQueue();
   private pendingOnStart = false;
   private readonly queryCanceler: FlowCanceler;
+  private fetchGeneration = 0;
+  private lifetime = 0;
+  private endpointDisposer?: () => void;
 
   private observedCount: number = 0;
 
@@ -306,17 +309,25 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
   private start() {
     if (!this._isStarted) {
       this._isStarted = true;
+      const lifetime = ++this.lifetime;
       // For async onStart() method, set isFetching as true in advance.
       this._isFetching = true;
       this.pendingOnStart = true;
+      this.syncEndpoint();
+      this.endpointDisposer = reaction(
+        () => this.resolveBaseURL(),
+        () => {
+          if (this.syncEndpoint()) this.fetch();
+        }
+      );
       this.stateQueue.enqueue(() => {
         return this.onStart();
       });
       this.stateQueue.enqueue(() => {
-        this.pendingOnStart = false;
+        if (this.lifetime === lifetime) this.pendingOnStart = false;
       });
       this.stateQueue.enqueue(() => {
-        return this.postStart();
+        if (this.lifetime === lifetime) return this.postStart();
       });
     }
   }
@@ -324,9 +335,10 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
   @action
   private stop() {
     if (this._isStarted) {
-      if (this.isFetching && this.queryCanceler.hasCancelable) {
-        this.cancel();
-      }
+      this.lifetime++;
+      this.endpointDisposer?.();
+      this.endpointDisposer = undefined;
+      this.invalidateFetch();
 
       this._isFetching = false;
 
@@ -383,6 +395,36 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
     return true;
   }
 
+  // Independent of subclass-specific input checks in canFetch().
+  protected isEndpointAvailable(): boolean {
+    return true;
+  }
+
+  // Resolved only after construction. Chain queries override this to read settings.
+  protected resolveBaseURL(): string {
+    return this.baseURL;
+  }
+
+  @action
+  private syncEndpoint(): boolean {
+    const baseURL = this.resolveBaseURL();
+    if (baseURL === this.baseURL) return false;
+    this.invalidateFetch();
+    this.baseURL = baseURL;
+    this._response = undefined;
+    this._error = undefined;
+    return true;
+  }
+
+  private invalidateFetch(): void {
+    this.fetchGeneration++;
+    this.cancel();
+  }
+
+  private isCurrentFetch(generation: number): boolean {
+    return this._isStarted && this.fetchGeneration === generation;
+  }
+
   get isFetching(): boolean {
     return this._isFetching;
   }
@@ -394,18 +436,17 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
       return;
     }
 
-    if (!this.canFetch()) {
+    this.syncEndpoint();
+    this.invalidateFetch();
+    const generation = this.fetchGeneration;
+
+    if (!this.isEndpointAvailable() || !this.canFetch()) {
       if (this._isFetching) {
         this._isFetching = false;
       }
       return;
     }
-
-    // If response is fetching, cancel the previous query.
-    if (this.isFetching && this.queryCanceler.hasCancelable) {
-      // When cancel for the next fetching, it behaves differently from other explicit cancels because fetching continues. Use an error message to identify this.
-      this.cancel("__fetching__proceed__next__");
-    }
+    const cacheKey = this.getCacheKey();
 
     // If there is no existing response, try to load saved reponse.
     if (!this._response) {
@@ -415,13 +456,16 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
 
       // When first load, try to load the last response from disk.
       // Use the last saved response if the last saved response exists and the current response hasn't been set yet.
-      const promise = this.loadStabledResponse().then((value) => {
-        satisfyCache = value;
-      });
+      const promise = this.loadStabledResponse(generation, cacheKey).then(
+        (value) => {
+          satisfyCache = value;
+        }
+      );
       if (this.options.cacheMaxAge <= 0) {
         // To improve performance, don't wait the loading to proceed if cache age not set.
       } else {
         yield promise;
+        if (!this.isCurrentFetch(generation)) return;
         if (satisfyCache) {
           this._isFetching = false;
           return;
@@ -463,6 +507,7 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
           }
         )
       );
+      if (!this.isCurrentFetch(generation)) return;
       if (data && isSuspectedResponseDataWithInvalidValue(headers, data)) {
         // In some devices, it is a http ok code, but a strange response is sometimes returned.
         // It's not that they can't query at all, it seems that they get weird response from time to time.
@@ -495,6 +540,7 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
             }
           )
         );
+        if (!this.isCurrentFetch(generation)) return;
         data = refetched.data;
         headers = refetched.headers;
 
@@ -523,11 +569,12 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
       // Skip saving response if disableCache is true.
       if (!this.options.disableCache) {
         // Should not wait.
-        this.saveResponse(response);
+        this.saveResponse(response, cacheKey);
       }
 
       this.onReceiveResponse(response);
       yield this.sharedContext.handleResponse(() => {
+        if (!this.isCurrentFetch(generation)) return;
         this.setResponse(response);
         // Clear the error if fetching succeeds.
         this.setError(undefined);
@@ -537,14 +584,8 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
         this._isFetching = false;
       });
     } catch (e) {
-      let fetchingProceedNext = false;
-      if (e instanceof FlowCancelerError) {
-        // When cancel for the next fetching, it behaves differently from other explicit cancels because fetching continues.
-        if (e.message === "__fetching__proceed__next__") {
-          fetchingProceedNext = true;
-        }
+      if (!this.isCurrentFetch(generation) || e instanceof FlowCancelerError)
         return;
-      }
 
       // If error is from simple fetch, and get response.
       if (e.response) {
@@ -578,13 +619,12 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
         };
 
         yield this.sharedContext.handleResponse(() => {
+          if (!this.isCurrentFetch(generation)) return;
           this.setError(error);
 
           // Do not use finally block.
           // Because finally block is called after the next yield and it makes re-render.
-          if (!fetchingProceedNext) {
-            this._isFetching = false;
-          }
+          this._isFetching = false;
         });
       } else if (e.request) {
         // if can't get the response.
@@ -595,13 +635,12 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
         };
 
         yield this.sharedContext.handleResponse(() => {
+          if (!this.isCurrentFetch(generation)) return;
           this.setError(error);
 
           // Do not use finally block.
           // Because finally block is called after the next yield and it makes re-render.
-          if (!fetchingProceedNext) {
-            this._isFetching = false;
-          }
+          this._isFetching = false;
         });
       } else {
         const error: QueryError<E> = {
@@ -612,13 +651,12 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
         };
 
         yield this.sharedContext.handleResponse(() => {
+          if (!this.isCurrentFetch(generation)) return;
           this.setError(error);
 
           // Do not use finally block.
           // Because finally block is called after the next yield and it makes re-render.
-          if (!fetchingProceedNext) {
-            this._isFetching = false;
-          }
+          this._isFetching = false;
         });
       }
     }
@@ -632,38 +670,54 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
     return this._error;
   }
 
-  protected loadStabledResponse(): Promise<boolean> {
+  protected loadStabledResponse(
+    generation?: number,
+    cacheKey = this.getCacheKey()
+  ): Promise<boolean> {
+    // Direct prefetch (for example price initialization) also works before start.
+    const loadGeneration = generation ?? this.fetchGeneration;
     // When first load, try to load the last response from disk.
     // Use the last saved response if the last saved response exists and the current response hasn't been set yet.
     return new Promise<boolean>((resolve) => {
-      this.sharedContext.loadStore<QueryResponse<T>>(
-        this.getCacheKey(),
-        (res) => {
-          if (res.status === "rejected") {
-            console.warn("Failed to get the last response from disk.");
-            resolve(false);
-          } else {
-            const staledResponse = res.value;
-            if (staledResponse && !this._response) {
+      this.sharedContext.loadStore<QueryResponse<T>>(cacheKey, (res) => {
+        if (
+          this.fetchGeneration !== loadGeneration ||
+          (generation !== undefined && !this.isCurrentFetch(generation))
+        ) {
+          resolve(false);
+          return;
+        }
+        if (res.status === "rejected") {
+          console.warn("Failed to get the last response from disk.");
+          resolve(false);
+        } else {
+          const staledResponse = res.value;
+          if (staledResponse && !this._response) {
+            if (
+              this.options.cacheMaxAge <= 0 ||
+              staledResponse.timestamp > Date.now() - this.options.cacheMaxAge
+            ) {
+              const response = {
+                ...staledResponse,
+                staled: true,
+                local: true,
+              };
+              this.onReceiveResponse(response);
               if (
-                this.options.cacheMaxAge <= 0 ||
-                staledResponse.timestamp > Date.now() - this.options.cacheMaxAge
+                this.fetchGeneration !== loadGeneration ||
+                (generation !== undefined && !this.isCurrentFetch(generation))
               ) {
-                const response = {
-                  ...staledResponse,
-                  staled: true,
-                  local: true,
-                };
-                this.onReceiveResponse(response);
-                this.setResponse(response);
-                resolve(true);
+                resolve(false);
                 return;
               }
+              this.setResponse(response);
+              resolve(true);
+              return;
             }
-            resolve(false);
           }
+          resolve(false);
         }
-      );
+      });
     });
   }
 
@@ -697,6 +751,7 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
   @action
   protected setUrl(url: string) {
     if (this._url !== url) {
+      this.invalidateFetch();
       this._url = url;
       this.fetch();
     }
@@ -706,6 +761,7 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
    * Wait the response and return the response without considering it is staled or fresh.
    */
   waitResponse(): Promise<Readonly<QueryResponse<T>> | undefined> {
+    if (this.syncEndpoint() && this.isStarted) this.fetch();
     if (this.response) {
       return Promise.resolve(this.response);
     }
@@ -748,6 +804,7 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
    * Wait the response and return the response until it is fetched.
    */
   waitFreshResponse(): Promise<Readonly<QueryResponse<T>> | undefined> {
+    if (this.syncEndpoint() && this.isStarted) this.fetch();
     const disposers: (() => void)[] = [];
     let onceCoerce = false;
     // Make sure that the fetching is tracked to force to be fetched.
@@ -813,9 +870,9 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
    * @protected
    */
   protected async saveResponse(
-    response: Readonly<QueryResponse<T>>
+    response: Readonly<QueryResponse<T>>,
+    key = this.getCacheKey()
   ): Promise<void> {
-    const key = this.getCacheKey();
     await this.sharedContext.saveResponse(key, response);
   }
 }

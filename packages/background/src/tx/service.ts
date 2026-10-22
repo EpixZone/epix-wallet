@@ -1,5 +1,5 @@
 import { ChainsService } from "../chains";
-import { TendermintTxTracer } from "@keplr-wallet/cosmos";
+import { ChainIdHelper, TendermintTxTracer } from "@keplr-wallet/cosmos";
 import { Notification } from "./types";
 import { simpleFetch } from "@keplr-wallet/simple-fetch";
 import { Buffer } from "buffer/";
@@ -81,7 +81,12 @@ export class BackgroundTxService {
           mode: mode,
         };
 
+    let submissionAttempted = false;
+    let submissionRejected = false;
+    let submittedHash: string | undefined;
     try {
+      const body = JSON.stringify(params);
+      submissionAttempted = true;
       const result = await simpleFetch<any>(
         cosmosInfo.rest,
         isProtoTx ? "/cosmos/tx/v1beta1/txs" : "/txs",
@@ -90,81 +95,71 @@ export class BackgroundTxService {
           headers: {
             "content-type": "application/json",
           },
-          body: JSON.stringify(params),
+          body,
         }
       );
 
       const txResponse = isProtoTx ? result.data["tx_response"] : result.data;
 
       if (txResponse.code != null && txResponse.code !== 0) {
+        submissionRejected = true;
         throw new Error(txResponse["raw_log"]);
       }
 
       const txHash = Buffer.from(txResponse.txhash, "hex");
+      if (txHash.length === 0) throw new Error("No tx hash responded");
+      submittedHash = txHash.toString("hex").toUpperCase();
 
       if (options.skipTracingTxResult) {
         return txHash;
       }
 
-      const waitFulfillment = () => {
-        return retry(
-          () => {
-            return new Promise<void>((resolve, reject) => {
-              const txTracer = new TendermintTxTracer(
-                cosmosInfo.rpc,
-                "/websocket"
-              );
-              txTracer.addEventListener("close", () => {
-                // reject if ws closed before fulfilled
-                // 하지만 로직상 fulfill 되기 전에 ws가 닫히는게 되기 때문에
-                // delay를 좀 준다.
-                // trace 이후 로직은 동기적인 로직밖에 없기 때문에 문제될 게 없다.
-                // 문제될게 없다.
-                setTimeout(() => {
-                  reject(new Error("WebSocket closed"));
-                }, 500);
-              });
-              txTracer.addEventListener("error", () => {
-                reject(new Error("WebSocket error"));
-              });
-              txTracer.traceTx(txHash).then((tx) => {
-                txTracer.close();
-
-                if (options.onFulfill) {
-                  if (!tx.hash) {
-                    tx.hash = txHash;
-                  }
-                  options.onFulfill(tx);
-                }
-
-                if (!options.silent) {
-                  BackgroundTxService.processTxResultNotification(
-                    this.notification,
-                    tx
-                  );
-                }
-
-                resolve();
-              });
-            });
-          },
-          {
-            maxRetries: 10,
-            waitMsAfterError: 10 * 1000, // 10sec
-            maxWaitMsAfterError: 5 * 60 * 1000, // 5min
-          }
-        );
-      };
+      const fulfillment = this.waitForTx(
+        chainId,
+        modularChainInfo.chainId,
+        txHash
+      ).then((tx) => {
+        this.getReceiptNetwork(chainId, modularChainInfo.chainId);
+        if (options.onFulfill) {
+          if (!tx.hash) tx.hash = txHash;
+          options.onFulfill(tx);
+        }
+        if (!options.silent) {
+          BackgroundTxService.processTxResultNotification(
+            this.notification,
+            tx
+          );
+        }
+      });
       if (options.waitFulfillment) {
-        await waitFulfillment();
+        await fulfillment;
       } else {
-        // 이 기능은 tx commit일때 notification을 띄울 뿐이다.
-        // 실제 로직 처리와는 관계가 없어야하기 때문에 여기서 await을 하면 안된다!!
-        waitFulfillment();
+        fulfillment.catch((e) => {
+          console.error(
+            "Transaction confirmation is unavailable",
+            submittedHash,
+            e
+          );
+        });
       }
 
       return txHash;
     } catch (e) {
+      if (submissionAttempted && !submissionRejected) {
+        const unknown = new Error(
+          submittedHash
+            ? `Transaction ${submittedHash} was submitted but confirmation is unavailable. Check its status before sending again. ${e.message}`
+            : `Transaction submission outcome is unknown. Check its status before sending again. ${e.message}`
+        );
+        if (!options.silent) {
+          this.notification.create({
+            iconRelativeUrl: "assets/logo-256.png",
+            title: "Tx status unknown",
+            message: unknown.message,
+          });
+        }
+        throw unknown;
+      }
       console.log(e);
       if (!options.silent) {
         BackgroundTxService.processTxErrorNotification(this.notification, e);
@@ -182,41 +177,91 @@ export class BackgroundTxService {
     ) {
       throw new Error(`Not a cosmos chain: ${chainId}`);
     }
-    const txHashBuffer = Buffer.from(txHash, "hex");
-
-    return await retry(
-      () => {
-        return new Promise<any>((resolve, reject) => {
-          const txTracer = new TendermintTxTracer(
-            modularChainInfo.cosmos.rpc,
-            "/websocket"
-          );
-          txTracer.addEventListener("close", () => {
-            // reject if ws closed before fulfilled
-            // 하지만 로직상 fulfill 되기 전에 ws가 닫히는게 되기 때문에
-            // delay를 좀 준다.
-            // trace 이후 로직은 동기적인 로직밖에 없기 때문에 문제될 게 없다.
-            // 문제될게 없다.
-            setTimeout(() => {
-              reject();
-            }, 500);
-          });
-          txTracer.addEventListener("error", () => {
-            reject();
-          });
-          txTracer.traceTx(txHashBuffer).then((tx) => {
-            txTracer.close();
-
-            resolve(tx);
-          });
-        });
-      },
-      {
-        maxRetries: 10,
-        waitMsAfterError: 10 * 1000, // 10sec
-        maxWaitMsAfterError: 5 * 60 * 1000, // 5min
-      }
+    if (
+      chainId !== modularChainInfo.chainId &&
+      chainId !== ChainIdHelper.parse(modularChainInfo.chainId).identifier
+    ) {
+      throw new Error("The transaction's network has changed");
+    }
+    return this.waitForTx(
+      chainId,
+      modularChainInfo.chainId,
+      Buffer.from(txHash, "hex")
     );
+  }
+
+  private getReceiptNetwork(chainId: string, expectedChainId: string) {
+    const current = this.chainsService.getModularChainInfoOrThrow(chainId);
+    if (
+      current.chainId !== expectedChainId ||
+      (current.type !== "cosmos" && current.type !== "ethermint")
+    ) {
+      throw new Error("The transaction's network has changed");
+    }
+    return current;
+  }
+
+  private waitForTx(
+    chainId: string,
+    expectedChainId: string,
+    txHash: Uint8Array
+  ): Promise<any> {
+    return retry(() => this.traceTxAttempt(chainId, expectedChainId, txHash), {
+      maxRetries: 10,
+      waitMsAfterError: 10 * 1000,
+      maxWaitMsAfterError: 5 * 60 * 1000,
+    });
+  }
+
+  private traceTxAttempt(
+    chainId: string,
+    expectedChainId: string,
+    txHash: Uint8Array
+  ): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const current = this.getReceiptNetwork(chainId, expectedChainId);
+      const tracer = new TendermintTxTracer(current.cosmos.rpc, "/websocket");
+      let settled = false;
+      let closeTimer: ReturnType<typeof setTimeout> | undefined;
+      const finish = (error: unknown, tx?: any) => {
+        if (settled) return;
+        settled = true;
+        if (closeTimer !== undefined) clearTimeout(closeTimer);
+        try {
+          tracer.close();
+        } catch (closeError) {
+          console.error("Failed to close transaction tracer", closeError);
+        }
+        if (error !== undefined) reject(error);
+        else resolve(tx);
+      };
+      tracer.addEventListener("close", () => {
+        if (settled || closeTimer !== undefined) return;
+        // The tracer may close its socket just before delivering the result.
+        closeTimer = setTimeout(
+          () => finish(new Error("WebSocket closed")),
+          500
+        );
+      });
+      tracer.addEventListener("error", () =>
+        finish(new Error("WebSocket error"))
+      );
+      try {
+        tracer.traceTx(txHash).then(
+          (tx) => {
+            try {
+              this.getReceiptNetwork(chainId, expectedChainId);
+              finish(undefined, tx);
+            } catch (error) {
+              finish(error);
+            }
+          },
+          (error) => finish(error ?? new Error("Transaction lookup failed"))
+        );
+      } catch (error) {
+        finish(error ?? new Error("Transaction lookup failed"));
+      }
+    });
   }
 
   private static processTxResultNotification(

@@ -30,6 +30,22 @@ export class ObservableEvmChainJsonRpcQuery<
     this.chainGetter = chainGetter;
   }
 
+  protected override resolveBaseURL(): string {
+    if (!this.chainGetter.hasModularChain(this.chainId)) return "";
+    const chain = this.chainGetter.getModularChain(this.chainId).unwrapped;
+    return chain.type === "evm" || chain.type === "ethermint"
+      ? chain.evm.rpc
+      : "";
+  }
+
+  protected override isEndpointAvailable(): boolean {
+    return this.baseURL !== "";
+  }
+
+  protected override canFetch(): boolean {
+    return this.baseURL !== "";
+  }
+
   protected override async fetchResponse(): Promise<{ headers: any; data: T }> {
     const keplr = await getKeplrFromWindow();
     const data = await keplr?.ethereum.request({
