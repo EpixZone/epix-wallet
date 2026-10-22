@@ -569,7 +569,9 @@ export abstract class ObservableQuery<T = unknown, E = unknown>
       // Skip saving response if disableCache is true.
       if (!this.options.disableCache) {
         // Should not wait.
-        this.saveResponse(response, cacheKey);
+        void this.saveResponse(response, cacheKey).catch(() => {
+          console.warn("Failed to save query response to cache");
+        });
       }
 
       this.onReceiveResponse(response);

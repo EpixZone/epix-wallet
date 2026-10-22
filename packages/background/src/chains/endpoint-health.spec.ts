@@ -1,4 +1,5 @@
 import type { KVStore } from "@keplr-wallet/common";
+import { webcrypto } from "crypto";
 import {
   EndpointHealthCoordinator,
   EndpointHealthSnapshot,
@@ -121,6 +122,54 @@ async function until(predicate: () => boolean) {
 }
 const isDefault = (url: string) =>
   Object.values(defaults).some((base) => url.startsWith(base));
+
+it("uses secure worker epochs by default and preserves explicit test epochs", async () => {
+  const cryptoDescriptor = Object.getOwnPropertyDescriptor(
+    globalThis,
+    "crypto"
+  );
+  if (!globalThis.crypto) {
+    Object.defineProperty(globalThis, "crypto", {
+      value: webcrypto,
+      configurable: true,
+    });
+  }
+  const randomUUID = jest
+    .spyOn(globalThis.crypto, "randomUUID")
+    .mockReturnValueOnce("00000000-0000-4000-8000-000000000001")
+    .mockReturnValueOnce("00000000-0000-4000-8000-000000000002");
+  const f = fixture();
+  const create = (workerEpoch?: string) =>
+    new EndpointHealthCoordinator({
+      kvStore: f.store,
+      getPreferred: f.getPreferred,
+      onChange: () => undefined,
+      fetch: f.fetch,
+      workerEpoch,
+    });
+  const workers: EndpointHealthCoordinator[] = [];
+  try {
+    workers.push(create(), create(), create("test-worker"));
+    await Promise.all(workers.map((worker) => worker.init()));
+    expect(
+      workers.map((worker) => worker.getSnapshot("epix_1916-1")?.workerEpoch)
+    ).toEqual([
+      "00000000-0000-4000-8000-000000000001",
+      "00000000-0000-4000-8000-000000000002",
+      "test-worker",
+    ]);
+    expect(randomUUID).toHaveBeenCalledTimes(2);
+    expect(f.fetch).not.toHaveBeenCalled();
+  } finally {
+    workers.forEach((worker) => worker.dispose());
+    randomUUID.mockRestore();
+    if (cryptoDescriptor) {
+      Object.defineProperty(globalThis, "crypto", cryptoDescriptor);
+    } else {
+      Reflect.deleteProperty(globalThis, "crypto");
+    }
+  }
+});
 
 it("initializes without network and keeps all snapshot getters side-effect free and immutable", async () => {
   const f = fixture();

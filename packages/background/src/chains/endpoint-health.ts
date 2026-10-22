@@ -154,9 +154,7 @@ export class EndpointHealthCoordinator {
   constructor(private readonly options: EndpointHealthOptions) {
     this.now = options.now ?? Date.now;
     this.fetch = options.fetch ?? ((...args) => globalThis.fetch(...args));
-    this.epoch =
-      options.workerEpoch ??
-      `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    this.epoch = options.workerEpoch ?? globalThis.crypto.randomUUID();
   }
 
   init(): Promise<void> {

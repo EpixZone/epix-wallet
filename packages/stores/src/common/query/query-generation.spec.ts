@@ -285,6 +285,45 @@ async function fixture(
   }
 }
 
+it("publishes a valid network response without waiting for a failed cache write", async () => {
+  const write = new Deferred<void>();
+  const warning = jest
+    .spyOn(console, "warn")
+    .mockImplementation(() => undefined);
+  try {
+    await fixture(async (ctx, network, watch, waitFor) => {
+      const save = jest
+        .spyOn(ctx.memory, "set")
+        .mockImplementation(() => write.promise);
+      const q = new ControlledQuery(ctx, network);
+      watch(q);
+      const waiter = waitFor(q);
+      await turns();
+      network.finish(0, "network-result");
+      await turns();
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(write.settled).toBe(false);
+      expect(q.response?.data).toBe("network-result");
+      expect(q.isFetching).toBe(false);
+      expect(waiter.response?.data).toBe("network-result");
+
+      write.reject(new Error("Cache storage is unavailable"));
+      await turns();
+      expect(warning).toHaveBeenCalledTimes(1);
+      expect(warning).toHaveBeenCalledWith(
+        "Failed to save query response to cache"
+      );
+      expect(q.response?.data).toBe("network-result");
+      expect(q.error).toBeUndefined();
+      expect(q.received).toEqual(["network-result"]);
+    });
+  } finally {
+    write.resolve();
+    await turns();
+    warning.mockRestore();
+  }
+});
+
 it("held fresh disk A cannot satisfy B or finish B's still-pending cache read", async () =>
   fixture(async (ctx, network, watch) => {
     ctx.holdDisk = true;
