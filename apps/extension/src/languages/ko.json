@@ -264,7 +264,7 @@
   "page.setting.advanced.endpoint.confirm-paragraph": "변경사항이 적용되려면 케플러를 다시 시작해야 합니다.",
   "page.setting.advanced.endpoint.reset-button": "초기화",
   "page.setting.advanced.endpoint.guide-title": "실험적 기능",
-  "page.setting.advanced.endpoint.guide-paragraph": "노드 주소를 변경한 후 생기는 문제들은 노드 주소 제공자에게 연락해서 해결해야 합니다.{br}{br}변경 사항을 적용하려면 케플러를 다시 시작해주세요.",
+  "page.setting.advanced.endpoint.guide-paragraph": "노드 주소를 변경한 후 생기는 문제들은 노드 주소 제공자에게 연락해서 해결해야 합니다.",
 
   "page.setting.general.language-title": "언어",
   "page.setting.general.currency-title": "통화",

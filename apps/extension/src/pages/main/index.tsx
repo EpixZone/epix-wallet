@@ -47,6 +47,11 @@ import { EmptyStateButtonRow } from "./components/empty-state-button-row";
 import { useNavigate } from "react-router";
 import { useTotalPrices } from "../../hooks/use-total-prices";
 import SimpleBarCore from "simplebar-core";
+import {
+  EndpointConnectionStatus,
+  showEndpointStatusOnHome,
+} from "../../components/endpoint-connection-status";
+import { filterModularChainInfosByKeyType } from "../../utils/is-chain-supported-by-key-type";
 
 export interface ViewToken {
   token: CoinPretty;
@@ -114,6 +119,7 @@ export const MainPage: FunctionComponent<{
     keyRingStore,
     priceStore,
     mainHeaderAnimationStore,
+    chainStore,
   } = useStore();
 
   const isNotReady = useIsNotReady();
@@ -238,6 +244,35 @@ export const MainPage: FunctionComponent<{
         totalPriceSectionRef={totalPriceSectionRef}
         setIsTotalPriceVisible={setIsTotalPriceVisible}
       />
+
+      {chainStore.endpointHealth
+        .filter(
+          (snapshot) =>
+            showEndpointStatusOnHome(snapshot.status) &&
+            filterModularChainInfosByKeyType(
+              keyRingStore.selectedKeyInfo?.type,
+              chainStore.modularChainInfosInUI
+            ).some((chain) => chain.chainId === snapshot.chainId)
+        )
+        .map((snapshot) => (
+          <Box key={snapshot.chainId} padding="0 1.25rem">
+            <EndpointConnectionStatus
+              snapshot={snapshot}
+              chainName={chainStore.getModularChain(snapshot.chainId).chainName}
+              compact
+              onCheck={() =>
+                chainStore.checkEndpointHealth(snapshot.chainId, true)
+              }
+              onSettings={() =>
+                navigate(
+                  `/setting/advanced/endpoint?chainId=${encodeURIComponent(
+                    snapshot.chainId
+                  )}`
+                )
+              }
+            />
+          </Box>
+        ))}
 
       <Box padding="1.25rem">
         <Box

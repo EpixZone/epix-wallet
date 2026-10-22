@@ -19,6 +19,8 @@ import {
   ClearAllChainEndpointsMsg,
   GetChainInfoWithoutEndpointsMsg,
   PingMsg,
+  CheckEndpointHealthMsg,
+  SetEndpointPublicFallbackMsg,
 } from "./messages";
 import { ChainInfo } from "@keplr-wallet/types";
 import { getBasicAccessPermissionType, PermissionService } from "../permission";
@@ -39,6 +41,23 @@ export const getHandler: (
     switch (msg.constructor) {
       case PingMsg:
         return {};
+      case CheckEndpointHealthMsg: {
+        const request = msg as CheckEndpointHealthMsg;
+        return (
+          request.chainId
+            ? chainsService.checkEndpointHealth(
+                request.chainId,
+                request.recover ? "manual" : "connect"
+              )
+            : chainsService.checkDueEndpointHealth()
+        ).then(() => undefined);
+      }
+      case SetEndpointPublicFallbackMsg: {
+        const request = msg as SetEndpointPublicFallbackMsg;
+        return chainsService
+          .setEndpointPublicFallback(request.chainId, request.enabled)
+          .then(() => undefined);
+      }
       case GetChainInfosWithCoreTypesMsg:
         return handleGetInfosWithCoreTypesMsg(chainsService)(
           env,
@@ -108,6 +127,7 @@ const handleGetInfosWithCoreTypesMsg: (
     return {
       chainInfos: service.getChainInfosWithCoreTypes(),
       modularChainInfos: service.getModularChainInfos(),
+      endpointHealth: service.getEndpointHealthSnapshots(),
     };
   };
 };
@@ -164,8 +184,15 @@ const handleSuggestChainInfoMsg: (
   permissionInteractiveService
 ) => {
   return async (env, msg) => {
-    if (chainsService.getChainInfo(msg.chainInfo.chainId) != null) {
-      // If suggested chain info is already registered, just return.
+    const known = chainsService.getChainInfo(msg.chainInfo.chainId);
+    if (known != null) {
+      // Use the stored full identity and approved inventory, never the dapp's
+      // suggested endpoint URLs. Existing permissions are unchanged.
+      await chainsService
+        .checkEndpointHealth(known.chainId, "connect")
+        .catch(() => {
+          console.warn("Could not check the known chain connection");
+        });
       return;
     }
 
@@ -175,6 +202,11 @@ const handleSuggestChainInfoMsg: (
     chainInfo.beta = true;
 
     await chainsService.suggestChainInfo(env, chainInfo, msg.origin);
+    await chainsService
+      .checkEndpointHealth(chainInfo.chainId, "connect")
+      .catch(() => {
+        console.warn("Could not check the approved chain connection");
+      });
 
     permissionService.addPermission(
       [chainInfo.chainId],

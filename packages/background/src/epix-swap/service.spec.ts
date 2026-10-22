@@ -59,7 +59,9 @@ class SerializedStore implements KVStore {
   }
 }
 
-async function fixture() {
+async function fixture(
+  resolveObservationRest?: (chainId: string, storedRest: string) => string
+) {
   const store = new SerializedStore();
   const transactions: jest.Mocked<SwapTransactions> = {
     context: jest.fn().mockImplementation(async (_vault, direction) => ({
@@ -157,7 +159,12 @@ async function fixture() {
       };
     }),
   };
-  const service = new EpixSwapService(store, transactions, api);
+  const service = new EpixSwapService(
+    store,
+    transactions,
+    api,
+    resolveObservationRest
+  );
   await service.init();
   return { store, transactions, api, service };
 }
@@ -1045,4 +1052,75 @@ it("reports only the remaining reverse bridge fee after the swap is confirmed", 
   });
   expect(review.canStart).toBe(false);
   expect(f.transactions.sign).toHaveBeenCalledTimes(1);
+});
+
+it("follows verified observation endpoints while a single swap broadcast is in flight", async () => {
+  const endpoints = new Map<string, string>();
+  const resolveRest = jest.fn(
+    (chainId: string, storedRest: string) =>
+      endpoints.get(chainId) ?? storedRest
+  );
+  const f = await fixture(resolveRest);
+  let release!: (hash: Uint8Array) => void;
+  f.transactions.broadcast.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      })
+  );
+  const started = await begin(f);
+  const before = f.service.getOperations(env, "vault")[0];
+  expect(before.bridgeTxHash).toBe(bridgeHash);
+  endpoints.set(before.sourceChainId, "https://epix-backup.test");
+  endpoints.set(before.destinationChainId, "https://osmosis-backup.test");
+  release(sha256(new Uint8Array([1])));
+  await advance(0);
+  await advance(5000);
+  expect(f.api.lookupTx).toHaveBeenCalledWith(
+    "https://epix-backup.test",
+    bridgeHash
+  );
+  expect(f.api.packetAck).toHaveBeenCalledWith(
+    "https://osmosis-backup.test",
+    "7",
+    undefined,
+    "to-osmosis"
+  );
+  f.service.revokeApprovals();
+  const after = await f.service.refresh(env, started.id);
+  expect(after).toMatchObject({
+    bridgeTxHash: bridgeHash,
+    sourceRest: "https://epix.test",
+    destinationRest: "https://osmosis.test",
+  });
+  expect(f.transactions.broadcast).toHaveBeenCalledTimes(1);
+  expect(f.transactions.sign).toHaveBeenCalledTimes(1);
+});
+
+it("recovers a failed swap lookup at a new endpoint without rewriting its transaction context", async () => {
+  let recovered = false;
+  const f = await fixture((_chainId, storedRest) =>
+    recovered ? storedRest.replace(".test", "-backup.test") : storedRest
+  );
+  f.api.lookupTx.mockRejectedValueOnce(new Error("offline"));
+  const started = await begin(f);
+  await advance(5000);
+  expect(f.api.lookupTx).toHaveBeenLastCalledWith(
+    "https://epix.test",
+    bridgeHash
+  );
+  recovered = true;
+  const operation = await f.service.refresh(env, started.id);
+  expect(f.api.lookupTx).toHaveBeenLastCalledWith(
+    "https://epix-backup.test",
+    bridgeHash
+  );
+  expect(operation).toMatchObject({
+    bridgeTxHash: bridgeHash,
+    sourceRest: "https://epix.test",
+    destinationRest: "https://osmosis.test",
+  });
+  expect(f.transactions.broadcast).toHaveBeenCalledTimes(1);
+  expect(f.transactions.sign).toHaveBeenCalledTimes(1);
+  f.service.revokeApprovals();
 });

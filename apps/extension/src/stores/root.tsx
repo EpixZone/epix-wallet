@@ -1,4 +1,6 @@
 import { ChainStore } from "./chain";
+import { EndpointHealthChangedMsg } from "@keplr-wallet/background";
+import { installEndpointHealthForeground } from "./endpoint-health-foreground";
 import {
   CommunityChainInfoRepo,
   EmbedChainInfos,
@@ -746,7 +748,22 @@ export class RootStore {
       }
     );
 
-    router.listen(APP_PORT);
+    router.registerMessage(EndpointHealthChangedMsg);
+    router.addHandler("endpoint-health", (_env, msg) => {
+      if (!(msg instanceof EndpointHealthChangedMsg)) {
+        throw new Error("Unknown connection update");
+      }
+      return this.chainStore.updateChainInfosFromBackground();
+    });
+    void router.listen(APP_PORT).then(() => {
+      installEndpointHealthForeground(
+        window,
+        document,
+        () => this.chainStore.updateChainInfosFromBackground(),
+        () => this.chainStore.checkEndpointHealth(),
+        (error) => console.warn("Could not refresh network connections", error)
+      );
+    });
   }
 }
 

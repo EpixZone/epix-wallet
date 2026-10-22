@@ -240,7 +240,7 @@
   "page.setting.advanced.endpoint.confirm-paragraph": "你需要重新启动Epix Wallet才能应用更改",
   "page.setting.advanced.endpoint.reset-button": "重置",
   "page.setting.advanced.endpoint.guide-title": "实验性功能",
-  "page.setting.advanced.endpoint.guide-paragraph": "请与连接点提供商联系，以解决连接点更改可能引起的任何问题。{br}{br}重启Epix Wallet以应用更改。",
+  "page.setting.advanced.endpoint.guide-paragraph": "请与连接点提供商联系，以解决连接点更改可能引起的任何问题。",
 
   "page.setting.general.language-title": "语言",
   "page.setting.general.currency-title": "法定货币",

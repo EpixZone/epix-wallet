@@ -37,7 +37,7 @@ import {
   EthTxStatus,
 } from "@keplr-wallet/types";
 import { TransactionTypes, serialize } from "@ethersproject/transactions";
-import { BaseAccount } from "@keplr-wallet/cosmos";
+import { BaseAccount, ChainIdHelper } from "@keplr-wallet/cosmos";
 import { Any } from "@keplr-wallet/proto-types/google/protobuf/any";
 import { TxRaw } from "@keplr-wallet/proto-types/cosmos/tx/v1beta1/tx";
 import { Msg } from "@keplr-wallet/types";
@@ -949,9 +949,22 @@ export class BackgroundTxExecutorService {
   ): Promise<{ txResult?: { code?: number }; failed: boolean }> {
     try {
       const chainInfo = this.chainsService.getChainInfoOrThrow(chainId);
+      if (
+        chainId !== chainInfo.chainId &&
+        chainId !== ChainIdHelper.parse(chainInfo.chainId).identifier
+      ) {
+        return { failed: true };
+      }
+      const expectedChainId = chainInfo.chainId;
       const { data } = await fetchWithRetry<{
         tx_response?: { code?: number; txhash?: string };
       }>(chainInfo.rest, `/cosmos/tx/v1beta1/txs/${txHash}`);
+      if (
+        this.chainsService.getChainInfoOrThrow(chainId).chainId !==
+        expectedChainId
+      ) {
+        return { failed: true };
+      }
       return { txResult: data.tx_response, failed: false };
     } catch {
       return { failed: true };

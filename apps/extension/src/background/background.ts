@@ -27,6 +27,7 @@ import {
 } from "../config";
 import { initEpixNative } from "./epix-native";
 import { mobileEnv } from "./mobile-env";
+import { installEndpointHealthChecks } from "./endpoint-health-checks";
 
 // Epix network integration: live direct/Tor routing in desktop Firefox plus
 // the native-host bridge used by the Tor/I2P status and settings UI.
@@ -38,7 +39,7 @@ router.addGuard(ExtensionGuards.checkMessageIsInternal);
 
 const blocklistPageURL = "https://blocklist.keplr.app";
 
-const { initFn, analyticsService, phishingListService } = init(
+const { initFn, analyticsService, phishingListService, chainsService } = init(
   router,
   (prefix: string) => new ExtensionKVStore(prefix),
   new ContentScriptMessageRequester(),
@@ -171,7 +172,16 @@ const { initFn, analyticsService, phishingListService } = init(
   }
 );
 
-router.listen(BACKGROUND_PORT, initFn).then(() => {
+let initialization: Promise<void> | undefined;
+const initialize = () => (initialization ??= initFn());
+installEndpointHealthChecks(
+  browser.alarms,
+  initialize,
+  () => chainsService.checkDueEndpointHealth(),
+  (error) => console.warn("Could not check network connections", error)
+);
+
+router.listen(BACKGROUND_PORT, initialize).then(() => {
   if (typeof window !== "undefined") {
     (window as any).__epixMobileBackgroundReady = true;
   }
