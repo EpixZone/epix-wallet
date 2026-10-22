@@ -258,11 +258,10 @@ it.each([
   }
 );
 
-function feeResponses(url: string): unknown {
+function feeResponses(url: string, feeDenom = OSMOSIS_USDC_DENOM): unknown {
   if (url.endsWith("cur_eip_base_fee")) return { base_fee: "0.03" };
   if (url.endsWith("base_denom")) return { base_denom: "uosmo" };
-  if (url.endsWith("fee_tokens"))
-    return { fee_tokens: [{ denom: OSMOSIS_USDC_DENOM }] };
+  if (url.endsWith("fee_tokens")) return { fee_tokens: [{ denom: feeDenom }] };
   if (url.includes("spot_price_by_denom")) return { spot_price: "20" };
   throw new Error("Unexpected request");
 }
@@ -283,18 +282,71 @@ it("quotes an explicit native fee ceiling with the live base-fee buffer", async 
   expect(global.fetch).toHaveBeenCalledTimes(2);
 });
 
-it("converts alternate fees in base units with one final ceiling", async () => {
+it.each([OSMOSIS_USDC_DENOM, OSMOSIS_ALL_USDC_DENOM])(
+  "converts %s fees in base units with one final ceiling",
+  async (feeDenom) => {
+    mockJSON((url) =>
+      url.endsWith("cur_eip_base_fee")
+        ? { base_fee: "0.01" }
+        : feeResponses(url, feeDenom)
+    );
+    expect(
+      (
+        await getOsmosisFeeQuote({
+          ...feeRequest,
+          feeDenom,
+        })
+      ).fee.amount
+    ).toEqual([{ denom: feeDenom, amount: "2525" }]);
+    const spotRequest = (global.fetch as jest.Mock).mock.calls.find(([url]) =>
+      String(url).includes("spot_price_by_denom")
+    );
+    if (!spotRequest)
+      throw new Error("Missing fee conversion spot-price request");
+    expect(new URL(spotRequest[0]).searchParams.get("denom")).toBe(feeDenom);
+  }
+);
+
+it.each([
+  OSMOSIS_USDC_DENOM,
+  OSMOSIS_ALL_USDC_DENOM.replace("allUSDC", "allusdc"),
+  OSMOSIS_ALL_USDC_DENOM.replace("osmo147h5", "osmo1other"),
+])(
+  "does not authorize allUSDC fees when the live allowlist only includes %s",
+  async (allowedDenom) => {
+    mockJSON((url) => feeResponses(url, allowedDenom));
+    await expect(
+      getOsmosisFeeQuote({ ...feeRequest, feeDenom: OSMOSIS_ALL_USDC_DENOM })
+    ).rejects.toThrow("does not currently accept");
+    expect(
+      (global.fetch as jest.Mock).mock.calls.some(([url]) =>
+        String(url).includes("spot_price_by_denom")
+      )
+    ).toBe(false);
+  }
+);
+
+it("rejects allUSDC after the live fee allowlist removes it", async () => {
+  let accepted = true;
   mockJSON((url) =>
-    url.endsWith("cur_eip_base_fee") ? { base_fee: "0.01" } : feeResponses(url)
+    url.endsWith("fee_tokens") && !accepted
+      ? { fee_tokens: [] }
+      : feeResponses(url, OSMOSIS_ALL_USDC_DENOM)
+  );
+  const request = { ...feeRequest, feeDenom: OSMOSIS_ALL_USDC_DENOM };
+  await expect(getOsmosisFeeQuote(request)).resolves.toMatchObject({
+    fee: { amount: [{ denom: OSMOSIS_ALL_USDC_DENOM, amount: "3636" }] },
+  });
+  accepted = false;
+  (global.fetch as jest.Mock).mockClear();
+  await expect(getOsmosisFeeQuote(request)).rejects.toThrow(
+    "does not currently accept"
   );
   expect(
-    (
-      await getOsmosisFeeQuote({
-        ...feeRequest,
-        feeDenom: OSMOSIS_USDC_DENOM,
-      })
-    ).fee.amount
-  ).toEqual([{ denom: OSMOSIS_USDC_DENOM, amount: "2525" }]);
+    (global.fetch as jest.Mock).mock.calls.some(([url]) =>
+      String(url).includes("spot_price_by_denom")
+    )
+  ).toBe(false);
 });
 
 it("fails closed for rejected fee assets and invalid conversion data", async () => {

@@ -15,6 +15,7 @@ export const OSMOSIS_SWAP_FEE_OPTIONS = [
   { denom: OSMOSIS_SWAP_TOKENS[3].coinMinimalDenom, label: "OSMO" },
   { denom: OSMOSIS_SWAP_TOKENS[5].coinMinimalDenom, label: "USDC (native)" },
   { denom: OSMOSIS_SWAP_TOKENS[2].coinMinimalDenom, label: "BTC (allBTC)" },
+  { denom: OSMOSIS_SWAP_TOKENS[4].coinMinimalDenom, label: "USDC (allUSDC)" },
 ] as const;
 
 export const EPIX_CHAIN_ID = "epix_1916-1";

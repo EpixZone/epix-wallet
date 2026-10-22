@@ -148,7 +148,7 @@ it.each([1, 4])(
           amount: [{ denom: token.coinMinimalDenom, amount: "1" }],
         },
       })?.osmosisNetworkFeeLimit
-    ).toBeUndefined();
+    ).toBe(index === 4 ? "0.000001 USDC" : undefined);
   }
 );
 
@@ -170,6 +170,13 @@ it.each([
     required: "72000",
     shortfall: "72000",
     displayed: ["0 OSMO", "0.072 OSMO", "0.072 OSMO"],
+  },
+  {
+    token: 4,
+    available: "17",
+    required: "29",
+    shortfall: "12",
+    displayed: ["0.000017 USDC", "0.000029 USDC", "0.000012 USDC"],
   },
   {
     token: 5,

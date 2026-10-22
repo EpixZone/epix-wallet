@@ -25,4 +25,5 @@ export const SUPPORTED_FEE_DENOMS = [
   OSMOSIS_USDC_DENOM,
   OSMOSIS_ALL_BTC_DENOM,
   "uosmo",
+  OSMOSIS_ALL_USDC_DENOM,
 ] as const;

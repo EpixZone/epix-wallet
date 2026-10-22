@@ -7,6 +7,7 @@ import {
 } from "./main-swap-view";
 import { quoteRouteView } from "./quote-route";
 import { parseOsmosisAssetRegistry } from "./osmosis-asset-registry";
+import { OSMOSIS_SWAP_FEE_OPTIONS, OSMOSIS_SWAP_TOKENS } from "./tokens";
 
 jest.mock("../../public/assets/logo-256.png", () => "epix.png");
 jest.mock("../../public/assets/img/ethereum.svg", () => "ethereum.svg");
@@ -86,6 +87,24 @@ it("shows one swap form and quote with an explicit destination fee cap", () => {
   expect(html).toContain("<button>bridge-and-swap</button>");
   expect(html).not.toContain("<button>deposit</button>");
   expect(html).not.toContain("<button>withdraw</button>");
+});
+
+it("selects allUSDC separately from native USDC in the fee picker", () => {
+  const allUsdc = OSMOSIS_SWAP_TOKENS[4].coinMinimalDenom;
+  const nativeUsdc = OSMOSIS_SWAP_TOKENS[5].coinMinimalDenom;
+  const html = renderToStaticMarkup(
+    <EpixMainSwapView
+      {...props}
+      selection={{ ...props.selection, feeDenom: allUsdc }}
+      feeOptions={OSMOSIS_SWAP_FEE_OPTIONS}
+    />
+  );
+  expect(html).toContain(
+    `<option value="${allUsdc}" selected="">USDC (allUSDC)</option>`
+  );
+  expect(html).toContain(
+    `<option value="${nativeUsdc}">USDC (native)</option>`
+  );
 });
 
 it("keeps the estimate visible when missing fee funds block confirmation", () => {
