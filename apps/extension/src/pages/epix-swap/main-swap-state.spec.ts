@@ -78,6 +78,7 @@ test("offers exactly the four requested outputs and defaults new forms to alloye
     "uosmo",
     OSMOSIS_SWAP_TOKENS[5].coinMinimalDenom,
     OSMOSIS_SWAP_TOKENS[2].coinMinimalDenom,
+    OSMOSIS_SWAP_TOKENS[4].coinMinimalDenom,
   ]);
 });
 

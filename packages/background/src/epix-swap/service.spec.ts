@@ -183,13 +183,14 @@ afterEach(() => {
 });
 
 it.each([
-  ["OSMO", "uosmo"],
-  ["allBTC", OSMOSIS_ALL_BTC_DENOM],
-  ["allUSDT", OSMOSIS_ALL_USDT_DENOM],
-  ["allUSDC", OSMOSIS_ALL_USDC_DENOM],
+  ["OSMO", "uosmo", "uosmo"],
+  ["allBTC", OSMOSIS_ALL_BTC_DENOM, "uosmo"],
+  ["allUSDT", OSMOSIS_ALL_USDT_DENOM, "uosmo"],
+  ["allUSDC", OSMOSIS_ALL_USDC_DENOM, "uosmo"],
+  ["OSMO with allUSDC fees", "uosmo", OSMOSIS_ALL_USDC_DENOM],
 ])(
   "one approval deposits once and swaps to %s with the exact approved amount and minimum",
-  async (_label, outputDenom) => {
+  async (_label, outputDenom, feeDenom) => {
     const f = await fixture();
     const operation = await begin(
       f,
@@ -200,10 +201,11 @@ it.each([
         amount,
         outputDenom,
         100,
-        "uosmo"
+        feeDenom
       )
     );
     expect(f.transactions.broadcast).toHaveBeenCalledTimes(1);
+    expect(f.transactions.sign.mock.calls[0][3].amount[0].denom).toBe("aepix");
     const bridge = MsgTransfer.decode(
       f.transactions.sign.mock.calls[0][2].value
     );
@@ -219,6 +221,7 @@ it.each([
     f.api.packetAck.mockResolvedValue("received" as never);
     await advance(5000);
     expect(f.transactions.broadcast).toHaveBeenCalledTimes(2);
+    expect(f.transactions.sign.mock.calls[1][3].amount[0].denom).toBe(feeDenom);
     const swap = MsgSwapExactAmountIn.decode(
       f.transactions.sign.mock.calls[1][2].value
     );
@@ -250,7 +253,16 @@ it.each([
     "uosmo",
   ],
   ["allUSDT fee", "uosmo", OSMOSIS_ALL_USDT_DENOM],
-  ["allUSDC fee", "uosmo", OSMOSIS_ALL_USDC_DENOM],
+  [
+    "different allUSDC fee issuer",
+    "uosmo",
+    OSMOSIS_ALL_USDC_DENOM.replace("osmo147h5", "osmo1other"),
+  ],
+  [
+    "different allUSDC fee casing",
+    "uosmo",
+    OSMOSIS_ALL_USDC_DENOM.replace("allUSDC", "allusdc"),
+  ],
 ])(
   "rejects %s before quoting or authorization",
   async (_label, outputDenom, feeDenom) => {
@@ -600,7 +612,11 @@ it("keeps a successfully dispatched hash paused when approval is revoked during 
   expect(f.transactions.broadcast).toHaveBeenCalledTimes(1);
 });
 
-const reverseRequest = (resume?: string, inputDenom = OSMOSIS_ALL_USDT_DENOM) =>
+const reverseRequest = (
+  resume?: string,
+  inputDenom = OSMOSIS_ALL_USDT_DENOM,
+  feeDenom = "uosmo"
+) =>
   new PrepareEpixSwapMsg(
     "vault",
     "to-epix",
@@ -608,20 +624,21 @@ const reverseRequest = (resume?: string, inputDenom = OSMOSIS_ALL_USDT_DENOM) =>
     "1000000",
     "aepix",
     100,
-    "uosmo",
+    feeDenom,
     resume
   );
 
 it.each([
-  OSMOSIS_ALL_BTC_DENOM,
-  OSMOSIS_ALL_USDT_DENOM,
-  OSMOSIS_ALL_USDC_DENOM,
-  "uosmo",
+  [OSMOSIS_ALL_BTC_DENOM, "uosmo"],
+  [OSMOSIS_ALL_USDT_DENOM, "uosmo"],
+  [OSMOSIS_ALL_USDC_DENOM, "uosmo"],
+  ["uosmo", "uosmo"],
+  [OSMOSIS_ALL_USDC_DENOM, OSMOSIS_ALL_USDC_DENOM],
 ])(
-  "one reverse approval swaps %s and transfers exactly its proven output to Epix",
-  async (inputDenom) => {
+  "one reverse approval swaps %s with %s fees and transfers exactly its proven output to Epix",
+  async (inputDenom, feeDenom) => {
     const f = await fixture();
-    const op = await begin(f, reverseRequest(undefined, inputDenom));
+    const op = await begin(f, reverseRequest(undefined, inputDenom, feeDenom));
     expect(op).toMatchObject({
       direction: "to-epix",
       inputDenom,
@@ -629,6 +646,7 @@ it.each([
       destinationChainId: "epix_1916-1",
     });
     expect(f.transactions.sign).toHaveBeenCalledTimes(1);
+    expect(f.transactions.sign.mock.calls[0][3].amount[0].denom).toBe(feeDenom);
     const swap = MsgSwapExactAmountIn.decode(
       f.transactions.sign.mock.calls[0][2].value
     );
@@ -640,6 +658,7 @@ it.each([
     });
     await advance(5000);
     expect(f.transactions.sign).toHaveBeenCalledTimes(2);
+    expect(f.transactions.sign.mock.calls[1][3].amount[0].denom).toBe(feeDenom);
     const bridge = MsgTransfer.decode(
       f.transactions.sign.mock.calls[1][2].value
     );
@@ -682,33 +701,41 @@ it.each([
   }
 );
 
-it("requires the input plus both fee caps when the reverse input is also the fee asset", async () => {
-  const f = await fixture();
-  f.api.readBalance.mockResolvedValue("1084599"); // 1 OSMO + 72000 swap fee + 12600 return fee, minus one.
-  const blocked = await f.service.prepare(
-    env,
-    reverseRequest(undefined, "uosmo")
-  );
-  expect(blocked.canStart).toBe(false);
-  expect(blocked.blockReason).toContain("fee");
-  expect(blocked.feeShortfall).toMatchObject({
-    available: "84599",
-    required: "84600",
-    shortfall: "1",
-  });
-  f.api.readBalance.mockResolvedValue("1084600");
-  const funded = await f.service.prepare(
-    env,
-    reverseRequest(undefined, "uosmo")
-  );
-  expect(funded.canStart).toBe(true);
-  expect(funded.bridgeFee.amount[0]).toEqual({
-    denom: "uosmo",
-    amount: "12600",
-  });
-  expect(funded.swapFeeCap.amount[0].amount).toBe("72000");
-  expect(f.transactions.sign).not.toHaveBeenCalled();
-});
+it.each(["uosmo", OSMOSIS_ALL_USDC_DENOM])(
+  "requires the input plus both fee caps when the reverse input is also the fee asset %s",
+  async (feeDenom) => {
+    const f = await fixture();
+    // 1000000 input units + 72000 swap fee + 12600 return fee, minus one.
+    f.api.readBalance.mockResolvedValue("1084599");
+    const blocked = await f.service.prepare(
+      env,
+      reverseRequest(undefined, feeDenom, feeDenom)
+    );
+    expect(blocked.canStart).toBe(false);
+    expect(blocked.blockReason).toContain("fee");
+    expect(blocked.feeShortfall).toMatchObject({
+      denom: feeDenom,
+      available: "84599",
+      required: "84600",
+      shortfall: "1",
+    });
+    f.api.readBalance.mockResolvedValue("1084600");
+    const funded = await f.service.prepare(
+      env,
+      reverseRequest(undefined, feeDenom, feeDenom)
+    );
+    expect(funded.canStart).toBe(true);
+    expect(funded.bridgeFee.amount[0]).toEqual({
+      denom: feeDenom,
+      amount: "12600",
+    });
+    expect(funded.swapFeeCap.amount[0]).toEqual({
+      denom: feeDenom,
+      amount: "72000",
+    });
+    expect(f.transactions.sign).not.toHaveBeenCalled();
+  }
+);
 
 it("blocks reverse output, issuer, and direction spoofing before fetching a quote", async () => {
   const f = await fixture();
@@ -955,20 +982,22 @@ it("omits fee shortfall at the exact fee cap and retains generic input funding e
 });
 
 it.each([
-  ["1000000", "0", "84600"],
-  ["1070000", "70000", "14600"],
+  ["uosmo", "1000000", "0", "84600"],
+  ["uosmo", "1070000", "70000", "14600"],
+  [OSMOSIS_ALL_USDC_DENOM, "1000000", "0", "84600"],
+  [OSMOSIS_ALL_USDC_DENOM, "1070000", "70000", "14600"],
 ])(
-  "reserves reverse same-asset input from one consistent balance read of %s",
-  async (balance, available, shortfall) => {
+  "reserves reverse same-asset input from one consistent %s balance read of %s",
+  async (feeDenom, balance, available, shortfall) => {
     const f = await fixture();
     f.api.readBalance.mockResolvedValue(balance);
     const review = await f.service.prepare(
       env,
-      reverseRequest(undefined, "uosmo")
+      reverseRequest(undefined, feeDenom, feeDenom)
     );
     expect(review.canStart).toBe(false);
     expect(review.feeShortfall).toEqual({
-      denom: "uosmo",
+      denom: feeDenom,
       available,
       required: "84600",
       shortfall,
@@ -978,7 +1007,7 @@ it.each([
     expect(f.api.readBalance).toHaveBeenCalledWith(
       "https://osmosis.test",
       "osmo1destination",
-      "uosmo"
+      feeDenom
     );
   }
 );
