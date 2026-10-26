@@ -41,6 +41,7 @@ import { KeplrEnigmaUtils } from "./enigma";
 import { CosmJSOfflineSigner, CosmJSOfflineSignerOnlyAmino } from "./cosmjs";
 import deepmerge from "deepmerge";
 import Long from "long";
+import { toUint64 } from "./uint64";
 import { Buffer } from "buffer/";
 import { KeplrCoreTypes } from "./core-types";
 import EventEmitter from "events";
@@ -405,9 +406,10 @@ export class Keplr implements IKeplr, KeplrCoreTypes {
             bodyBytes: signDoc.bodyBytes,
             authInfoBytes: signDoc.authInfoBytes,
             chainId: signDoc.chainId,
-            accountNumber: signDoc.accountNumber
-              ? signDoc.accountNumber.toString()
-              : null,
+            accountNumber:
+              signDoc.accountNumber != null
+                ? toUint64(signDoc.accountNumber).toString()
+                : null,
           },
           signOptions: deepmerge(this.defaultOptions.sign ?? {}, signOptions),
         }
@@ -418,7 +420,7 @@ export class Keplr implements IKeplr, KeplrCoreTypes {
               bodyBytes: r.signed.bodyBytes,
               authInfoBytes: r.signed.authInfoBytes,
               chainId: r.signed.chainId,
-              accountNumber: Long.fromString(r.signed.accountNumber),
+              accountNumber: toUint64(r.signed.accountNumber),
             },
             signature: r.signature,
           })
@@ -466,10 +468,14 @@ export class Keplr implements IKeplr, KeplrCoreTypes {
             bodyBytes: signDoc.bodyBytes,
             publicKey: signDoc.publicKey,
             chainId: signDoc.chainId,
-            accountNumber: signDoc.accountNumber
-              ? signDoc.accountNumber.toString()
-              : null,
-            sequence: signDoc.sequence ? signDoc.sequence.toString() : null,
+            accountNumber:
+              signDoc.accountNumber != null
+                ? toUint64(signDoc.accountNumber).toString()
+                : null,
+            sequence:
+              signDoc.sequence != null
+                ? toUint64(signDoc.sequence).toString()
+                : null,
           },
           signOptions: deepmerge(
             {
@@ -485,8 +491,8 @@ export class Keplr implements IKeplr, KeplrCoreTypes {
               bodyBytes: r.signed.bodyBytes,
               publicKey: r.signed.publicKey,
               chainId: r.signed.chainId,
-              accountNumber: Long.fromString(r.signed.accountNumber),
-              sequence: Long.fromString(r.signed.sequence),
+              accountNumber: toUint64(r.signed.accountNumber),
+              sequence: toUint64(r.signed.sequence),
             },
             signature: r.signature,
           })

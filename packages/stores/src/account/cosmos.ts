@@ -787,7 +787,10 @@ export class CosmosAccountImpl {
           }),
         }).finish(),
         chainId: this.chainId,
-        accountNumber: Long.fromString(account.getAccountNumber().toString()),
+        accountNumber: Long.fromString(
+          account.getAccountNumber().toString(),
+          true
+        ),
       },
       signOptions
     );
