@@ -45,6 +45,7 @@ import { KeplrEnigmaUtils } from "./enigma";
 import { CosmJSOfflineSigner, CosmJSOfflineSignerOnlyAmino } from "./cosmjs";
 import deepmerge from "deepmerge";
 import Long from "long";
+import { toUint64 } from "./uint64";
 import { KeplrCoreTypes } from "./core-types";
 import EventEmitter from "events";
 import type {
@@ -221,9 +222,10 @@ export class InjectedKeplr implements IKeplr, KeplrCoreTypes {
                   bodyBytes: receivedSignDoc.bodyBytes,
                   authInfoBytes: receivedSignDoc.authInfoBytes,
                   chainId: receivedSignDoc.chainId,
-                  accountNumber: receivedSignDoc.accountNumber
-                    ? Long.fromString(receivedSignDoc.accountNumber)
-                    : null,
+                  accountNumber:
+                    receivedSignDoc.accountNumber != null
+                      ? toUint64(receivedSignDoc.accountNumber)
+                      : null,
                 },
                 message.args[3]
               );
@@ -233,7 +235,9 @@ export class InjectedKeplr implements IKeplr, KeplrCoreTypes {
                   bodyBytes: result.signed.bodyBytes,
                   authInfoBytes: result.signed.authInfoBytes,
                   chainId: result.signed.chainId,
-                  accountNumber: result.signed.accountNumber.toString(),
+                  accountNumber: toUint64(
+                    result.signed.accountNumber
+                  ).toString(),
                 },
                 signature: result.signature,
               };
@@ -260,12 +264,14 @@ export class InjectedKeplr implements IKeplr, KeplrCoreTypes {
                   bodyBytes: receivedSignDoc.bodyBytes,
                   publicKey: receivedSignDoc.publicKey,
                   chainId: receivedSignDoc.chainId,
-                  accountNumber: receivedSignDoc.accountNumber
-                    ? Long.fromString(receivedSignDoc.accountNumber)
-                    : null,
-                  sequence: receivedSignDoc.sequence
-                    ? Long.fromString(receivedSignDoc.sequence)
-                    : null,
+                  accountNumber:
+                    receivedSignDoc.accountNumber != null
+                      ? toUint64(receivedSignDoc.accountNumber)
+                      : null,
+                  sequence:
+                    receivedSignDoc.sequence != null
+                      ? toUint64(receivedSignDoc.sequence)
+                      : null,
                 },
                 message.args[3]
               );
@@ -275,8 +281,10 @@ export class InjectedKeplr implements IKeplr, KeplrCoreTypes {
                   bodyBytes: result.signed.bodyBytes,
                   publicKey: result.signed.publicKey,
                   chainId: result.signed.chainId,
-                  accountNumber: result.signed.accountNumber.toString(),
-                  sequence: result.signed.sequence.toString(),
+                  accountNumber: toUint64(
+                    result.signed.accountNumber
+                  ).toString(),
+                  sequence: toUint64(result.signed.sequence).toString(),
                 },
                 signature: result.signature,
               };
@@ -693,9 +701,10 @@ export class InjectedKeplr implements IKeplr, KeplrCoreTypes {
         bodyBytes: signDoc.bodyBytes,
         authInfoBytes: signDoc.authInfoBytes,
         chainId: signDoc.chainId,
-        accountNumber: signDoc.accountNumber
-          ? signDoc.accountNumber.toString()
-          : null,
+        accountNumber:
+          signDoc.accountNumber != null
+            ? toUint64(signDoc.accountNumber).toString()
+            : null,
       },
       deepmerge(this.defaultOptions.sign ?? {}, signOptions),
     ]);
@@ -714,7 +723,7 @@ export class InjectedKeplr implements IKeplr, KeplrCoreTypes {
         chainId: signed.chainId,
         // We can't send the `Long` with remaing the type.
         // Sender should change the `Long` to `string`.
-        accountNumber: Long.fromString(signed.accountNumber),
+        accountNumber: toUint64(signed.accountNumber),
       },
       signature: result.signature,
     };
@@ -747,10 +756,14 @@ export class InjectedKeplr implements IKeplr, KeplrCoreTypes {
         bodyBytes: signDoc.bodyBytes,
         publicKey: signDoc.publicKey,
         chainId: signDoc.chainId,
-        accountNumber: signDoc.accountNumber
-          ? signDoc.accountNumber.toString()
-          : null,
-        sequence: signDoc.sequence ? signDoc.sequence.toString() : null,
+        accountNumber:
+          signDoc.accountNumber != null
+            ? toUint64(signDoc.accountNumber).toString()
+            : null,
+        sequence:
+          signDoc.sequence != null
+            ? toUint64(signDoc.sequence).toString()
+            : null,
       },
       deepmerge(
         {
@@ -778,8 +791,8 @@ export class InjectedKeplr implements IKeplr, KeplrCoreTypes {
         chainId: signed.chainId,
         // We can't send the `Long` with remaing the type.
         // Sender should change the `Long` to `string`.
-        accountNumber: Long.fromString(signed.accountNumber),
-        sequence: Long.fromString(signed.sequence),
+        accountNumber: toUint64(signed.accountNumber),
+        sequence: toUint64(signed.sequence),
       },
       signature: result.signature,
     };

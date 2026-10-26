@@ -1052,7 +1052,7 @@ export class KeyRingCosmosService {
         return {
           signed: {
             ...newSignDoc,
-            accountNumber: Long.fromString(newSignDoc.accountNumber),
+            accountNumber: Long.fromString(newSignDoc.accountNumber, true),
           },
           signature: encodeSecp256k1Signature(key.pubKey, signature),
         };
@@ -1434,7 +1434,7 @@ export class KeyRingCosmosService {
     return {
       signed: {
         ...signDoc,
-        accountNumber: Long.fromString(signDoc.accountNumber),
+        accountNumber: Long.fromString(signDoc.accountNumber, true),
       },
       signature: encodeSecp256k1Signature(key.pubKey, signature),
     };
@@ -1542,8 +1542,8 @@ export class KeyRingCosmosService {
         return {
           signed: {
             ...newSignDoc,
-            accountNumber: Long.fromString(newSignDoc.accountNumber),
-            sequence: Long.fromString(newSignDoc.sequence),
+            accountNumber: Long.fromString(newSignDoc.accountNumber, true),
+            sequence: Long.fromString(newSignDoc.sequence, true),
           },
           signature: encodeSecp256k1Signature(key.pubKey, signature),
         };
