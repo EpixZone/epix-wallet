@@ -1,3 +1,6 @@
+import { EthereumProviderRpcError } from "@keplr-wallet/router";
+import { JsonRpcResponse } from "@keplr-wallet/types";
+
 export const validateEVMChainId = (evmChainId: number) => {
   const isSafeEVMChainId =
     Number.isSafeInteger(evmChainId) &&
@@ -12,4 +15,48 @@ export const validateEVMChainId = (evmChainId: number) => {
   }
 
   return evmChainId;
+};
+
+const nullableRpcMethods = new Set([
+  "eth_getTransactionReceipt",
+  "eth_getTransactionByHash",
+  "eth_getTransactionByBlockHashAndIndex",
+  "eth_getTransactionByBlockNumberAndIndex",
+  "eth_getBlockByHash",
+  "eth_getBlockByNumber",
+]);
+
+export const unwrapEthereumRpcResponse = <T>(
+  response: JsonRpcResponse<T>,
+  method: string
+): T => {
+  const invalidResponse = () =>
+    new EthereumProviderRpcError(
+      -32603,
+      `Invalid JSON-RPC response for ${method}`
+    );
+
+  if (!response || typeof response !== "object") {
+    throw invalidResponse();
+  }
+
+  // EIP-1193 callers need the node's error, including revert data. Returning
+  // an absent result instead turns a failed estimate into a numeric parse error.
+  if (response.error != null) {
+    const { code, message, data } = response.error;
+    if (!Number.isInteger(code) || typeof message !== "string") {
+      throw invalidResponse();
+    }
+    throw new EthereumProviderRpcError(code, message, data);
+  }
+
+  if (
+    !Object.prototype.hasOwnProperty.call(response, "result") ||
+    response.result === undefined ||
+    (response.result === null && !nullableRpcMethods.has(method))
+  ) {
+    throw invalidResponse();
+  }
+
+  return response.result;
 };
