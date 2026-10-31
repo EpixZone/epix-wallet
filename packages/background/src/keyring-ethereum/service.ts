@@ -31,7 +31,7 @@ import { simpleFetch } from "@keplr-wallet/simple-fetch";
 import { getBasicAccessPermissionType, PermissionService } from "../permission";
 import { BackgroundTxEthereumService } from "../tx-ethereum";
 import { TokenERC20Service } from "../token-erc20";
-import { validateEVMChainId } from "./helper";
+import { unwrapEthereumRpcResponse, validateEVMChainId } from "./helper";
 import { runInAction } from "mobx";
 import { PermissionInteractiveService } from "../permission-interactive";
 import { enableAccessSkippedEVMJSONRPCMethods } from "./constants";
@@ -1315,7 +1315,7 @@ export class KeyRingEthereumService {
           ) {
             throw new Error("The transaction's network has changed");
           }
-          return response.data.result;
+          return unwrapEthereumRpcResponse(response.data, method);
         }
         case "eth_call":
         case "eth_estimateGas":
@@ -1342,8 +1342,9 @@ export class KeyRingEthereumService {
           const currentChainEVMInfo =
             this.chainsService.getEVMInfoOrThrow(currentChainId);
 
-          return (
-            await simpleFetch<JsonRpcResponse<any>>(currentChainEVMInfo.rpc, {
+          const response = await simpleFetch<JsonRpcResponse<any>>(
+            currentChainEVMInfo.rpc,
+            {
               method: "POST",
               headers: {
                 "content-type": "application/json",
@@ -1355,8 +1356,9 @@ export class KeyRingEthereumService {
                 params,
                 id: 1,
               }),
-            })
-          ).data.result;
+            }
+          );
+          return unwrapEthereumRpcResponse(response.data, method);
         }
         default: {
           throw new EthereumProviderRpcError(
