@@ -272,15 +272,16 @@ if (typeof chrome !== "undefined") {
       if (chrome.runtime.getManifest().manifest_version < 3) {
         // Managed Firefox updates can retain registrations from older builds.
         // Remove only our old provider script; MV2 uses the content script.
+        // Firefox's chrome API returns through callbacks, so await browser here.
         if (
-          chrome.scripting?.getRegisteredContentScripts &&
-          chrome.scripting?.unregisterContentScripts
+          browser.scripting?.getRegisteredContentScripts &&
+          browser.scripting?.unregisterContentScripts
         ) {
-          const previous = await chrome.scripting.getRegisteredContentScripts({
+          const previous = await browser.scripting.getRegisteredContentScripts({
             ids: ["injectedScript"],
           });
           if (previous.length > 0) {
-            await chrome.scripting.unregisterContentScripts({
+            await browser.scripting.unregisterContentScripts({
               ids: ["injectedScript"],
             });
           }

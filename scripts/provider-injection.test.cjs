@@ -57,19 +57,34 @@ function browserFixture(manifestVersion, hasChrome = true, registrationError) {
       registered.splice(index, 1);
     }
   });
+  const promiseScripting = {
+    registerContentScripts,
+    getRegisteredContentScripts,
+    unregisterContentScripts,
+  };
+  // Firefox's chrome namespace uses callbacks for these APIs. Awaiting its
+  // return value yields undefined, even though browser.scripting returns a Promise.
+  const chromeScripting =
+    manifestVersion === 2
+      ? {
+          registerContentScripts,
+          getRegisteredContentScripts: (filter, callback = () => {}) => {
+            getRegisteredContentScripts(filter).then(callback);
+          },
+          unregisterContentScripts: (filter, callback = () => {}) => {
+            unregisterContentScripts(filter).then(callback);
+          },
+        }
+      : promiseScripting;
   const warn = mock.fn();
   const sandbox = {
     chrome: hasChrome
       ? {
           runtime,
-          scripting: {
-            registerContentScripts,
-            getRegisteredContentScripts,
-            unregisterContentScripts,
-          },
+          scripting: chromeScripting,
         }
       : undefined,
-    browser: { runtime },
+    browser: { runtime, scripting: promiseScripting },
     console: { warn },
     document: {
       head: {
@@ -126,6 +141,7 @@ test("skips MV2 cleanup when no previous provider registration exists", async ()
 test("keeps MV2 injection working when the scripting API is unavailable", async () => {
   const f = browserFixture(2);
   delete f.sandbox.chrome.scripting;
+  delete f.sandbox.browser.scripting;
   runInNewContext(background, f.sandbox);
   await settle();
   runInNewContext(content, f.sandbox);
