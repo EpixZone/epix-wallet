@@ -23,6 +23,8 @@ jobs:
       - run: curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v21.3/protoc-21.3-linux-x86_64.zip
       - run: unzip protoc-21.3-linux-x86_64.zip -d $HOME/protoc && echo $HOME/protoc/bin >> $GITHUB_PATH
       - run: yarn install --immutable
+      - name: Provider injection regressions
+        run: node --test scripts/provider-injection.test.cjs
       - name: Security regressions
         run: |
           yarn test:dependency-security

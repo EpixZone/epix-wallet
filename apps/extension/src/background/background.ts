@@ -263,8 +263,13 @@ browser.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-// When using Chrome, a content script with world: "MAIN" is used to inject the injected script.
-if (typeof chrome !== "undefined") {
+// MV2 injects through content-scripts.ts. Firefox also exposes chrome.scripting,
+// so checking only the namespace registers a second provider in the same page.
+// MV3 uses MAIN-world registration instead of the script-element injection.
+if (
+  typeof chrome !== "undefined" &&
+  chrome.runtime.getManifest().manifest_version >= 3
+) {
   (async () => {
     try {
       await chrome.scripting.registerContentScripts([
