@@ -14,7 +14,7 @@ const initializedKey = providerIdentity
   : undefined;
 if (
   !initializedKey ||
-  !Object.prototype.hasOwnProperty.call(window, initializedKey)
+  Object.getOwnPropertyDescriptor(window, initializedKey) === undefined
 ) {
   if (initializedKey) {
     Object.defineProperty(window, initializedKey, { value: true });
