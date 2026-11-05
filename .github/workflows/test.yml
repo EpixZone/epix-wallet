@@ -24,7 +24,7 @@ jobs:
       - run: unzip protoc-21.3-linux-x86_64.zip -d $HOME/protoc && echo $HOME/protoc/bin >> $GITHUB_PATH
       - run: yarn install --immutable
       - name: Provider injection regressions
-        run: node --test scripts/provider-injection.test.cjs
+        run: node --test scripts/provider-injection.test.cjs scripts/provider-bootstrap.test.cjs
       - name: Security regressions
         run: |
           yarn test:dependency-security

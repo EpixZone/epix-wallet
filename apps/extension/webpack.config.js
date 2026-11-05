@@ -264,6 +264,13 @@ module.exports = {
       process: "process/browser",
       Buffer: ["buffer", "Buffer"],
     }),
+    new webpack.DefinePlugin({
+      "process.env.EPIX_MV2_PROVIDER_ID": JSON.stringify(
+        isBuildManifestV2
+          ? require("./src/manifest.v2.firefox.json").applications.gecko.id
+          : ""
+      ),
+    }),
     new webpack.EnvironmentPlugin({
       EPIX_TERMS_URL: "",
       EPIX_PRIVACY_URL: "",

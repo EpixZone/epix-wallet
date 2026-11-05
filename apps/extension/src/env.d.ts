@@ -3,6 +3,9 @@ declare namespace NodeJS {
     /** node environment */
     NODE_ENV: "production" | "development" | undefined;
 
+    /** Build-time Firefox extension identity; empty in MV3. */
+    EPIX_MV2_PROVIDER_ID: string;
+
     KEPLR_EXT_TX_HISTORY_BASE_URL: string;
     KEPLR_EXT_TX_HISTORY_TEST_BASE_URL: string;
     KEPLR_EXT_CONFIG_SERVER: string;
