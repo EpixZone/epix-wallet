@@ -266,12 +266,27 @@ browser.alarms.onAlarm.addListener((alarm) => {
 // MV2 injects through content-scripts.ts. Firefox also exposes chrome.scripting,
 // so checking only the namespace registers a second provider in the same page.
 // MV3 uses MAIN-world registration instead of the script-element injection.
-if (
-  typeof chrome !== "undefined" &&
-  chrome.runtime.getManifest().manifest_version >= 3
-) {
+if (typeof chrome !== "undefined") {
   (async () => {
     try {
+      if (chrome.runtime.getManifest().manifest_version < 3) {
+        // Managed Firefox updates can retain registrations from older builds.
+        // Remove only our old provider script; MV2 uses the content script.
+        if (
+          chrome.scripting?.getRegisteredContentScripts &&
+          chrome.scripting?.unregisterContentScripts
+        ) {
+          const previous = await chrome.scripting.getRegisteredContentScripts({
+            ids: ["injectedScript"],
+          });
+          if (previous.length > 0) {
+            await chrome.scripting.unregisterContentScripts({
+              ids: ["injectedScript"],
+            });
+          }
+        }
+        return;
+      }
       await chrome.scripting.registerContentScripts([
         {
           id: "injectedScript",
@@ -283,9 +298,7 @@ if (
         },
       ]);
     } catch (err) {
-      console.warn(
-        `Dropped attempt to register injected script script. ${err}`
-      );
+      console.warn(`Failed to configure the injected wallet script. ${err}`);
     }
   })();
 }
