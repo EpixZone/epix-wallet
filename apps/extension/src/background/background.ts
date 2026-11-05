@@ -263,10 +263,31 @@ browser.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-// When using Chrome, a content script with world: "MAIN" is used to inject the injected script.
+// MV2 injects through content-scripts.ts. Firefox also exposes chrome.scripting,
+// so checking only the namespace registers a second provider in the same page.
+// MV3 uses MAIN-world registration instead of the script-element injection.
 if (typeof chrome !== "undefined") {
   (async () => {
     try {
+      if (chrome.runtime.getManifest().manifest_version < 3) {
+        // Managed Firefox updates can retain registrations from older builds.
+        // Remove only our old provider script; MV2 uses the content script.
+        // Firefox's chrome API returns through callbacks, so await browser here.
+        if (
+          browser.scripting?.getRegisteredContentScripts &&
+          browser.scripting?.unregisterContentScripts
+        ) {
+          const previous = await browser.scripting.getRegisteredContentScripts({
+            ids: ["injectedScript"],
+          });
+          if (previous.length > 0) {
+            await browser.scripting.unregisterContentScripts({
+              ids: ["injectedScript"],
+            });
+          }
+        }
+        return;
+      }
       await chrome.scripting.registerContentScripts([
         {
           id: "injectedScript",
@@ -278,9 +299,7 @@ if (typeof chrome !== "undefined") {
         },
       ]);
     } catch (err) {
-      console.warn(
-        `Dropped attempt to register injected script script. ${err}`
-      );
+      console.warn(`Failed to configure the injected wallet script. ${err}`);
     }
   })();
 }
