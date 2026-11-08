@@ -58,11 +58,15 @@ function torProxy(socksPort: unknown): any {
   ];
 }
 
+function invalidateNativeEndpoint(): void {
+  torSocksPort = null;
+  torEnabled = null;
+  torStatus = null;
+}
+
 function mirrorRoutingState(status: EpixStatus | undefined): void {
-  if (!status) {
-    torSocksPort = null;
-    return;
-  }
+  invalidateNativeEndpoint();
+  if (!status) return;
   if (typeof status.tor_clearnet === "boolean") {
     torClearnet = status.tor_clearnet;
   }
@@ -93,7 +97,7 @@ function readStatus(): Promise<EpixStatus> {
       return current;
     })
     .catch((error) => {
-      if (requestRevision === statusRevision) torSocksPort = null;
+      if (requestRevision === statusRevision) invalidateNativeEndpoint();
       throw error;
     })
     .finally(() => {

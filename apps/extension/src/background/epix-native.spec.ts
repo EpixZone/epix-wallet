@@ -271,6 +271,33 @@ describe("native status polling", () => {
     expect(route({ url: "https://example.com" })[0].port).toBe(44218);
   });
 
+  it.each(["incomplete", "failed"])(
+    "does not retain old Disabled routing after %s native status",
+    async (response) => {
+      sendNativeMessage.mockResolvedValue({
+        tor_clearnet: true,
+        tor_enabled: false,
+        tor_status: "Disabled",
+        tor_socks_port: 44217,
+      });
+      const { initEpixNative } = await import("./epix-native");
+      initEpixNative();
+      await onMessage({ type: "epix-status" });
+      expect(route({ url: "https://example.com" })).toBeNull();
+      if (response === "failed") {
+        sendNativeMessage.mockRejectedValue(
+          new Error("native host unavailable")
+        );
+      } else {
+        sendNativeMessage.mockResolvedValue({ serving: false });
+      }
+      await onMessage({ type: "epix-status" });
+      expect(beforeRequest({ url: "https://example.com" })).toEqual({
+        cancel: true,
+      });
+    }
+  );
+
   it("keeps explicit direct and dedicated routes usable without an endpoint", async () => {
     sendNativeMessage.mockResolvedValue({
       tor_clearnet: true,
