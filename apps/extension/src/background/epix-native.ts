@@ -118,8 +118,19 @@ const isEpix = (h: string) => h.endsWith(".epix");
 const isXiteAddress = (h: string) => /^epix1[a-z0-9]{20,80}$/.test(h);
 const isI2p = (h: string) => h.endsWith(".i2p");
 const isOnion = (h: string) => h.endsWith(".onion");
-const isLocal = (h: string) =>
-  h === "127.0.0.1" || h === "localhost" || h === "[::1]";
+const isLocal = (h: string) => {
+  // Reserved localhost subdomains include EpixNet's isolated xite origins.
+  // URL.hostname already canonicalizes valid numeric IP addresses. Match
+  // Gecko's 127/8 and ::1 loopback set, without exempting private networks.
+  // Keep their original URLs and origins while bypassing external proxies.
+  const host = h.endsWith(".") ? h.slice(0, -1) : h;
+  return (
+    /^127(?:\.\d{1,3}){3}$/.test(host) ||
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host === "[::1]"
+  );
+};
 // The EPIX chain's own infrastructure (rpc/api/evmrpc.epix.zone). It is the
 // wallet's essential backend and follows the PAC's dedicated DIRECT rule.
 const isEpixZone = (h: string) => h.endsWith(".epix.zone");

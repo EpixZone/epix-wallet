@@ -13,9 +13,36 @@ describe("routeEpixRequest", () => {
   it.each([
     "http://localhost/path",
     "http://127.0.0.1/path",
+    "http://127.0.0.2/path",
+    "http://127.255.255.254/path",
+    "http://127.1/path",
+    "http://[0:0:0:0:0:0:0:1]/path",
     "http://[::1]/path",
+    "http://epix-epix1dashanwfts3qcflekhmkvcz66ss4kxz2tr2k6g.localhost:42225/index.html",
+    "http://alice.localhost/path",
+    "http://nested.alice.localhost/path",
+    "http://LOCALHOST./path",
+    "http://ALICE.LOCALHOST./path",
   ])("always routes loopback directly for %s", (url) => {
     expect(routeEpixRequest(url, true, true, "Always")).toBeNull();
+  });
+
+  it.each([
+    "http://localhost.example/path",
+    "http://evil-localhost/path",
+    "http://notlocalhost/path",
+    "http://127.attacker.example/path",
+    "http://127.0.0.1.attacker.example/path",
+    "http://128.0.0.1/path",
+    "http://192.168.1.1/path",
+    "http://[::ffff:127.0.0.1]/path",
+    "http://epix-xite.localhost.example/path",
+    "http://localhost@attacker.example/path",
+  ])("keeps localhost lookalikes on the required Tor route for %s", (url) => {
+    expect(routeEpixRequest(url, true, false, "Failed", 44217)).toEqual([
+      { type: "socks", host: "127.0.0.1", port: 44217, proxyDNS: true },
+      null,
+    ]);
   });
 
   it("uses a real direct route as soon as clearnet-over-Tor is off", () => {
@@ -127,6 +154,30 @@ describe("native status polling", () => {
     jest.useRealTimers();
     delete (globalThis as any).browser;
   });
+
+  it.each([
+    "http://epix-epix1dashanwfts3qcflekhmkvcz66ss4kxz2tr2k6g.localhost:42225/index.html",
+    "http://127.0.0.2:42225/index.html",
+    "http://[::1]:42225/index.html",
+  ])(
+    "keeps local content usable without a native Tor endpoint: %s",
+    async (url) => {
+      sendNativeMessage.mockResolvedValue({
+        tor_clearnet: true,
+        tor_enabled: false,
+        tor_status: "Failed",
+      });
+      const { initEpixNative } = await import("./epix-native");
+      initEpixNative();
+      await onMessage({ type: "epix-status" });
+
+      expect(route({ url })).toBeNull();
+      expect(beforeRequest({ url })).toBeUndefined();
+      expect(
+        beforeRequest({ url: "http://localhost.attacker.example/" })
+      ).toEqual({ cancel: true });
+    }
+  );
 
   it("routes through the node's selected SOCKS port", async () => {
     sendNativeMessage.mockResolvedValue({
