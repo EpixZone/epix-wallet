@@ -25,16 +25,20 @@ describe("routeEpixRequest", () => {
   });
 
   it.each([false, true])(
-    "preserves onion routing when clearnet-over-Tor is %s",
+    "uses the owned onion route when clearnet-over-Tor is %s",
     (clearnetOverTor) => {
       expect(
         routeEpixRequest(
           `http://${"a".repeat(56)}.onion/path`,
           clearnetOverTor,
           false,
-          "Disabled"
+          "Disabled",
+          44217
         )
-      ).toBeUndefined();
+      ).toEqual([
+        { type: "socks", host: "127.0.0.1", port: 44217, proxyDNS: true },
+        null,
+      ]);
     }
   );
 
@@ -42,14 +46,15 @@ describe("routeEpixRequest", () => {
     "keeps general clearnet on SOCKS while Tor status is %s",
     (status) => {
       expect(
-        routeEpixRequest("https://example.com", true, false, status)
+        routeEpixRequest("https://example.com", true, false, status, 44217)
       ).toEqual([
         {
           type: "socks",
           host: "127.0.0.1",
-          port: 43111,
+          port: 44217,
           proxyDNS: true,
         },
+        null,
       ]);
     }
   );
@@ -65,27 +70,29 @@ describe("routeEpixRequest", () => {
       routeEpixRequest("https://example.com", null, null, null)
     ).toBeUndefined();
     expect(
-      routeEpixRequest("https://example.com", true, false, null)
+      routeEpixRequest(`http://${"a".repeat(56)}.onion/`, null, null, null)
     ).toBeUndefined();
   });
 
   it("treats the epix.zone apex as general clearnet", () => {
-    expect(routeEpixRequest("https://epix.zone", true, true, "Always")).toEqual(
-      [
-        {
-          type: "socks",
-          host: "127.0.0.1",
-          port: 43111,
-          proxyDNS: true,
-        },
-      ]
-    );
+    expect(
+      routeEpixRequest("https://epix.zone", true, true, "Always", 44217)
+    ).toEqual([
+      {
+        type: "socks",
+        host: "127.0.0.1",
+        port: 44217,
+        proxyDNS: true,
+      },
+      null,
+    ]);
   });
 });
 
 describe("native status polling", () => {
   let onMessage: (message: any) => Promise<any>;
   let route: (details: { url: string }) => any;
+  let beforeRequest: (details: { url: string; proxyInfo?: object }) => any;
   let sendNativeMessage: jest.Mock;
 
   beforeEach(async () => {
@@ -104,6 +111,13 @@ describe("native status polling", () => {
           addListener: (listener: typeof route) => (route = listener),
         },
       },
+      webRequest: {
+        onBeforeRequest: {
+          addListener: jest.fn((listener: typeof beforeRequest) => {
+            beforeRequest = listener;
+          }),
+        },
+      },
       browserAction: { setIcon: jest.fn() },
     };
   });
@@ -112,6 +126,213 @@ describe("native status polling", () => {
     jest.clearAllTimers();
     jest.useRealTimers();
     delete (globalThis as any).browser;
+  });
+
+  it("routes through the node's selected SOCKS port", async () => {
+    sendNativeMessage.mockResolvedValue({
+      tor_clearnet: true,
+      tor_enabled: true,
+      tor_status: "OK",
+      tor_socks_port: 44217,
+    });
+    const { initEpixNative } = await import("./epix-native");
+    initEpixNative();
+    await onMessage({ type: "epix-status" });
+
+    expect(route({ url: "https://example.com" })).toEqual([
+      { type: "socks", host: "127.0.0.1", port: 44217, proxyDNS: true },
+      null,
+    ]);
+  });
+
+  it("cancels Tor-routed traffic when the node has no owned SOCKS port", async () => {
+    sendNativeMessage.mockResolvedValue({
+      tor_clearnet: true,
+      tor_enabled: false,
+      tor_status: "Bootstrapping",
+    });
+    const { initEpixNative } = await import("./epix-native");
+    initEpixNative();
+    await onMessage({ type: "epix-status" });
+
+    expect(beforeRequest({ url: "https://example.com" })).toEqual({
+      cancel: true,
+    });
+  });
+
+  it.each([1, 42322, 65535])("accepts owned SOCKS port %s", async (port) => {
+    sendNativeMessage.mockResolvedValue({
+      tor_clearnet: true,
+      tor_enabled: true,
+      tor_status: "Always",
+      tor_socks_port: port,
+    });
+    const { initEpixNative } = await import("./epix-native");
+    initEpixNative();
+    await onMessage({ type: "epix-status" });
+    const proxyInfo = {
+      type: "socks",
+      host: "127.0.0.1",
+      port,
+      proxyDNS: true,
+    };
+    expect(route({ url: "https://example.com" })).toEqual([proxyInfo, null]);
+    expect(beforeRequest({ url: "https://example.com", proxyInfo })).toEqual({
+      cancel: false,
+    });
+  });
+
+  it.each([
+    undefined,
+    null,
+    0,
+    -1,
+    65536,
+    42322.5,
+    "42322",
+    NaN,
+    Infinity,
+    true,
+  ])(
+    "rejects invalid SOCKS port %s and discards the old endpoint",
+    async (port) => {
+      sendNativeMessage.mockResolvedValue({
+        tor_clearnet: true,
+        tor_enabled: true,
+        tor_status: "Always",
+        tor_socks_port: 44217,
+      });
+      const { initEpixNative } = await import("./epix-native");
+      initEpixNative();
+      await onMessage({ type: "epix-status" });
+      sendNativeMessage.mockResolvedValue({ tor_socks_port: port });
+      await onMessage({ type: "epix-status" });
+
+      expect(route({ url: "https://example.com" })).toBeUndefined();
+      expect(beforeRequest({ url: "https://example.com" })).toEqual({
+        cancel: true,
+      });
+      expect(beforeRequest({ url: `http://${"a".repeat(56)}.onion/` })).toEqual(
+        {
+          cancel: true,
+        }
+      );
+    }
+  );
+
+  it("blocks a direct or stale proxy chosen before the status changed", async () => {
+    sendNativeMessage.mockResolvedValue({
+      tor_clearnet: true,
+      tor_enabled: true,
+      tor_status: "Always",
+      tor_socks_port: 44217,
+    });
+    const { initEpixNative } = await import("./epix-native");
+    initEpixNative();
+    await onMessage({ type: "epix-status" });
+    const proxy = {
+      type: "socks",
+      host: "127.0.0.1",
+      port: 44217,
+      proxyDNS: true,
+    };
+    for (const proxyInfo of [
+      undefined,
+      { ...proxy, type: "direct" },
+      { ...proxy, host: "untrusted.example" },
+      { ...proxy, port: 43111 },
+      { ...proxy, proxyDNS: false },
+    ]) {
+      expect(beforeRequest({ url: "https://example.com", proxyInfo })).toEqual({
+        cancel: true,
+      });
+    }
+  });
+
+  it("invalidates the endpoint after native status fails and recovers on a fresh reply", async () => {
+    const status = {
+      tor_clearnet: true,
+      tor_enabled: true,
+      tor_status: "Always",
+      tor_socks_port: 44217,
+    };
+    sendNativeMessage.mockResolvedValue(status);
+    const { initEpixNative } = await import("./epix-native");
+    initEpixNative();
+    await onMessage({ type: "epix-status" });
+    sendNativeMessage.mockRejectedValue(new Error("native host unavailable"));
+    expect((await onMessage({ type: "epix-status" })).ok).toBe(false);
+    expect(beforeRequest({ url: "https://example.com" })).toEqual({
+      cancel: true,
+    });
+
+    sendNativeMessage.mockResolvedValue({ ...status, tor_socks_port: 44218 });
+    await onMessage({ type: "epix-status" });
+    expect(route({ url: "https://example.com" })[0].port).toBe(44218);
+  });
+
+  it.each(["incomplete", "failed"])(
+    "does not retain old Disabled routing after %s native status",
+    async (response) => {
+      sendNativeMessage.mockResolvedValue({
+        tor_clearnet: true,
+        tor_enabled: false,
+        tor_status: "Disabled",
+        tor_socks_port: 44217,
+      });
+      const { initEpixNative } = await import("./epix-native");
+      initEpixNative();
+      await onMessage({ type: "epix-status" });
+      expect(route({ url: "https://example.com" })).toBeNull();
+      if (response === "failed") {
+        sendNativeMessage.mockRejectedValue(
+          new Error("native host unavailable")
+        );
+      } else {
+        sendNativeMessage.mockResolvedValue({ serving: false });
+      }
+      await onMessage({ type: "epix-status" });
+      expect(beforeRequest({ url: "https://example.com" })).toEqual({
+        cancel: true,
+      });
+    }
+  );
+
+  it("keeps explicit direct and dedicated routes usable without an endpoint", async () => {
+    sendNativeMessage.mockResolvedValue({
+      tor_clearnet: true,
+      tor_status: "Recovering",
+    });
+    const { initEpixNative } = await import("./epix-native");
+    initEpixNative();
+    await onMessage({ type: "epix-status" });
+    for (const url of [
+      "http://127.0.0.1:42229/Config",
+      "https://talk.epix/",
+      "http://example.i2p/",
+      "https://api.epix.zone/",
+    ]) {
+      expect(beforeRequest({ url })).toBeUndefined();
+    }
+    sendNativeMessage.mockResolvedValue({ ok: true });
+    await onMessage({ type: "epix-set-tor-clearnet", on: false });
+    expect(beforeRequest({ url: "https://example.com" })).toBeUndefined();
+    expect(route({ url: "https://example.com" })).toBeNull();
+  });
+
+  it("cancels an explicit Tor request with incomplete initial status", async () => {
+    sendNativeMessage.mockResolvedValue({ tor_clearnet: true });
+    const { initEpixNative } = await import("./epix-native");
+    initEpixNative();
+    await onMessage({ type: "epix-status" });
+    expect(beforeRequest({ url: "https://example.com" })).toEqual({
+      cancel: true,
+    });
+    expect(
+      (globalThis as any).browser.webRequest.onBeforeRequest.addListener
+    ).toHaveBeenCalledWith(expect.any(Function), { urls: ["<all_urls>"] }, [
+      "blocking",
+    ]);
   });
 
   it("shares an outstanding status request across startup, toolbar and UI", async () => {
@@ -140,12 +361,16 @@ describe("native status polling", () => {
         tor_clearnet: !on,
         tor_enabled: true,
         tor_status: "OK",
+        tor_socks_port: 44217,
       });
 
       expect((await statusReply).status.tor_clearnet).toBe(on);
       expect(route({ url: "https://example.com" })).toEqual(
         on
-          ? [{ type: "socks", host: "127.0.0.1", port: 43111, proxyDNS: true }]
+          ? [
+              { type: "socks", host: "127.0.0.1", port: 44217, proxyDNS: true },
+              null,
+            ]
           : null
       );
     }

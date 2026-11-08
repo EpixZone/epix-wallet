@@ -13,9 +13,9 @@
 //
 // The base proxy routing (PAC: `.epix` -> node proxy, clearnet -> DIRECT or
 // the node's Tor SOCKS) is written by the launcher's Firefox profile at
-// startup. On top of it, a `proxy.onRequest` listener here re-decides the
-// clearnet leg per request, so flipping "route clearnet through Tor" applies
-// immediately instead of on the next launch. Xite, I2P, loopback, and EPIX
+// startup. On top of it, a `proxy.onRequest` listener uses the node's current
+// SOCKS endpoint for onions and Tor-routed clearnet. Flipping "route clearnet
+// through Tor" applies immediately. Xite, I2P, loopback, and EPIX
 // infrastructure destinations retain the launcher's dedicated routes.
 //
 // Native messaging only exists in the desktop Firefox shell; on GeckoView /
@@ -29,23 +29,52 @@ const NATIVE_HOST = "zone.epix.nmh";
 let torClearnet: boolean | null = null;
 let torEnabled: boolean | null = null;
 let torStatus: string | null = null;
+let torSocksPort: number | null = null;
 let routingRevision = 0;
 let statusRevision = 0;
 let pendingStatus: Promise<EpixStatus> | null = null;
 
-// The node's Tor SOCKS listener, a fixed contract with the desktop shell
-// (SOCKS_ADDR in epix-browser's launcher).
+// Only the native node selects a port. Never accept a caller-selected host or
+// fall back to a fixed port, which may belong to another local application.
 const TOR_SOCKS_HOST = "127.0.0.1";
-const TOR_SOCKS_PORT = 43111;
+const UNAVAILABLE_TOR = Symbol("unavailable Tor endpoint");
+
+function validSocksPort(port: unknown): port is number {
+  return (
+    typeof port === "number" &&
+    Number.isInteger(port) &&
+    port >= 1 &&
+    port <= 65535
+  );
+}
+
+function torProxy(socksPort: unknown): any {
+  if (!validSocksPort(socksPort)) return UNAVAILABLE_TOR;
+  return [
+    { type: "socks", host: TOR_SOCKS_HOST, port: socksPort, proxyDNS: true },
+    // Terminate Firefox's proxy chain instead of appending a possibly DIRECT
+    // launch-time PAC route after a live switch to Tor.
+    null,
+  ];
+}
+
+function invalidateNativeEndpoint(): void {
+  torSocksPort = null;
+  torEnabled = null;
+  torStatus = null;
+}
 
 function mirrorRoutingState(status: EpixStatus | undefined): void {
+  invalidateNativeEndpoint();
   if (!status) return;
   if (typeof status.tor_clearnet === "boolean") {
     torClearnet = status.tor_clearnet;
   }
-  torEnabled =
-    typeof status.tor_enabled === "boolean" ? status.tor_enabled : null;
-  torStatus = typeof status.tor_status === "string" ? status.tor_status : null;
+  if (typeof status.tor_enabled === "boolean") torEnabled = status.tor_enabled;
+  if (typeof status.tor_status === "string") torStatus = status.tor_status;
+  torSocksPort = validSocksPort(status.tor_socks_port)
+    ? status.tor_socks_port
+    : null;
 }
 
 // Startup, the toolbar, and the popup can poll simultaneously. Share the
@@ -66,6 +95,10 @@ function readStatus(): Promise<EpixStatus> {
             };
       if (requestRevision === statusRevision) mirrorRoutingState(current);
       return current;
+    })
+    .catch((error) => {
+      if (requestRevision === statusRevision) invalidateNativeEndpoint();
+      throw error;
     })
     .finally(() => {
       if (pendingStatus === request) pendingStatus = null;
@@ -100,7 +133,8 @@ export function routeEpixRequest(
   url: string,
   clearnetOverTor: boolean | null,
   torIsEnabled: boolean | null,
-  currentTorStatus: string | null
+  currentTorStatus: string | null,
+  socksPort?: unknown
 ): any {
   const host = hostOf(url);
   if (!host) {
@@ -109,14 +143,18 @@ export function routeEpixRequest(
   if (isLocal(host)) {
     return null;
   }
-  if (
-    isEpix(host) ||
-    isXiteAddress(host) ||
-    isI2p(host) ||
-    isOnion(host) ||
-    isEpixZone(host)
-  ) {
+  if (isEpix(host) || isXiteAddress(host) || isI2p(host) || isEpixZone(host)) {
     return undefined;
+  }
+  if (isOnion(host)) {
+    // An unmanaged browser without native status keeps its own onion route.
+    // Once the node is known, onions always need its owned SOCKS endpoint,
+    // independently of the clearnet preference or Tor readiness.
+    const nativeKnown =
+      clearnetOverTor != null ||
+      torIsEnabled != null ||
+      currentTorStatus != null;
+    return nativeKnown ? torProxy(socksPort) : undefined;
   }
   if (clearnetOverTor === false) {
     return null;
@@ -128,22 +166,9 @@ export function routeEpixRequest(
   // `tor_enabled` becomes true only after routing is live. Bootstrapping,
   // Recovering, and Failed are still Tor-on states and must never select a
   // direct route while the user has asked to route clearnet through Tor.
-  const torIsConfigured =
-    currentTorStatus != null
-      ? currentTorStatus !== "Disabled"
-      : torIsEnabled === true;
-  if (!torIsConfigured) {
-    // With an older/incomplete status reply, keep the launch-time PAC choice.
-    return currentTorStatus == null ? undefined : null;
-  }
-  return [
-    {
-      type: "socks",
-      host: TOR_SOCKS_HOST,
-      port: TOR_SOCKS_PORT,
-      proxyDNS: true,
-    },
-  ];
+  // Only an explicit Disabled status authorizes direct traffic. An unknown
+  // or incomplete status must not undo the user's request to use Tor.
+  return currentTorStatus === "Disabled" ? null : torProxy(socksPort);
 }
 
 // A typed-ish view of the native host's `status` reply.
@@ -152,6 +177,7 @@ export interface EpixStatus {
   ui_port?: number;
   tor_enabled?: boolean;
   tor_status?: string;
+  tor_socks_port?: number;
   onion_address?: string | null;
   i2p_enabled?: boolean;
   i2p_mode?: string;
@@ -358,20 +384,38 @@ export function initEpixNative(): void {
     return;
   }
 
-  // 1. Live clearnet routing (Firefox shells only; Chrome has no
-  // proxy.onRequest and never enters here). Only general clearnet is steered:
-  // everything the PAC routes specially falls through with undefined. Until
-  // the native host has answered a status query, everything falls through,
-  // so shells without a native host keep exactly the launcher's routing.
+  // 1. Live Tor routing (Firefox shells only; Chrome has no proxy.onRequest).
+  // Dedicated xite/I2P/infrastructure routes stay with the launcher. Until
+  // native status is known, the browser keeps its launch-time routing.
   if (browser.proxy?.onRequest) {
+    const route = (url: string) =>
+      routeEpixRequest(url, torClearnet, torEnabled, torStatus, torSocksPort);
+
+    // Returning undefined or throwing from onRequest permits PAC fallback.
+    // Use the blocking webRequest API to deny traffic when Tor is required
+    // but its endpoint is unavailable. Check the selected route too, because
+    // status or the live toggle may change between these two browser events.
+    browser.webRequest.onBeforeRequest.addListener(
+      (details: any) => {
+        const expected = route(details.url || "");
+        if (expected === UNAVAILABLE_TOR) return { cancel: true };
+        if (!Array.isArray(expected)) return undefined;
+        const actual = details.proxyInfo;
+        return {
+          cancel:
+            actual?.type !== "socks" ||
+            actual?.host !== TOR_SOCKS_HOST ||
+            actual?.port !== torSocksPort ||
+            actual?.proxyDNS !== true,
+        };
+      },
+      { urls: ["<all_urls>"] },
+      ["blocking"]
+    );
     browser.proxy.onRequest.addListener(
       (details: any) => {
-        return routeEpixRequest(
-          details.url || "",
-          torClearnet,
-          torEnabled,
-          torStatus
-        );
+        const selected = route(details.url || "");
+        return selected === UNAVAILABLE_TOR ? undefined : selected;
       },
       { urls: ["<all_urls>"] }
     );
