@@ -382,6 +382,52 @@ export function epixNativeAvailable(): boolean {
   return !!(globalThis as any).browser?.runtime?.sendNativeMessage;
 }
 
+// How long after the load event the routing listeners go in when Firefox
+// sends no startup event (see afterBackgroundStart).
+const BACKGROUND_START_FALLBACK_MS = 1000;
+
+// Adds the routing listeners now if they are not in yet. Set by
+// initEpixNative on shells that route through `proxy.onRequest`.
+let installRouting: (() => void) | null = null;
+
+/**
+ * Run `install` once Firefox has finished starting the background page.
+ * Returns a function that runs it sooner. `install` runs once.
+ *
+ * Firefox records the blocking webRequest and proxy listeners a background
+ * page adds while it loads. On the next browser start it holds every request
+ * they match until the page has loaded again and added them back. The routing
+ * listeners match every URL, so the first page stayed blank until this whole
+ * background bundle had run.
+ *
+ * The hold protected nothing. Firefox releases the held requests when the
+ * listeners are added, which is before the first native status reply, and
+ * until that reply the listeners leave every request on the launch-time PAC
+ * route.
+ *
+ * Firefox does not record a listener added after the page has started, so it
+ * holds nothing for it. `runtime.onStartup` fires right after that point. It
+ * does not fire after an install, an update or a re-enable, so a timer after
+ * the load event covers those starts.
+ */
+function afterBackgroundStart(browser: any, install: () => void): () => void {
+  let installed = false;
+  const once = () => {
+    if (installed) return;
+    installed = true;
+    install();
+  };
+  browser.runtime.onStartup?.addListener(once);
+  const arm = () => setTimeout(once, BACKGROUND_START_FALLBACK_MS);
+  const page: any = globalThis;
+  if (page.document && page.document.readyState !== "complete") {
+    page.addEventListener("load", arm, { once: true });
+  } else {
+    arm();
+  }
+  return once;
+}
+
 /**
  * Install live proxy routing + the native bridge. Called once from the
  * background entry. Safe on non-desktop shells (native calls just fail and
@@ -402,34 +448,38 @@ export function initEpixNative(): void {
     const route = (url: string) =>
       routeEpixRequest(url, torClearnet, torEnabled, torStatus, torSocksPort);
 
-    // Returning undefined or throwing from onRequest permits PAC fallback.
-    // Use the blocking webRequest API to deny traffic when Tor is required
-    // but its endpoint is unavailable. Check the selected route too, because
-    // status or the live toggle may change between these two browser events.
-    browser.webRequest.onBeforeRequest.addListener(
-      (details: any) => {
-        const expected = route(details.url || "");
-        if (expected === UNAVAILABLE_TOR) return { cancel: true };
-        if (!Array.isArray(expected)) return undefined;
-        const actual = details.proxyInfo;
-        return {
-          cancel:
-            actual?.type !== "socks" ||
-            actual?.host !== TOR_SOCKS_HOST ||
-            actual?.port !== torSocksPort ||
-            actual?.proxyDNS !== true,
-        };
-      },
-      { urls: ["<all_urls>"] },
-      ["blocking"]
-    );
-    browser.proxy.onRequest.addListener(
-      (details: any) => {
-        const selected = route(details.url || "");
-        return selected === UNAVAILABLE_TOR ? undefined : selected;
-      },
-      { urls: ["<all_urls>"] }
-    );
+    // Added after the background page has started, so Firefox does not hold
+    // the next launch's first requests for them (see afterBackgroundStart).
+    installRouting = afterBackgroundStart(browser, () => {
+      // Returning undefined or throwing from onRequest permits PAC fallback.
+      // Use the blocking webRequest API to deny traffic when Tor is required
+      // but its endpoint is unavailable. Check the selected route too, because
+      // status or the live toggle may change between these two browser events.
+      browser.webRequest.onBeforeRequest.addListener(
+        (details: any) => {
+          const expected = route(details.url || "");
+          if (expected === UNAVAILABLE_TOR) return { cancel: true };
+          if (!Array.isArray(expected)) return undefined;
+          const actual = details.proxyInfo;
+          return {
+            cancel:
+              actual?.type !== "socks" ||
+              actual?.host !== TOR_SOCKS_HOST ||
+              actual?.port !== torSocksPort ||
+              actual?.proxyDNS !== true,
+          };
+        },
+        { urls: ["<all_urls>"] },
+        ["blocking"]
+      );
+      browser.proxy.onRequest.addListener(
+        (details: any) => {
+          const selected = route(details.url || "");
+          return selected === UNAVAILABLE_TOR ? undefined : selected;
+        },
+        { urls: ["<all_urls>"] }
+      );
+    });
 
     // Prime the routing mirror; the panel's status polling keeps it fresh.
     readStatus().catch(() => {
@@ -469,7 +519,9 @@ export function initEpixNative(): void {
                 error: result?.error || "native host rejected routing change",
               };
             }
-            // The routing listener picks the change up immediately.
+            // The routing listener picks the change up immediately. A live
+            // switch must not wait for the startup event.
+            installRouting?.();
             torClearnet = !!msg.on;
             routingRevision++;
             pendingStatus = null;

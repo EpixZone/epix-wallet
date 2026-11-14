@@ -131,11 +131,16 @@ describe("native status polling", () => {
         onMessage: {
           addListener: (listener: typeof onMessage) => (onMessage = listener),
         },
+        // Firefox reports the background page started at once, so the
+        // routing listeners are in place when a test calls them.
+        onStartup: { addListener: (listener: () => void) => listener() },
         sendNativeMessage,
       },
       proxy: {
         onRequest: {
-          addListener: (listener: typeof route) => (route = listener),
+          addListener: jest.fn((listener: typeof route) => {
+            route = listener;
+          }),
         },
       },
       webRequest: {
@@ -384,6 +389,78 @@ describe("native status polling", () => {
     ).toHaveBeenCalledWith(expect.any(Function), { urls: ["<all_urls>"] }, [
       "blocking",
     ]);
+  });
+
+  describe("routing listeners and browser startup", () => {
+    const added = () => {
+      const { webRequest, proxy } = (globalThis as any).browser;
+      return [
+        webRequest.onBeforeRequest.addListener.mock.calls.length,
+        proxy.onRequest.addListener.mock.calls.length,
+      ];
+    };
+
+    it("adds no request listener while the background page loads", async () => {
+      const onStartup = jest.fn();
+      (globalThis as any).browser.runtime.onStartup = {
+        addListener: onStartup,
+      };
+      const { initEpixNative } = await import("./epix-native");
+      initEpixNative();
+      expect(added()).toEqual([0, 0]);
+
+      // Firefox reports that the page has started.
+      onStartup.mock.calls[0][0]();
+      expect(added()).toEqual([1, 1]);
+
+      // The fallback timer must not add them a second time.
+      jest.advanceTimersByTime(60000);
+      expect(added()).toEqual([1, 1]);
+    });
+
+    it("adds them after the load event when Firefox sends no startup event", async () => {
+      const globals = globalThis as any;
+      const events: Record<string, () => void> = {};
+      globals.browser.runtime.onStartup = { addListener: jest.fn() };
+      globals.document = { readyState: "loading" };
+      globals.addEventListener = (type: string, listener: () => void) =>
+        (events[type] = listener);
+      try {
+        const { initEpixNative } = await import("./epix-native");
+        initEpixNative();
+        jest.advanceTimersByTime(60000);
+        expect(added()).toEqual([0, 0]);
+
+        events["load"]();
+        jest.advanceTimersByTime(999);
+        expect(added()).toEqual([0, 0]);
+        jest.advanceTimersByTime(1);
+        expect(added()).toEqual([1, 1]);
+      } finally {
+        delete globals.document;
+        delete globals.addEventListener;
+      }
+    });
+
+    it("adds them at once for a live switch to Tor", async () => {
+      (globalThis as any).browser.runtime.onStartup = {
+        addListener: jest.fn(),
+      };
+      sendNativeMessage.mockImplementation((_host, message) =>
+        message.cmd === "status"
+          ? new Promise(() => undefined)
+          : Promise.resolve({ ok: true })
+      );
+      const { initEpixNative } = await import("./epix-native");
+      initEpixNative();
+      expect(added()).toEqual([0, 0]);
+
+      await onMessage({ type: "epix-set-tor-clearnet", on: true });
+      expect(added()).toEqual([1, 1]);
+      expect(beforeRequest({ url: "https://example.com" })).toEqual({
+        cancel: true,
+      });
+    });
   });
 
   it("shares an outstanding status request across startup, toolbar and UI", async () => {
