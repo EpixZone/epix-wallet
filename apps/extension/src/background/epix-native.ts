@@ -21,6 +21,8 @@
 // Native messaging only exists in the desktop Firefox shell; on GeckoView /
 // WKWebView the calls throw and are swallowed, so this is a no-op there.
 
+import { isMobileShell } from "../utils/mobile-shell";
+
 const NATIVE_HOST = "zone.epix.nmh";
 
 // Tor routing state, mirrored the same way for the synchronous proxy
@@ -448,9 +450,7 @@ export function initEpixNative(): void {
     const route = (url: string) =>
       routeEpixRequest(url, torClearnet, torEnabled, torStatus, torSocksPort);
 
-    // Added after the background page has started, so Firefox does not hold
-    // the next launch's first requests for them (see afterBackgroundStart).
-    installRouting = afterBackgroundStart(browser, () => {
+    const install = () => {
       // Returning undefined or throwing from onRequest permits PAC fallback.
       // Use the blocking webRequest API to deny traffic when Tor is required
       // but its endpoint is unavailable. Check the selected route too, because
@@ -479,7 +479,16 @@ export function initEpixNative(): void {
         },
         { urls: ["<all_urls>"] }
       );
-    });
+    };
+    if (isMobileShell()) {
+      // The Android shell keeps its start order: the late add below has only
+      // been tested in desktop Firefox.
+      install();
+    } else {
+      // Added after the background page has started, so Firefox does not hold
+      // the next launch's first requests for them (see afterBackgroundStart).
+      installRouting = afterBackgroundStart(browser, install);
+    }
 
     // Prime the routing mirror; the panel's status polling keeps it fresh.
     readStatus().catch(() => {

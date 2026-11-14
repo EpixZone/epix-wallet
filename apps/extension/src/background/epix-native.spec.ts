@@ -442,6 +442,26 @@ describe("native status polling", () => {
       }
     });
 
+    it("keeps the Android shell's order: added while the page loads", async () => {
+      const globals = globalThis as any;
+      const navigator = Object.getOwnPropertyDescriptor(globals, "navigator");
+      Object.defineProperty(globals, "navigator", {
+        configurable: true,
+        value: {
+          userAgent: "Mozilla/5.0 (Android 14; Mobile; rv:153.0) Gecko/153.0",
+        },
+      });
+      globals.browser.runtime.onStartup = { addListener: jest.fn() };
+      try {
+        const { initEpixNative } = await import("./epix-native");
+        initEpixNative();
+        expect(added()).toEqual([1, 1]);
+      } finally {
+        if (navigator) Object.defineProperty(globals, "navigator", navigator);
+        else delete globals.navigator;
+      }
+    });
+
     it("adds them at once for a live switch to Tor", async () => {
       (globalThis as any).browser.runtime.onStartup = {
         addListener: jest.fn(),
