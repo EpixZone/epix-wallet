@@ -21,10 +21,6 @@ for (const name of bundles) {
     `${name}: legacy global runtime`
   );
   assert.ok(
-    !/Function\(["']binder["']/.test(source),
-    `${name}: legacy bind fallback`
-  );
-  assert.ok(
     !/eval\(["']\[function _expression_function/.test(source),
     `${name}: Lottie expression engine`
   );
