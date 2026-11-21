@@ -69,6 +69,7 @@ export class ExtensionRouter extends Router {
     if (message.type === "tryOpenSidePanelIfEnabled") {
       return new Promise((resolve) => {
         if (
+          process.env["BUILD_MANIFEST_V2"] !== "true" &&
           sender.tab?.id &&
           typeof chrome !== "undefined" &&
           typeof chrome.sidePanel !== "undefined"

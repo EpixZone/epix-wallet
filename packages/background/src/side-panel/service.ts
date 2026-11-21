@@ -42,7 +42,7 @@ export class SidePanelService {
 
         // service worker에서는 background가 active/inactive 상태가 반복될 수 있으므로
         // 이런 처리를 안해주면 계속해서 요청을 발생시킬 수 있다.
-        if (isServiceWorker()) {
+        if (process.env["BUILD_MANIFEST_V2"] !== "true" && isServiceWorker()) {
           const saved = await browser.storage.session.get(
             "side_panel_analytics"
           );
@@ -55,7 +55,10 @@ export class SidePanelService {
           this.analyticsService.logEventIgnoreError("side_panel", {
             enabled,
           });
-          if (isServiceWorker()) {
+          if (
+            process.env["BUILD_MANIFEST_V2"] !== "true" &&
+            isServiceWorker()
+          ) {
             await browser.storage.session.set({
               ["side_panel_analytics"]: enabled,
             });
@@ -79,6 +82,11 @@ export class SidePanelService {
   }
 
   isSidePanelSupported(): boolean {
+    // The Firefox/MV2 build has a persistent background and no Chrome side panel.
+    if (process.env["BUILD_MANIFEST_V2"] === "true") {
+      return false;
+    }
+
     // manifest v3가 아니면 side panel은 작동하지 않음
     if (!isServiceWorker()) {
       return false;
@@ -113,6 +121,10 @@ export class SidePanelService {
   }
 
   protected async setPanelBehavior(): Promise<void> {
+    if (process.env["BUILD_MANIFEST_V2"] === "true") {
+      return;
+    }
+
     if (this._isEnabled) {
       if (this.isSidePanelSupported()) {
         await chrome.sidePanel.setPanelBehavior({

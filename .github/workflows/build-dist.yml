@@ -62,6 +62,11 @@ jobs:
           EPIX_MOBILE_STORE_BUILD: ${{ vars.EPIX_MOBILE_STORE_BUILD }}
         run: yarn workspace @keplr-wallet/extension build
 
+      - name: Check emitted browser APIs and Firefox runtime
+        run: |
+          node scripts/check-browser-api-targets.cjs
+          node scripts/firefox-browser-runtime-check.cjs apps/extension/build/firefox
+
       - name: Zip firefox build
         run: |
           cd apps/extension/build/firefox

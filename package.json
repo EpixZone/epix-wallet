@@ -28,7 +28,7 @@
     "prepare": "husky",
     "check:gen": "zx ./scripts/generate-check-tsconfigs.mjs",
     "typecheck": "lerna run typecheck",
-    "test:dependency-security": "node --test scripts/dependency-security.test.cjs scripts/elliptic-security.test.mjs scripts/elliptic-browser.test.mjs"
+    "test:dependency-security": "node --test scripts/dependency-security.test.cjs scripts/elliptic-security.test.mjs scripts/elliptic-browser.test.mjs scripts/browser-runtime.test.cjs"
   },
   "lint-staged": {
     "*.{js,ts,jsx,tsx}": [
