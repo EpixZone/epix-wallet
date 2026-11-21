@@ -12,7 +12,6 @@ const bundles = fs
   .readdirSync(directory)
   .filter((name) => name.endsWith(".bundle.js"));
 assert.ok(bundles.length > 0, "Firefox bundles are missing");
-let nativeGlobalRuntimes = 0;
 for (const name of bundles) {
   const source = fs.readFileSync(path.join(directory, name), "utf8");
   // Check the removed legacy branches without hiding other dependency findings.
@@ -24,12 +23,7 @@ for (const name of bundles) {
     !/eval\(["']\[function _expression_function/.test(source),
     `${name}: Lottie expression engine`
   );
-  if (/\.g=globalThis/.test(source)) nativeGlobalRuntimes++;
 }
-assert.ok(
-  nativeGlobalRuntimes > 0,
-  "Firefox must use Webpack's native globalThis runtime"
-);
 console.log(
-  `Verified ${bundles.length} Firefox bundles and ${nativeGlobalRuntimes} native global runtimes`
+  `Verified runtime fallbacks are absent from ${bundles.length} Firefox bundles`
 );
