@@ -7,7 +7,7 @@ export const runIfOnlyAppStart = async (
   let skip = false;
   // service worker의 경우 active/inactive가 될 수 있다
   // 이 경우 session이 값을 저장함으로써 최초 한번만 실행되도록 보장한다.
-  if (isServiceWorker()) {
+  if (process.env["BUILD_MANIFEST_V2"] !== "true" && isServiceWorker()) {
     try {
       const v = await browser.storage.session.get(key);
       if (v[key]) {

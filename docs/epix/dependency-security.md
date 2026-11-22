@@ -18,7 +18,7 @@ The targeted resolutions keep compatible major versions where patched releases
 exist. Version selectors use `package@range`; Yarn 3 does not match the
 `package@npm:range` form against ordinary dependency requests.
 
-The `decode-uri-component` Yarn patch changes only the 0.5.0 module export and
+The `decode-uri-component` Yarn patch changes only the 0.5.1 module export and
 package module type to CommonJS. Its upstream security fix is unchanged. The
 older `query-string` dependency expects `require()` to return a callable decoder;
 the regression test exercises that consumer with valid and malformed URI input.
@@ -34,16 +34,16 @@ its image parser and development server. The WalletConnect example uses Parcel
 2 to remove obsolete Parcel 1 dependency chains. Swiper was removed because no
 wallet source imported it.
 
-## Elliptic nonce backport
+## Elliptic nonce fix
 
-Yarn-resolved `elliptic` package dependencies use the CVE-2025-14505
-nonce-length backport shipped in
-[Debian's `node-elliptic` source package, version `6.6.1+dfsg+~6.4.18-2`](https://deb.debian.org/debian/pool/main/n/node-elliptic/node-elliptic_6.6.1+dfsg+~6.4.18-2.debian.tar.xz).
-The Yarn patch copies `debian/patches/CVE-2025-14505.patch`; its origin is
+The wallet resolves requests for `elliptic` to the published
+`@mapped/elliptic@6.6.10` fork. Its npm provenance identifies
+[commit 309007d](https://github.com/mapped/elliptic/tree/309007dac6091b51cb68e6b71a633e169be47a87).
+Comparing both npm tarballs, the only change under `lib/` from
+`elliptic@6.6.1` is the nonce-length fix from
 [upstream PR 345](https://github.com/indutny/elliptic/pull/345).
-The source archive's SHA-256 is
-`d13dd705e9389025246a93e39d01732e8e0b8331b84e00fdf632007b4fc95174`, matching
-[Debian's source descriptor](https://deb.debian.org/debian/pool/main/n/node-elliptic/node-elliptic_6.6.1+dfsg+~6.4.18-2.dsc).
+It matches the Debian backport the wallet previously applied locally.
+Yarn records the fork's published identity and checksum in the lockfile.
 
 The fix preserves the full byte count of generated nonces before truncating
 them to the curve order's bit length. This matters for P-521 when the generated
@@ -75,7 +75,7 @@ conversion helpers used by transaction code; the inspected wrapper selects
 
 The signing-key resolution now uses 5.8.0 with a packaging-only Yarn patch to its
 browser ESM `lib.esm/index.js` entry. That entry imports the same external,
-patched `elliptic` package as the upstream CommonJS entry and uses its `ec`
+published fork as the CommonJS entry and uses its `ec`
 constructor. The upstream vendored `lib.esm/elliptic.js` file remains in the
 installed package, but the entry no longer imports it. Upgrading to unmodified
 signing-key 5.8.0 alone would not fix this gap: its browser entry still imports
@@ -96,7 +96,7 @@ embedded implementation was absent. Immutable install, extension typecheck,
 all 14 dependency-security tests, and lint/format checks also passed.
 
 SecretJS 1.6.0 also ships a prebuilt browser bundle containing elliptic. Its
-installed bundle is not rewritten by the elliptic Yarn patch. The repository
+installed bundle is independent of the Yarn resolution. The repository
 uses SecretJS in the separate `cosmjs-test` integration workspace; it was not
 identified in the inspected production wallet release. The signing-key fix
 does not establish coverage of that prebuilt SecretJS bundle. Any future
@@ -135,11 +135,9 @@ curve identifier. This source review does not prove that every transitive or
 future caller is unreachable, and the tests are not a complete cryptographic
 audit.
 
-The package retains its real name and version, `elliptic@6.6.1`. Upstream has
-not published a patched npm release. The complete Trivy scan still reports
-the advisory by version despite the external package code fix; do not dismiss or
-suppress that finding. Removing the dependency through supported replacements
-remains the longer-term path to clearing the version-based alert.
+The original package has no patched npm release. If it publishes one, review
+the upstream release against the CommonJS and browser regression suites before
+removing the fork resolution.
 
 ## Legacy Storybook downloader removed
 
@@ -147,7 +145,7 @@ The extension's Storybook commands now use the public `@storybook/core-server`
 7.6.24 build APIs directly. The launcher retains the development server on port
 6006, the `.storybook` configuration, static output in `storybook-static`, and
 the existing dev/build options. The framework, addons, and MDX stories keep their
-current versions. The design system's separate Storybook setup is unchanged.
+current versions. The design system uses its own Storybook 10.6.x setup.
 
 Removing the unused general-purpose Storybook 7 CLI also removes its deprecated
 `extract` command, `puppeteer-core@2.1.1`, and `extract-zip@1.7.0` from the
@@ -157,14 +155,14 @@ dependency graph. This removes both
 Those archive extraction paths were development tooling, not wallet runtime
 imports. There is no patched `extract-zip` npm release to upgrade to.
 
-## Remaining scanner findings
+## September 2026 scan history
 
 The complete scan, including development dependencies, on September 29, 2026
-contains one finding. No vulnerability IDs are suppressed or excluded:
+contained one finding. Both scans included all vulnerability IDs.
 
 | Package | Advisory | Scope and remaining work |
 | --- | --- | --- |
-| `elliptic@6.6.1` | [CVE-2025-14505](https://github.com/advisories/GHSA-848j-6mx2-7j84) | The Debian nonce-length backport is applied through Yarn with the review and migration limits above. The npm version remains affected according to the advisory. Ethereum signing dependencies, browser crypto shims, and the CosmJS test workspace still depend on this package. |
+| `elliptic@6.6.1` | [CVE-2025-14505](https://github.com/advisories/GHSA-848j-6mx2-7j84) | The wallet previously applied the Debian backport locally. Version-based scanners continued reporting the original package until the switch to the published fork. |
 
 Of the 293 dependency alerts in the original GitHub code-scanning snapshot,
 292 are removed by the updated dependency tree. The original elliptic alert

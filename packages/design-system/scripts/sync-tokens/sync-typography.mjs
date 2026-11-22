@@ -6,9 +6,8 @@ import https from "node:https";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { writeFileAtomic } from "./files.mjs";
+import { FIGMA_DOCUMENT_ID, writeFileAtomic } from "./files.mjs";
 
-const FILE_KEY = "nhxLa3t70UV80DEjPWMz3Z";
 const TOKEN = process.env.FIGMA_ACCESS_TOKEN;
 
 if (!TOKEN) {
@@ -45,7 +44,7 @@ async function main() {
 
   // 1. Fetch text style list
   const stylesData = await apiGet(
-    `https://api.figma.com/v1/files/${FILE_KEY}/styles`
+    `https://api.figma.com/v1/files/${FIGMA_DOCUMENT_ID}/styles`
   );
   const textStyles = (stylesData.meta?.styles || []).filter(
     (style) => style.style_type === "TEXT"
@@ -60,7 +59,7 @@ async function main() {
   // 2. Fetch font properties for each style node
   const nodeIds = textStyles.map((style) => style.node_id).join(",");
   const nodesData = await apiGet(
-    `https://api.figma.com/v1/files/${FILE_KEY}/nodes?ids=${nodeIds}`
+    `https://api.figma.com/v1/files/${FIGMA_DOCUMENT_ID}/nodes?ids=${nodeIds}`
   );
 
   const result = {};

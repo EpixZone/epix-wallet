@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+export const FIGMA_DOCUMENT_ID = "nhxLa3t70UV80DEjPWMz3Z";
+
 export function configuredExecutable(configuredPath) {
   if (typeof configuredPath !== "string" || !path.isAbsolute(configuredPath)) {
     throw new Error(

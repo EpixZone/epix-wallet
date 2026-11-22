@@ -39,6 +39,7 @@ export const toggleSidePanelMode = async (
 
   if (res.enabled) {
     if (
+      process.env["BUILD_MANIFEST_V2"] !== "true" &&
       typeof chrome !== "undefined" &&
       typeof chrome.sidePanel !== "undefined"
     ) {

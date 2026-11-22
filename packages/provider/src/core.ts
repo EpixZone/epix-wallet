@@ -1589,13 +1589,23 @@ export class Keplr implements IKeplr, KeplrCoreTypes {
               arrowTop.style.boxSizing = "border-box";
               arrowTop.style.transform = "translateY(-0.65rem)";
               arrowTop.style.marginRight = "0.35rem";
-              arrowTop.innerHTML = `
-                <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M30 29.7522C25.1484 31.0691 16.7109 27.1184 18.6093 18.3391C20.5078 9.55979 25.5703 11.5351 26.414 12.852C27.2578 14.1689 28.3125 22.2898 15.8672 19.2171C5.9109 16.7589 7.15625 6.04811 8 1M8 1L14 8M8 1L1 7.5" stroke="${
-                      isLightMode ? "#2C4BE2" : "#72747B"
-                    }"/>
-                </svg>
-              `;
+              const svgNamespace = "http://www.w3.org/2000/svg";
+              const svg = document.createElementNS(svgNamespace, "svg");
+              svg.setAttribute("width", "31");
+              svg.setAttribute("height", "31");
+              svg.setAttribute("viewBox", "0 0 31 31");
+              svg.setAttribute("fill", "none");
+              const arrowPath = document.createElementNS(svgNamespace, "path");
+              arrowPath.setAttribute(
+                "d",
+                "M30 29.7522C25.1484 31.0691 16.7109 27.1184 18.6093 18.3391C20.5078 9.55979 25.5703 11.5351 26.414 12.852C27.2578 14.1689 28.3125 22.2898 15.8672 19.2171C5.9109 16.7589 7.15625 6.04811 8 1M8 1L14 8M8 1L1 7.5"
+              );
+              arrowPath.setAttribute(
+                "stroke",
+                isLightMode ? "#2C4BE2" : "#72747B"
+              );
+              svg.appendChild(arrowPath);
+              arrowTop.appendChild(svg);
 
               const keplrLogoWrap = document.createElement("div");
               keplrLogoWrap.style.boxSizing = "border-box";

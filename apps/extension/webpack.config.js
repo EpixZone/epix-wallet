@@ -73,6 +73,8 @@ const altResolve = () => {
 
   return {};
 };
+const baseResolve = commonResolve("src/public/assets");
+const privateResolve = altResolve();
 const tsRule = { test: /\.tsx?$/, loader: "ts-loader" };
 const fileRule = {
   test: /\.(svg|png|webm|mp4|jpe?g|gif|woff|woff2|eot|ttf)$/i,
@@ -111,6 +113,8 @@ module.exports = {
       isEnvDevelopment ? "dist" : process.env.BUILD_OUTPUT || "build/default"
     ),
     filename: "[name].bundle.js",
+    // Firefox 102+ has globalThis. Avoid Webpack's legacy Function fallback.
+    ...(isBuildManifestV2 ? { environment: { globalThis: true } } : {}),
   },
   optimization: {
     // Scope hoisting (module concatenation) mangled cross-module top-level
@@ -177,8 +181,25 @@ module.exports = {
     },
   },
   resolve: {
-    ...commonResolve("src/public/assets"),
-    ...altResolve(),
+    ...baseResolve,
+    ...privateResolve,
+    alias: {
+      ...baseResolve.alias,
+      ...privateResolve.alias,
+      ...(isBuildManifestV2
+        ? {
+            // Firefox already selects the native branch of function-bind.
+            "function-bind$": path.resolve(
+              __dirname,
+              "browser-native-bind.cjs"
+            ),
+            // Wallet animations use SVG without expressions or effects.
+            "lottie-web$": require.resolve(
+              "lottie-web/build/player/lottie_light"
+            ),
+          }
+        : {}),
+    },
     fallback: {
       os: require.resolve("os-browserify/browser"),
       buffer: require.resolve("buffer/"),
@@ -265,6 +286,9 @@ module.exports = {
       Buffer: ["buffer", "Buffer"],
     }),
     new webpack.DefinePlugin({
+      "process.env.BUILD_MANIFEST_V2": JSON.stringify(
+        String(isBuildManifestV2)
+      ),
       "process.env.EPIX_MV2_PROVIDER_ID": JSON.stringify(
         isBuildManifestV2
           ? require("./src/manifest.v2.firefox.json").applications.gecko.id

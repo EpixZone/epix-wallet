@@ -568,6 +568,11 @@ export class VaultService {
         }
       | undefined
   ): Promise<void> {
+    // Only the MV3 worker persists unlock state across worker suspension.
+    if (process.env["BUILD_MANIFEST_V2"] === "true") {
+      return;
+    }
+
     try {
       if (
         password != null &&
@@ -592,6 +597,10 @@ export class VaultService {
   }
 
   async unlockWithSessionPasswordIfPossible(): Promise<void> {
+    if (process.env["BUILD_MANIFEST_V2"] === "true") {
+      return;
+    }
+
     try {
       const passwordHex = await browser.storage.session.get("vault.password");
       const aesCounterHex = await browser.storage.session.get(
