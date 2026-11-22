@@ -21,13 +21,13 @@
     "sync:tokens": "node scripts/sync-tokens/sync-all.mjs"
   },
   "devDependencies": {
-    "@storybook/addon-docs": "^10.3.3",
-    "@storybook/addon-themes": "^10.3.3",
-    "@storybook/react": "^10.3.3",
-    "@storybook/react-vite": "^10.3.3",
+    "@storybook/addon-docs": "^10.6.8",
+    "@storybook/addon-themes": "^10.6.8",
+    "@storybook/react": "^10.6.8",
+    "@storybook/react-vite": "^10.6.8",
     "@types/styled-components": "^5.1.26",
     "saxes": "^6.0.0",
-    "storybook": "^10.3.3",
+    "storybook": "^10.6.8",
     "styled-components": "^5.3.11",
     "typescript": "5.0.4",
     "vite": "^8.0.3"

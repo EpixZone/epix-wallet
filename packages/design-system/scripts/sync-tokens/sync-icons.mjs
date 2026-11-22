@@ -5,7 +5,7 @@
 import https from "node:https";
 import http from "node:http";
 import fs from "node:fs";
-import { iconFilePath } from "./files.mjs";
+import { FIGMA_DOCUMENT_ID, iconFilePath } from "./files.mjs";
 import { forEachBatch } from "./batches.mjs";
 import { generateComponent, MAX_SVG_BYTES } from "./svg-component.mjs";
 import path from "node:path";
@@ -13,7 +13,6 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const FILE_KEY = "nhxLa3t70UV80DEjPWMz3Z";
 const ICONS_PAGE_ID = "319:234";
 const TOKEN = process.env.FIGMA_ACCESS_TOKEN;
 const COMPONENTS_DIR = path.join(
@@ -105,7 +104,7 @@ function toComponentName(name) {
 async function main() {
   console.log("Fetching icon list from Figma...");
   const pageData = await apiGet(
-    `https://api.figma.com/v1/files/${FILE_KEY}/nodes?ids=${ICONS_PAGE_ID}&depth=3`
+    `https://api.figma.com/v1/files/${FIGMA_DOCUMENT_ID}/nodes?ids=${ICONS_PAGE_ID}&depth=3`
   );
 
   const rootNode = Object.values(pageData.nodes)[0]?.document;
@@ -156,7 +155,7 @@ async function main() {
         .slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE)
         .map((component) => component.id)
         .join(",");
-      return `https://api.figma.com/v1/images/${FILE_KEY}?ids=${ids}&format=svg`;
+      return `https://api.figma.com/v1/images/${FIGMA_DOCUMENT_ID}?ids=${ids}&format=svg`;
     }
   );
   const svgUrls = {};

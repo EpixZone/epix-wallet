@@ -85,9 +85,15 @@ test("browser SigningKey uses the ESM entry and external patched EC", () => {
       name.endsWith("/@ethersproject/signing-key/lib.esm/index.js")
     )
   );
-  assert(
-    modules.some((name) => name.endsWith("/elliptic/lib/elliptic/ec/index.js"))
+  const signingRequire = createRequire(
+    require.resolve("@ethersproject/signing-key")
   );
+  const ecSource = signingRequire.resolve("elliptic/lib/elliptic/ec/index.js");
+  assert.equal(
+    signingRequire("elliptic/package.json").name,
+    "@mapped/elliptic"
+  );
+  assert(modules.includes(ecSource.replaceAll("\\", "/")));
   assert(
     !modules.some((name) =>
       name.endsWith("/@ethersproject/signing-key/lib.esm/elliptic.js")
