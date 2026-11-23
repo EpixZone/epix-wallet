@@ -39,7 +39,6 @@ import { usePriceChange } from "../../../../hooks/use-price-change";
 import { PriceChangeTag } from "./price-change-tag";
 import { TokenTag } from "./token-tag";
 import { CopyAddressButton } from "./copy-address-button";
-import { EarnBox } from "./earn-box";
 
 export const TokenTitleView: FunctionComponent<{
   title: string;
@@ -89,8 +88,6 @@ export const TokenTitleView: FunctionComponent<{
   );
 };
 
-export type BottomTagType = "nudgeEarn" | "showEarnSavings";
-
 interface TokenItemProps {
   viewToken: ViewToken;
   onClick?: () => void;
@@ -109,9 +106,6 @@ interface TokenItemProps {
   showPrice24HChange?: boolean;
   disableHoverStyle?: boolean;
   right?: React.ReactElement;
-
-  bottomTagType?: BottomTagType;
-  earnedAssetPrice?: string;
 
   // If this prop is provided, the token tag will not be shown.
   noTokenTag?: boolean;
@@ -134,8 +128,6 @@ export const TokenItem: FunctionComponent<TokenItemProps> = observer(
     showPrice24HChange,
     disableHoverStyle,
     right,
-    bottomTagType,
-    earnedAssetPrice,
     noTokenTag,
     isLoading,
     stakingApr,
@@ -206,7 +198,7 @@ export const TokenItem: FunctionComponent<TokenItemProps> = observer(
       viewToken.token.currency.coinGeckoId
     );
 
-    const content = (
+    return (
       <TokenItemContent
         viewToken={viewToken}
         forChange={forChange}
@@ -233,22 +225,6 @@ export const TokenItem: FunctionComponent<TokenItemProps> = observer(
         stakingApr={stakingApr}
       />
     );
-
-    if (bottomTagType) {
-      return (
-        <React.Fragment>
-          {content}
-          <Box margin="0.25rem 0">
-            <EarnBox
-              bottomTagType={bottomTagType}
-              earnedAssetPrice={earnedAssetPrice}
-            />
-          </Box>
-        </React.Fragment>
-      );
-    }
-
-    return content;
   }
 );
 

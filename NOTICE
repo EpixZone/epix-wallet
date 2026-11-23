@@ -6,6 +6,7 @@ Copyright Chainapsis, Inc., licensed under the Apache License, Version 2.0.
 Epix Wallet modifications Copyright the EpixZone contributors, licensed under
 the Apache License, Version 2.0.
 
-"Keplr" is a trademark of Chainapsis, Inc. This fork is not affiliated with or
-endorsed by Chainapsis. The Keplr name and logo are not used by this product
-except to describe its origin, as permitted by the Apache License, Version 2.0.
+"Keplr" is a trademark of Chainapsis, Inc. EpixZone maintains this fork
+independently of Chainapsis. Chainapsis does not endorse Epix Wallet.
+The wallet retains Keplr-compatible interfaces, including window.keplr.
+Project source: https://github.com/EpixZone/epix-wallet

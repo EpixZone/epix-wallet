@@ -1,4 +1,4 @@
-import React, { FunctionComponent, useState, useMemo, useEffect } from "react";
+import React, { FunctionComponent, useState, useMemo } from "react";
 import styled, { useTheme } from "styled-components";
 import { observer } from "mobx-react-lite";
 import { Box } from "../../../../components/box";
@@ -13,7 +13,7 @@ import {
   CurrencyImageFallback,
 } from "../../../../components/image";
 import { Subtitle3, Caption1 } from "../../../../components/typography";
-import { BottomTagType, TokenItem } from "./index";
+import { TokenItem } from "./index";
 import { PriceChangeTag } from "./price-change-tag";
 import { VerticalCollapseTransition } from "../../../../components/transition/vertical-collapse/collapse";
 import { useStore } from "../../../../stores";
@@ -26,7 +26,6 @@ import { CopyAddressButton } from "./copy-address-button";
 import { useCopyAddress } from "../../../../hooks/use-copy-address";
 import { CoinPretty, PricePretty } from "@keplr-wallet/unit";
 import { Tooltip } from "../../../../components/tooltip";
-import { EarnBox } from "./earn-box";
 
 const NestedTokenItemContainer = styled.div<{ tagPosition: string }>`
   background-color: transparent;
@@ -322,8 +321,6 @@ export const GroupedTokenItem: FunctionComponent<{
   onClick?: () => void;
   onTokenClick?: (token: ViewToken) => void;
   disabled?: boolean;
-  bottomTagType?: BottomTagType;
-  earnedAssetPrice?: string;
   showPrice24HChange?: boolean;
   alwaysOpen?: boolean;
 }> = observer(
@@ -331,8 +328,6 @@ export const GroupedTokenItem: FunctionComponent<{
     tokens,
     onClick,
     disabled,
-    bottomTagType,
-    earnedAssetPrice,
     showPrice24HChange,
     alwaysOpen,
     onTokenClick,
@@ -369,16 +364,6 @@ export const GroupedTokenItem: FunctionComponent<{
       return mainToken.token.currency.coinDenom;
     }, [mainToken.token.currency]);
 
-    const effectiveEarnedAssetPrice = useMemo(() => {
-      if (earnedAssetPrice) return earnedAssetPrice;
-      const tokenWithPrice = tokens.find(
-        (token) => "earnedAssetPrice" in token && token.earnedAssetPrice
-      );
-      return tokenWithPrice && "earnedAssetPrice" in tokenWithPrice
-        ? (tokenWithPrice.earnedAssetPrice as string)
-        : undefined;
-    }, [tokens, earnedAssetPrice]);
-
     const price24HChange = usePriceChange(
       showPrice24HChange,
       mainToken.token.currency.coinGeckoId
@@ -403,19 +388,7 @@ export const GroupedTokenItem: FunctionComponent<{
       });
     };
 
-    const [delayedIsOpen, setDelayedIsOpen] = useState(isOpen);
-
     const copyAddress = useCopyAddress(mainToken);
-
-    useEffect(() => {
-      if (isOpen && bottomTagType) {
-        setTimeout(() => {
-          setDelayedIsOpen(isOpen);
-        }, 50);
-      } else {
-        setDelayedIsOpen(isOpen);
-      }
-    }, [isOpen, bottomTagType]);
 
     if (tokens.length === 1) {
       return (
@@ -426,8 +399,6 @@ export const GroupedTokenItem: FunctionComponent<{
             openTokenDetail(tokens[0]);
           }}
           disabled={disabled}
-          bottomTagType={bottomTagType}
-          earnedAssetPrice={earnedAssetPrice}
           showPrice24HChange={showPrice24HChange}
           copyAddress={copyAddress}
         />
@@ -448,7 +419,7 @@ export const GroupedTokenItem: FunctionComponent<{
           totalBalance={totalBalance}
           totalPrice={totalPrice}
         />
-        <VerticalCollapseTransition collapsed={!delayedIsOpen}>
+        <VerticalCollapseTransition collapsed={!isOpen}>
           <Styles.ChildrenContainer>
             {tokens.map((token, index) => (
               <Box
@@ -468,15 +439,6 @@ export const GroupedTokenItem: FunctionComponent<{
             ))}
           </Styles.ChildrenContainer>
         </VerticalCollapseTransition>
-
-        {bottomTagType ? (
-          <Box margin="0.25rem 0">
-            <EarnBox
-              bottomTagType={bottomTagType}
-              earnedAssetPrice={effectiveEarnedAssetPrice}
-            />
-          </Box>
-        ) : null}
       </div>
     );
   }

@@ -2091,9 +2091,10 @@ const WarningGuideBox: FunctionComponent<{
     })();
 
     if (showUSDNWarning) {
-      title = "Swap Smarter";
-      errorText =
-        "To avoid high slippage, use Deposit or Withdraw on the Earn page.";
+      title = intl.formatMessage({ id: "page.ibc-swap.noble-pair.title" });
+      errorText = intl.formatMessage({
+        id: "page.ibc-swap.noble-pair.description",
+      });
       collapsed = false;
     }
 
@@ -2135,7 +2136,7 @@ const WarningGuideBox: FunctionComponent<{
                           : ColorPalette["gray-100"]
                       }
                     >
-                      Go to Earn page
+                      <FormattedMessage id="page.earn.overview.title" />
                     </Subtitle4>
                   </Link>
                 );

@@ -8,7 +8,6 @@ import React, {
   SetStateAction,
 } from "react";
 import {
-  BottomTagType,
   LookingForChains,
   MainEmptyView,
   ReceiveButtonWhenFirstTime,
@@ -42,7 +41,6 @@ import styled, { css, useTheme } from "styled-components";
 import { TokenDetailModal } from "./token-detail";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useGetSearchChains } from "../../hooks/use-get-search-chains";
-import { useEarnBottomTag } from "../earn/components/use-earn-bottom-tag";
 import { AdjustmentIcon } from "../../components/icon/adjustment";
 import { ViewOptionsContextMenu } from "./components/context-menu";
 import { useCopyAddress } from "../../hooks/use-copy-address";
@@ -250,33 +248,21 @@ const SpendableCollapsibleList: FunctionComponent<{
 
 const TokenItemWithCopyAddress: FunctionComponent<{
   viewToken: ViewToken;
-  bottomTagType?: BottomTagType;
-  earnedAssetPrice?: string;
   onClick: () => void;
   showPrice24HChange: boolean;
-}> = observer(
-  ({
-    viewToken,
-    bottomTagType,
-    earnedAssetPrice,
-    onClick,
-    showPrice24HChange,
-  }) => {
-    const copyAddress = useCopyAddress(viewToken);
+}> = observer(({ viewToken, onClick, showPrice24HChange }) => {
+  const copyAddress = useCopyAddress(viewToken);
 
-    return (
-      <TokenItem
-        key={`${viewToken.chainInfo.chainId}-${viewToken.token.currency.coinMinimalDenom}`}
-        bottomTagType={bottomTagType}
-        earnedAssetPrice={earnedAssetPrice}
-        viewToken={viewToken}
-        onClick={onClick}
-        copyAddress={copyAddress}
-        showPrice24HChange={showPrice24HChange}
-      />
-    );
-  }
-);
+  return (
+    <TokenItem
+      key={`${viewToken.chainInfo.chainId}-${viewToken.token.currency.coinMinimalDenom}`}
+      viewToken={viewToken}
+      onClick={onClick}
+      copyAddress={copyAddress}
+      showPrice24HChange={showPrice24HChange}
+    />
+  );
+});
 
 const useSearchBar = (isNotReady?: boolean) => {
   const searchScrollAnim = useSpringValue(0, {
@@ -988,8 +974,6 @@ const TokensFlatViewScene = observer(
 
     const { TokenViewData } = useAllBalances(trimSearch);
 
-    const { getBottomTagInfoProps } = useEarnBottomTag(TokenViewData.balance);
-
     return (
       <React.Fragment>
         {TokenViewData.balance.length === 0 ? null : (
@@ -1005,7 +989,6 @@ const TokensFlatViewScene = observer(
               return (
                 <TokenItemWithCopyAddress
                   key={`${viewToken.chainInfo.chainId}-${viewToken.token.currency.coinMinimalDenom}`}
-                  {...getBottomTagInfoProps(viewToken)}
                   viewToken={viewToken}
                   onClick={() => {
                     setSearchParams((prev) => {
@@ -1040,10 +1023,6 @@ const TokensGroupedViewScene = observer(
   }) => {
     const { uiConfigStore } = useStore();
     const { searchedGroupedTokensMap } = useGroupedTokensMap(trimSearch);
-    const { getBottomTagInfoProps } = useEarnBottomTag(
-      Array.from(searchedGroupedTokensMap.values()).flat()
-    );
-
     return (
       <React.Fragment>
         {searchedGroupedTokensMap.size === 0 ? null : (
@@ -1057,24 +1036,10 @@ const TokensGroupedViewScene = observer(
             lenAlwaysShown={10}
             items={Array.from(searchedGroupedTokensMap.entries()).map(
               ([groupKey, tokens]) => {
-                let bottomTagType: BottomTagType | undefined;
-                let earnedAssetPrice: string | undefined;
-                for (const token of tokens) {
-                  const {
-                    bottomTagType: newBottomTagType,
-                    earnedAssetPrice: newEarnedAssetPrice,
-                  } = getBottomTagInfoProps(token);
-                  if (newBottomTagType && newEarnedAssetPrice) {
-                    bottomTagType = newBottomTagType;
-                    earnedAssetPrice = newEarnedAssetPrice;
-                  }
-                }
                 return (
                   <GroupedTokenItem
                     key={groupKey}
                     tokens={tokens}
-                    bottomTagType={bottomTagType}
-                    earnedAssetPrice={earnedAssetPrice}
                     showPrice24HChange={uiConfigStore.show24HChangesInMagePage}
                   />
                 );

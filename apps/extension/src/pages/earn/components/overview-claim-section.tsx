@@ -11,7 +11,6 @@ import { Currency } from "@keplr-wallet/types";
 import { observer } from "mobx-react-lite";
 import { useNavigate } from "react-router";
 import { useTheme } from "styled-components";
-import { KEPLR_EXTS_MEMO } from "../../../config.ui";
 import debounce from "lodash.debounce";
 import { logNobleClaimAnalytics } from "../../../analytics-amplitude";
 import { XAxis } from "../../../components/axis";
@@ -31,24 +30,25 @@ export const EarnOverviewClaimSection: FunctionComponent<{
 
   const account = accountStore.getAccount(chainId);
 
-  const claimableAmount = queriesStore
+  const yieldQuery = queriesStore
     .get(chainId)
-    .noble.queryYield.getQueryBech32Address(
-      account.bech32Address
-    ).claimableAmount;
+    .noble.queryYield.getQueryBech32Address(account.bech32Address);
+  const claimableAmount =
+    yieldQuery.response && !yieldQuery.error
+      ? yieldQuery.claimableAmount
+      : undefined;
 
-  const response = queriesStore.simpleQuery.queryGet<{
-    totalYield: string;
-    updatedAt: string;
-  }>(
-    process.env["KEPLR_EXT_TX_HISTORY_BASE_URL"],
-    `/noble-yield/${account.bech32Address}`
-  );
-
-  const totalYield = new CoinPretty(
-    currency,
-    response.response?.data?.totalYield ?? "0"
-  );
+  const historyUrl = process.env["KEPLR_EXT_TX_HISTORY_BASE_URL"];
+  const totalYieldAmount = historyUrl
+    ? queriesStore.simpleQuery.queryGet<{ totalYield: string }>(
+        historyUrl,
+        `/noble-yield/${account.bech32Address}`
+      ).response?.data?.totalYield
+    : undefined;
+  const totalYield =
+    totalYieldAmount === undefined
+      ? undefined
+      : new CoinPretty(currency, totalYieldAmount);
 
   const [isSimulating, setIsSimulating] = useState(false);
 
@@ -75,7 +75,7 @@ export const EarnOverviewClaimSection: FunctionComponent<{
           gas: gas.toString(),
           amount: [],
         },
-        KEPLR_EXTS_MEMO,
+        "",
         {
           preferNoSetMemo: true,
         },
@@ -112,7 +112,9 @@ export const EarnOverviewClaimSection: FunctionComponent<{
     }
   }
 
-  const totalYieldNum = Number(totalYield.toDec().toString());
+  const totalYieldNum = totalYield
+    ? Number(totalYield.toDec().toString())
+    : undefined;
 
   const debouncedLogging = useMemo(
     () =>
@@ -128,7 +130,7 @@ export const EarnOverviewClaimSection: FunctionComponent<{
   );
 
   useEffect(() => {
-    debouncedLogging(totalYieldNum);
+    if (totalYieldNum !== undefined) debouncedLogging(totalYieldNum);
 
     return () => {
       debouncedLogging.cancel();
@@ -161,54 +163,60 @@ export const EarnOverviewClaimSection: FunctionComponent<{
                 : ColorPalette["green-400"]
             }
           >
-            {new CoinPretty(currency, claimableAmount)
-              .hideDenom(true)
-              .trim(true)
-              .toString()}
+            {claimableAmount === undefined
+              ? intl.formatMessage({ id: "page.earn.unavailable" })
+              : new CoinPretty(currency, claimableAmount)
+                  .hideDenom(true)
+                  .trim(true)
+                  .toString()}
           </H4>
         </Box>
-        <Box width="50%">
-          <XAxis>
-            <Subtitle3
+        {totalYield && (
+          <Box width="50%">
+            <XAxis>
+              <Subtitle3
+                color={
+                  isLightMode
+                    ? ColorPalette["gray-400"]
+                    : ColorPalette["gray-200"]
+                }
+              >
+                <FormattedMessage id="page.earn.overview.claim-section.total-claimed" />
+              </Subtitle3>
+              <Tooltip
+                content={intl.formatMessage({
+                  id: "page.earn.overview.claim-section.total-claimed-tooltip",
+                })}
+              >
+                <Box alignY="center" marginLeft="0.25rem">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="17"
+                    viewBox="0 0 16 17"
+                    fill="none"
+                  >
+                    <path
+                      d="M7.5 8L7.52766 7.98617C7.90974 7.79513 8.33994 8.14023 8.23634 8.55465L7.76366 10.4453C7.66006 10.8598 8.09026 11.2049 8.47234 11.0138L8.5 11M14 8.5C14 11.8137 11.3137 14.5 8 14.5C4.68629 14.5 2 11.8137 2 8.5C2 5.18629 4.68629 2.5 8 2.5C11.3137 2.5 14 5.18629 14 8.5ZM8 6H8.005V6.005H8V6Z"
+                      stroke="#ABABB5"
+                      strokeWidth="1.66667"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </Box>
+              </Tooltip>
+            </XAxis>
+            <Gutter size="0.875rem" />
+            <H4
               color={
-                isLightMode
-                  ? ColorPalette["gray-400"]
-                  : ColorPalette["gray-200"]
+                isLightMode ? ColorPalette["gray-700"] : ColorPalette.white
               }
             >
-              <FormattedMessage id="page.earn.overview.claim-section.total-claimed" />
-            </Subtitle3>
-            <Tooltip
-              content={intl.formatMessage({
-                id: "page.earn.overview.claim-section.total-claimed-tooltip",
-              })}
-            >
-              <Box alignY="center" marginLeft="0.25rem">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="17"
-                  viewBox="0 0 16 17"
-                  fill="none"
-                >
-                  <path
-                    d="M7.5 8L7.52766 7.98617C7.90974 7.79513 8.33994 8.14023 8.23634 8.55465L7.76366 10.4453C7.66006 10.8598 8.09026 11.2049 8.47234 11.0138L8.5 11M14 8.5C14 11.8137 11.3137 14.5 8 14.5C4.68629 14.5 2 11.8137 2 8.5C2 5.18629 4.68629 2.5 8 2.5C11.3137 2.5 14 5.18629 14 8.5ZM8 6H8.005V6.005H8V6Z"
-                    stroke="#ABABB5"
-                    strokeWidth="1.66667"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </Box>
-            </Tooltip>
-          </XAxis>
-          <Gutter size="0.875rem" />
-          <H4
-            color={isLightMode ? ColorPalette["gray-700"] : ColorPalette.white}
-          >
-            {totalYield.shrink(true).hideDenom(true).toString()}
-          </H4>
-        </Box>
+              {totalYield.shrink(true).hideDenom(true).toString()}
+            </H4>
+          </Box>
+        )}
       </Box>
 
       <Gutter size="1rem" />
@@ -219,7 +227,7 @@ export const EarnOverviewClaimSection: FunctionComponent<{
         })}
         color="primary"
         size="medium"
-        disabled={claimableAmount === "0"}
+        disabled={!claimableAmount || claimableAmount === "0"}
         onClick={handleClaim}
         isLoading={isSimulating}
       />

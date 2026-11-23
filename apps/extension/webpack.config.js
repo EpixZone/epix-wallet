@@ -366,6 +366,8 @@ module.exports = {
     new ForkTsCheckerWebpackPlugin(),
     new CopyWebpackPlugin({
       patterns: [
+        { from: "../../LICENSE", to: "LICENSE.txt" },
+        { from: "../../NOTICE", to: "NOTICE.txt" },
         ...(() => {
           if (isBuildManifestV2) {
             return [
@@ -435,11 +437,6 @@ module.exports = {
       template: "./src/index.html",
       filename: "ledger-grant.html",
       chunks: ["ledgerGrant"],
-    }),
-    new HtmlWebpackPlugin({
-      template: "./src/keplr-earn-product-terms.html",
-      filename: "keplr-earn-product-terms.html",
-      chunks: ["keplrEarnProductTerms"],
     }),
     ...(() => {
       if (isBuildManifestV2) {

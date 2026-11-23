@@ -32,14 +32,9 @@ import { EmptyView } from "../../../components/empty-view";
 import { DenomHelper } from "@keplr-wallet/common";
 import { Bech32Address, ChainIdHelper } from "@keplr-wallet/cosmos";
 import { shouldQueryERC20WithCosmosBank } from "@keplr-wallet/stores";
-import { EarnApyBanner } from "./banners/earn-apy-banner";
-import {
-  validateIsUsdcFromNoble,
-  validateIsUsdnFromNoble,
-} from "../../earn/utils";
+import { validateIsUsdnFromNoble } from "../../earn/utils";
 import { Button } from "../../../components/button";
 import { FormattedMessage } from "react-intl";
-import { NOBLE_CHAIN_ID } from "../../../config.ui";
 import { MintPhotonButton } from "./mint-photon-button";
 import { supportsNativeStaking } from "../../stake/utils";
 import { NativeHistory } from "../../history/native";
@@ -560,13 +555,11 @@ export const TokenDetailModal: FunctionComponent<{
           {validateIsUsdnFromNoble(currency, chainId) ? (
             <Box padding="1.25rem 0.75rem 1.25rem 0.75rem">
               <Button
-                text={
-                  <FormattedMessage id="page.token-detail.manage-earn-button" />
-                }
+                text={<FormattedMessage id="page.earn.overview.title" />}
                 color="secondary"
                 size="medium"
                 onClick={() => {
-                  navigate(`/earn/overview?chainId=${chainId}`);
+                  navigate("/earn/overview");
                 }}
               />
             </Box>
@@ -599,10 +592,6 @@ export const TokenDetailModal: FunctionComponent<{
           {(() => {
             const uStake = modularChainInfo.unwrapped;
             if (uStake.type === "cosmos" || uStake.type === "ethermint") {
-              if (validateIsUsdcFromNoble(currency, chainId)) {
-                return <EarnApyBanner chainId={NOBLE_CHAIN_ID} />;
-              }
-
               const isStakeCurrency =
                 uStake.cosmos.stakeCurrency?.coinMinimalDenom ===
                 currency.coinMinimalDenom;

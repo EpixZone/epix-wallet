@@ -8,6 +8,7 @@ import { useRegisterHeader } from "../components/header";
 import styled from "styled-components";
 import { TextButton } from "../../../components/button-text";
 import { observer } from "mobx-react-lite";
+import { DSColor, DSTypography } from "@keplr-wallet/design-system";
 import { useStore } from "../../../stores";
 import { useIntl } from "react-intl";
 import lottie from "lottie-web";
@@ -88,6 +89,9 @@ export const RegisterIntroScene: FunctionComponent = observer(() => {
     <IntroLayout>
       <IntroIllustration ref={animContainerRef} aria-hidden="true" />
       <IntroActions>
+        <DSTypography as="p" size="textSm" color={DSColor.typography.secondary}>
+          {intl.formatMessage({ id: "pages.register.intro.publisher" })}
+        </DSTypography>
         <Button
           text={intl.formatMessage({
             id: "pages.register.intro.create-wallet-button",
