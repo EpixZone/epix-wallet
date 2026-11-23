@@ -47,3 +47,48 @@ test("bundled animation assets support Lottie's official SVG light player", () =
   }
   visit(path.join(extension, "src/public/assets/lottie"));
 });
+
+test("browser immediates run cancellable callbacks in separate tasks", async (t) => {
+  const vm = require("node:vm");
+  const channel = new MessageChannel();
+  t.after(() => {
+    channel.port1.close();
+    channel.port2.close();
+  });
+  const browser = vm.createContext({
+    MessageChannel: function () {
+      return channel;
+    },
+  });
+  const source = fs.readFileSync(
+    path.join(extension, "src/immediate.js"),
+    "utf8"
+  );
+  vm.runInContext(source, browser);
+  const { setImmediate, clearImmediate } = browser;
+  vm.runInContext(source, browser);
+  assert.equal(browser.setImmediate, setImmediate);
+  assert.equal(browser.clearImmediate, clearImmediate);
+  assert.throws(() => setImmediate("text"), /callback function/);
+
+  const order = [];
+  const token = {};
+  const finished = new Promise((resolve) => {
+    setImmediate(
+      (first, second) => {
+        assert.equal(first, token);
+        order.push(second);
+        queueMicrotask(() => order.push("between"));
+        setImmediate(resolve);
+      },
+      token,
+      "first"
+    );
+    const cancelled = setImmediate(() => order.push("cancelled"));
+    clearImmediate(cancelled);
+    setImmediate(() => order.push("second"));
+  });
+  queueMicrotask(() => order.push("before"));
+  await finished;
+  assert.deepEqual(order, ["before", "first", "between", "second"]);
+});

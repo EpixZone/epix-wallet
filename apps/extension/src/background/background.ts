@@ -1,6 +1,4 @@
-// Shim ------------
-require("setimmediate");
-// Shim ------------
+import "../immediate.js";
 if (typeof importScripts !== "undefined") {
   importScripts("browser-polyfill.js");
 }

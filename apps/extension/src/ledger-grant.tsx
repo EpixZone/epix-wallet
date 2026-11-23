@@ -1,6 +1,4 @@
-// Shim ------------
-require("setimmediate");
-// Shim ------------
+import "./immediate.js";
 
 import React, { FunctionComponent, useState } from "react";
 import ReactDOM from "react-dom";
