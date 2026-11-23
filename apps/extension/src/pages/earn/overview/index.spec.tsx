@@ -75,7 +75,7 @@ const withdraw = "button.withdraw";
 function renderOverview() {
   mockActions.clear();
   const html = renderToStaticMarkup(<EarnOverviewPage />);
-  expect([...mockActions.keys()].sort()).toEqual([claim, withdraw].sort());
+  expect(new Set(mockActions.keys())).toEqual(new Set([claim, withdraw]));
   return html;
 }
 
