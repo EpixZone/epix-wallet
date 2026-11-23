@@ -28,11 +28,7 @@ interface ArbitraryMsgDataViewProps {
 const MAX_HEIGHT = 780;
 export const ArbitraryMsgDataView: FunctionComponent<
   ArbitraryMsgDataViewProps
-> = ({
-  message,
-  rawMessage,
-  forceCollapsable = false,
-}) => {
+> = ({ message, rawMessage, forceCollapsable = false }) => {
   const [isMessageExpanded, setIsMessageExpanded] = useState(false);
   const [isRawMessageExpanded, setIsRawMessageExpanded] = useState(false);
   const initialHeight = useRef<number>(0);

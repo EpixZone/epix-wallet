@@ -17,7 +17,7 @@ jest.mock("react-intl", () => ({
 }));
 
 function mockContainer({ children }: { children?: React.ReactNode }) {
-  return <>{children}</>;
+  return <React.Fragment>{children}</React.Fragment>;
 }
 jest.mock("../../../layouts/header", () => ({ HeaderLayout: mockContainer }));
 jest.mock("../../../components/box", () => ({ Box: mockContainer }));

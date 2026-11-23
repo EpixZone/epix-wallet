@@ -43,10 +43,10 @@ export const EarnOverviewPage: FunctionComponent = observer(() => {
 
       <Gutter size="1.5rem" />
       {process.env["KEPLR_EXT_TX_HISTORY_BASE_URL"] && (
-        <>
+        <React.Fragment>
           <Divider direction="horizontal" />
           <EarnOverviewHistorySection chainInfo={modularChainInfo} />
-        </>
+        </React.Fragment>
       )}
     </HeaderLayout>
   );
