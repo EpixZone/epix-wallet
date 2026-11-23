@@ -193,6 +193,12 @@ module.exports = {
               __dirname,
               "browser-native-bind.cjs"
             ),
+            // These published versions discover generator constructors through
+            // native syntax. Keep one full intrinsic table for all consumers.
+            "get-intrinsic$": require.resolve("get-intrinsic"),
+            "is-generator-function$": require.resolve("is-generator-function"),
+            "lodash.debounce$": require.resolve("lodash/debounce"),
+            "lodash.throttle$": require.resolve("lodash/throttle"),
             // Wallet animations use SVG without expressions or effects.
             "lottie-web$": require.resolve(
               "lottie-web/build/player/lottie_light"
@@ -213,6 +219,20 @@ module.exports = {
   },
   module: {
     rules: [
+      ...(isBuildManifestV2
+        ? [
+            {
+              // Both Lodash module formats request their global from _root.
+              test: /[\\/]node_modules[\\/]lodash(?:-es)?[\\/]/,
+              resolve: {
+                alias: {
+                  "./_root$": path.resolve(__dirname, "browser-global.cjs"),
+                  "./_root.js$": path.resolve(__dirname, "browser-global.cjs"),
+                },
+              },
+            },
+          ]
+        : []),
       tsRule,
       fileRule,
       {
