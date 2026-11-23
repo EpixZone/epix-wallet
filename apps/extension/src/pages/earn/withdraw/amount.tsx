@@ -5,7 +5,7 @@ import { BackButton } from "../../../layouts/header/components";
 
 import { Stack } from "../../../components/stack";
 
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { useStore } from "../../../stores";
 import {
@@ -25,7 +25,7 @@ import {
 } from "../../../components/typography";
 import { Box } from "../../../components/box";
 import { Gutter } from "../../../components/gutter";
-import { CoinPretty, Dec } from "@keplr-wallet/unit";
+import { Dec } from "@keplr-wallet/unit";
 import { useIntl } from "react-intl";
 import { ColorPalette } from "../../../styles";
 import { Input } from "../components/input";
@@ -35,7 +35,6 @@ import {
   NobleEarnAmountConfig,
   useNobleEarnAmountConfig,
 } from "@keplr-wallet/hooks-internal";
-import { ApyChip, Chip } from "../components/chip";
 import { ExtensionKVStore } from "@keplr-wallet/common";
 import { WarningBox } from "../../../components/warning-box";
 import { HorizontalCollapseTransition } from "../../../components/transition/horizontal-collapse";
@@ -44,9 +43,8 @@ import {
   useAutoFeeCurrencySelectionOnInit,
   useFeeOptionSelectionOnInit,
 } from "../../../components/input/fee-control";
-import { KEPLR_EXTS_MEMO } from "../../../config.ui";
-
-const NOBLE_EARN_WITHDRAW_OUT_COIN_MINIMAL_DENOM = "uusdc";
+import { NobleUsdnCurrency } from "../../../config";
+import { NOBLE_CHAIN_ID } from "../../../config.ui";
 
 export const EarnWithdrawAmountPage: FunctionComponent = observer(() => {
   const theme = useTheme();
@@ -59,36 +57,27 @@ export const EarnWithdrawAmountPage: FunctionComponent = observer(() => {
     uiConfigStore,
     analyticsAmplitudeStore,
   } = useStore();
-  const [searchParams] = useSearchParams();
   const intl = useIntl();
   const navigate = useNavigate();
 
-  const initialChainId = searchParams.get("chainId");
-  const initialCoinMinimalDenom = searchParams.get("coinMinimalDenom");
-
-  const chainId = initialChainId || chainStore.modularChainInfosInUI[0].chainId;
+  const chainId = NOBLE_CHAIN_ID;
   const modularChainInfo = chainStore.getModularChain(chainId);
   const account = accountStore.getAccount(chainId);
-
-  const coinMinimalDenom = (() => {
-    if (initialCoinMinimalDenom) return initialCoinMinimalDenom;
-    const u = modularChainInfo.unwrapped;
-    if (u.type === "cosmos" || u.type === "ethermint") {
-      return u.cosmos.currencies[0].coinMinimalDenom;
-    }
-    return "uusdc";
-  })();
-  const currency = modularChainInfo.forceFindCurrency(coinMinimalDenom);
-
-  const outCurrency = modularChainInfo.forceFindCurrency(
-    NOBLE_EARN_WITHDRAW_OUT_COIN_MINIMAL_DENOM
-  );
+  const currency = modularChainInfo.findCurrency("uusdn") ?? NobleUsdnCurrency;
+  const outCurrency = modularChainInfo.forceFindCurrency("uusdc");
 
   const queryBalances = queriesStore.get(chainId).queryBalances;
   const sender = account.bech32Address;
+  const balanceQuery = queryBalances
+    .getQueryBech32Address(sender)
+    .getBalance(currency);
   const balance =
-    queryBalances.getQueryBech32Address(sender).getBalance(currency)?.balance ??
-    new CoinPretty(currency, new Dec("0"));
+    balanceQuery?.response && !balanceQuery.error
+      ? balanceQuery.balance
+      : undefined;
+  const balanceText =
+    balance?.trim(true).toString() ??
+    intl.formatMessage({ id: "page.earn.unavailable" });
 
   const nobleEarnAmountConfig = useNobleEarnAmountConfig(
     chainStore,
@@ -191,6 +180,7 @@ export const EarnWithdrawAmountPage: FunctionComponent = observer(() => {
   });
 
   const isSubmissionBlocked =
+    !balance ||
     nobleEarnAmountConfig.amountConfig.amount[0].toDec().equals(new Dec("0")) ||
     nobleEarnAmountConfig.amountConfig.expectedOutAmount
       .toDec()
@@ -258,7 +248,7 @@ export const EarnWithdrawAmountPage: FunctionComponent = observer(() => {
 
             await tx.send(
               nobleEarnAmountConfig.feeConfig.toStdFee(),
-              KEPLR_EXTS_MEMO,
+              "",
               {
                 // max일 경우 서명 페이지에서 수수료를 수정할 수 없게 만든다.
                 preferNoSetFee:
@@ -347,7 +337,7 @@ export const EarnWithdrawAmountPage: FunctionComponent = observer(() => {
             <Gutter size="2rem" />
             <Input
               type="text"
-              placeholder={balance.trim(true).toString()}
+              placeholder={balanceText}
               value={nobleEarnAmountConfig.amountConfig.value}
               warning={error != null}
               onChange={(e) => {
@@ -396,7 +386,7 @@ export const EarnWithdrawAmountPage: FunctionComponent = observer(() => {
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {balance.trim(true).toString()}
+                        {balanceText}
                       </Subtitle3>
                     </Box>
                     <Gutter size="0.25rem" />
@@ -404,7 +394,7 @@ export const EarnWithdrawAmountPage: FunctionComponent = observer(() => {
                 </HorizontalCollapseTransition>
                 <Subtitle3 color={ColorPalette["gray-300"]}>
                   {intl.formatMessage(
-                    { id: "page.earn.amount.balance.current-chain" },
+                    { id: "page.earn.withdraw.balance.current-chain" },
                     { chain: modularChainInfo.chainName }
                   )}
                 </Subtitle3>
@@ -519,8 +509,6 @@ const ConfirmView: FunctionComponent<{
             isLightMode ? ColorPalette.white : ColorPalette["gray-650"]
           }
         >
-          <ApyChip chainId={amountConfig.chainId} colorType="green" />
-          <Gutter size="0.75rem" />
           <Box paddingLeft="0.25rem">
             <XAxis alignY="center" gap="0.25rem">
               <H3
@@ -553,15 +541,6 @@ const ConfirmView: FunctionComponent<{
               color={ColorPalette["gray-400"]}
             />
           </YAxis>
-
-          <Gutter size="0.75rem" />
-
-          <Chip
-            text={intl.formatMessage({
-              id: "page.earn.withdraw.amount.confirm.norewards",
-            })}
-            colorType="gray"
-          />
 
           <Gutter size="0.75rem" />
 

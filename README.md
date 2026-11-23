@@ -17,6 +17,13 @@ Open **Settings > Export to Android with QR** on desktop, then **Scan desktop QR
 in the Android wallet. The encrypted transfer stays offline. See the
 [Android transfer guide](docs/epix/android-wallet-transfer.md) for instructions.
 
+## Manage an existing Noble USDN balance
+
+Open **Settings > Chains and Assets > Noble USDN balance and claims** to check your
+balance, claim accrued yield, or withdraw USDN to USDC on Noble. You can open
+this page after transferring your last USDN. New deposits through the wallet's
+former Earn feature are closed. You can still send USDN from the token screen.
+
 ## Repository layout
 
 This is a Yarn workspaces monorepo managed with Lerna.

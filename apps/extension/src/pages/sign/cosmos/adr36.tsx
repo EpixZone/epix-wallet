@@ -26,6 +26,7 @@ import { ArbitraryMsgRequestOrigin } from "../components/arbitrary-message/arbit
 import { ArbitraryMsgSignHeader } from "../components/arbitrary-message/arbitrary-message-header";
 import { ArbitraryMsgWalletDetails } from "../components/arbitrary-message/arbitrary-message-wallet-details";
 import { ArbitraryMsgDataView } from "../components/arbitrary-message/arbitrary-message-data-view";
+import { getADR36MessagePreview } from "../utils/message-preview";
 import { isEthSignChain } from "@keplr-wallet/types";
 
 export const SignCosmosADR36Page: FunctionComponent = observer(() => {
@@ -70,62 +71,13 @@ export const SignCosmosADR36Page: FunctionComponent = observer(() => {
   })();
 
   const origin = signInteractionStore.waitingData?.data.origin || "";
-  const isOriginKeplr = origin === "https://wallet.keplr.app";
-
-  const { message, rawMessage, isMessageShownAsJSON } = useMemo(() => {
-    if (!signDocWrapper) {
-      return {
-        message: "",
-        rawMessage: "",
-        isMessageShownAsJSON: false,
-      };
-    }
-
-    if (signDocWrapper.aminoSignDoc.msgs.length !== 1) {
-      throw new Error("Sign doc is improper ADR-36");
-    }
-
-    const msg = signDocWrapper.aminoSignDoc.msgs[0];
-    if (msg.type !== "sign/MsgSignData") {
-      throw new Error("Sign doc is improper ADR-36");
-    }
-
-    const rawMessage = JSON.stringify(signDocWrapper?.aminoSignDoc, null, 2);
-
-    if (isADR36WithString) {
-      const str = Buffer.from(msg.value.data, "base64").toString();
-
-      if (isOriginKeplr) {
-        return {
-          // message: str,
-          message: `Unlock the full features of Keplr Dashboard, including commission and status updates from your validators, setting up your profile pic with NFTs, and more.\n\nBy signing in, you agree to our Terms of Use and Privacy Policy.`,
-          rawMessage: rawMessage,
-          isMessageShownAsJSON: false,
-        };
-      }
-
-      try {
-        // In case of json, it is displayed more easily to read.
-        return {
-          message: JSON.stringify(JSON.parse(str), null, 2),
-          rawMessage,
-          isMessageShownAsJSON: true,
-        };
-      } catch {
-        return {
-          message: str,
-          rawMessage,
-          isMessageShownAsJSON: false,
-        };
-      }
-    } else {
-      return {
-        message: msg.value.data as string,
-        rawMessage,
-        isMessageShownAsJSON: false,
-      };
-    }
-  }, [isADR36WithString, isOriginKeplr, signDocWrapper]);
+  const preview = useMemo(
+    () =>
+      signDocWrapper
+        ? getADR36MessagePreview(signDocWrapper.aminoSignDoc, isADR36WithString)
+        : undefined,
+    [signDocWrapper, isADR36WithString]
+  );
 
   const isLedgerAndDirect =
     signInteractionStore.waitingData?.data.keyType === "ledger" &&
@@ -349,7 +301,7 @@ export const SignCosmosADR36Page: FunctionComponent = observer(() => {
           overflow: "auto",
         }}
       >
-        <ArbitraryMsgSignHeader isFromKeplr={isOriginKeplr} />
+        <ArbitraryMsgSignHeader />
         <Gutter size="0.75rem" />
         <ArbitraryMsgRequestOrigin origin={origin} />
 
@@ -366,11 +318,7 @@ export const SignCosmosADR36Page: FunctionComponent = observer(() => {
         )}
 
         <Gutter size="1.5rem" />
-        <ArbitraryMsgDataView
-          message={message}
-          rawMessage={rawMessage}
-          messageIsShownAsJSON={isMessageShownAsJSON}
-        />
+        {preview && <ArbitraryMsgDataView {...preview} />}
 
         <div style={{ flex: 1 }} />
 

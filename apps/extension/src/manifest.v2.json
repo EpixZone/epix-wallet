@@ -1,7 +1,8 @@
 {
   "manifest_version": 2,
   "name": "Epix Wallet",
-  "description": "Epix Wallet is a browser extension wallet for the EPIX chain and the wider interchain ecosystem.",
+  "description": "EpixZone’s wallet for EpixNet and interchain apps. Manage accounts and sign transactions with this independent fork of Keplr Wallet.",
+  "homepage_url": "https://github.com/EpixZone/epix-wallet",
   "version": "0.13.40",
   "icons": {
     "16": "assets/icon-16.png",
@@ -23,7 +24,6 @@
   "permissions": [
     "storage",
     "notifications",
-    "identity",
     "idle",
     "alarms",
     "unlimitedStorage",

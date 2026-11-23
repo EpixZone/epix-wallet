@@ -29,6 +29,7 @@ import { ArbitraryMsgSignHeader } from "../../components/arbitrary-message/arbit
 import { Gutter } from "../../../../components/gutter";
 import { ArbitraryMsgRequestOrigin } from "../../components/arbitrary-message/arbitrary-message-origin";
 import { ArbitraryMsgWalletDetails } from "../../components/arbitrary-message/arbitrary-message-wallet-details";
+import { getEthereumMessagePreview } from "../../utils/message-preview";
 import { ArbitraryMsgDataView } from "../../components/arbitrary-message/arbitrary-message-data-view";
 
 export const EthereumSignMessageView: FunctionComponent<{
@@ -63,35 +64,7 @@ export const EthereumSignMessageView: FunctionComponent<{
 
   const signingDataBuff = Buffer.from(message);
 
-  const signingDataText = useMemo(() => {
-    // If the message is 32 bytes, it's probably a hash.
-    if (signingDataBuff.length === 32) {
-      return "0x" + signingDataBuff.toString("hex");
-    } else {
-      const text = (() => {
-        const string = signingDataBuff.toString("utf8");
-        if (string.startsWith("0x")) {
-          const buf = Buffer.from(string.slice(2), "hex");
-
-          try {
-            // 정상적인 utf-8 문자열인지 확인
-            const decoder = new TextDecoder("utf-8", { fatal: true });
-            decoder.decode(new Uint8Array(buf)); // UTF-8 변환 시도
-          } catch {
-            // 정상적인 utf-8 문자열이 아니면 hex로 변환
-            return "0x" + buf.toString("hex");
-          }
-
-          return buf.toString("utf8");
-        }
-
-        return string;
-      })();
-
-      // If the text contains RTL mark, escape it.
-      return text.replace(/\u202E/giu, "\\u202E");
-    }
-  }, [signingDataBuff]);
+  const preview = getEthereumMessagePreview(signingDataBuff);
 
   const [isLedgerInteracting, setIsLedgerInteracting] = useState(false);
   const [ledgerInteractingError, setLedgerInteractingError] = useState<
@@ -352,7 +325,7 @@ export const EthereumSignMessageView: FunctionComponent<{
           }}
         />
         <Gutter size="0.75rem" />
-        <ArbitraryMsgDataView message={signingDataText} />
+        <ArbitraryMsgDataView {...preview} />
         {ledgerGuideBox}
         {keystoneUSBBox}
       </Box>

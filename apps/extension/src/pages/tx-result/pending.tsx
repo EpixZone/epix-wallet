@@ -9,7 +9,6 @@ import { H3, Subtitle2 } from "../../components/typography";
 import { useIntl } from "react-intl";
 import { ColorPalette } from "../../styles";
 import { Box } from "../../components/box";
-import { useSearchParams } from "react-router-dom";
 
 export const TxResultPendingPage: FunctionComponent = observer(() => {
   const theme = useTheme();
@@ -17,9 +16,6 @@ export const TxResultPendingPage: FunctionComponent = observer(() => {
 
   const intl = useIntl();
   const animDivRef = useRef<HTMLDivElement | null>(null);
-
-  const [searchParams] = useSearchParams();
-  const isFromEarnTransfer = searchParams.get("isFromEarnTransfer");
 
   // Recolor the spinner fills to the brand color of the surrounding ring
   // (cyan on dark, purple on light).
@@ -102,9 +98,7 @@ export const TxResultPendingPage: FunctionComponent = observer(() => {
           >
             {intl.formatMessage(
               {
-                id: isFromEarnTransfer
-                  ? "page.earn.transfer.amount.tx.paragraph"
-                  : "page.tx-result.pending.paragraph",
+                id: "page.tx-result.pending.paragraph",
               },
               {
                 br: <br />,

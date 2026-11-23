@@ -8,6 +8,18 @@ assert.ok(
   directory,
   "Usage: node scripts/firefox-browser-runtime-check.cjs BUILD_DIR"
 );
+for (const name of ["LICENSE", "NOTICE"]) {
+  assert.deepEqual(
+    fs.readFileSync(path.join(directory, name + ".txt")),
+    fs.readFileSync(path.join(__dirname, "..", name)),
+    "Firefox package must include the project " + name
+  );
+}
+assert.equal(
+  fs.existsSync(path.join(directory, "keplr-earn-product-terms.html")),
+  false,
+  "Firefox package must omit the retired Noble Earn terms"
+);
 const bundles = fs
   .readdirSync(directory)
   .filter((name) => name.endsWith(".bundle.js"));

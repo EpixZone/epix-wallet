@@ -14,6 +14,12 @@ export type EmbedChainInfo = (ChainInfo | ModularChainInfo) & {
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const EPIX_LOGO: string = require("./public/assets/logo-256.png");
 
+export const NobleUsdnCurrency = {
+  coinDenom: "USDN",
+  coinMinimalDenom: "uusdn",
+  coinDecimals: 6,
+};
+
 export const EmbedChainInfos: EmbedChainInfo[] = [
   // EPIX is this wallet's home chain: first in the list, default on fresh
   // installs. A Cosmos SDK chain with EVM (like Injective below): coinType 60,
@@ -1214,6 +1220,7 @@ export const EmbedChainInfos: EmbedChainInfo[] = [
         coinMinimalDenom: "uusdc",
         coinDecimals: 6,
       },
+      NobleUsdnCurrency,
     ],
     feeCurrencies: [
       {

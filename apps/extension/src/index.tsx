@@ -26,7 +26,13 @@ import React, {
   useState,
 } from "react";
 import { createRoot } from "react-dom/client";
-import { HashRouter, Route, Routes, useLocation } from "react-router-dom";
+import {
+  HashRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import { StoreProvider, useStore } from "./stores";
 import {
   GlobalPopupStyle,
@@ -116,12 +122,6 @@ import { ManageChainsPage } from "./pages/manage-chains";
 import { TxResultFailedPage } from "./pages/tx-result/failed";
 import { TxResultPendingPage } from "./pages/tx-result/pending";
 import { TxResultSuccessPage } from "./pages/tx-result/success";
-import { EarnAmountPage } from "./pages/earn/amount";
-import { EarnIntroPage } from "./pages/earn/intro";
-import { EarnConfirmUsdnEstimationPage } from "./pages/earn/confirm-usdn-estimation";
-import { EarnNobleTermsPage } from "./pages/earn/noble-terms";
-import { EarnTransferIntroPage } from "./pages/earn/transfer/intro";
-import { EarnTransferAmountPage } from "./pages/earn/transfer/amount";
 import { EarnOverviewPage } from "./pages/earn/overview";
 import { EarnWithdrawAmountPage } from "./pages/earn/withdraw/amount";
 import { AboutKeplrPage } from "./pages/setting/about";
@@ -596,23 +596,9 @@ const RoutesAfterReady: FunctionComponent = observer(() => {
                 path="/tx-result/failed"
                 element={<TxResultFailedPage />}
               />
-              <Route path="/earn/intro" element={<EarnIntroPage />} />
-              <Route path="/earn/amount" element={<EarnAmountPage />} />
               <Route
-                path="/earn/transfer/intro"
-                element={<EarnTransferIntroPage />}
-              />
-              <Route
-                path="/earn/transfer/amount"
-                element={<EarnTransferAmountPage />}
-              />
-              <Route
-                path="/earn/confirm-usdn-estimation"
-                element={<EarnConfirmUsdnEstimationPage />}
-              />
-              <Route
-                path="/earn/noble-terms"
-                element={<EarnNobleTermsPage />}
+                path="/earn/*"
+                element={<Navigate to="/earn/overview" replace />}
               />
               <Route path="/earn/overview" element={<EarnOverviewPage />} />
               <Route

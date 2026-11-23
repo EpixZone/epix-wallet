@@ -205,6 +205,15 @@ export const SettingPage: FunctionComponent = observer(() => {
                     navigate("/setting/advanced/delete-suggest-chain"),
                 },
                 {
+                  key: "noble-usdn",
+                  icon: IconCurrency,
+                  title: intl.formatMessage({ id: "page.earn.overview.title" }),
+                  searches: ["USDN", "Noble", "Earn"],
+                  right: ClickableRightIcon,
+                  rightProps: {},
+                  onClick: () => navigate("/earn/overview"),
+                },
+                {
                   key: "add-remove-custom-token",
                   icon: IconAddRemoveCustomTokens,
                   title: intl.formatMessage({

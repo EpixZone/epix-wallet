@@ -136,9 +136,8 @@ export const BlocklistPage: FunctionComponent = () => {
         <Box>
           <Styles.Title>SECURITY ALERT</Styles.Title>
           <Styles.Description>
-            Keplr has detected that this domain has been flagged as a phishing
-            site. To protect the safety of your assets, we recommend you exit
-            this website immediately.
+            Epix Wallet found this domain on its phishing blocklist. Leave this
+            site to protect your wallet.
           </Styles.Description>
           <Styles.Link>
             <div

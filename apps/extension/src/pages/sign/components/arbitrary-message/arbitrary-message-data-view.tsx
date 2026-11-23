@@ -23,18 +23,12 @@ import { isRunningInSidePanel } from "../../../../utils";
 interface ArbitraryMsgDataViewProps {
   message?: string;
   rawMessage?: string;
-  messageIsShownAsJSON?: boolean;
   forceCollapsable?: boolean;
 }
 const MAX_HEIGHT = 780;
 export const ArbitraryMsgDataView: FunctionComponent<
   ArbitraryMsgDataViewProps
-> = ({
-  message,
-  rawMessage,
-  messageIsShownAsJSON = false,
-  forceCollapsable = false,
-}) => {
+> = ({ message, rawMessage, forceCollapsable = false }) => {
   const [isMessageExpanded, setIsMessageExpanded] = useState(false);
   const [isRawMessageExpanded, setIsRawMessageExpanded] = useState(false);
   const initialHeight = useRef<number>(0);
@@ -57,7 +51,7 @@ export const ArbitraryMsgDataView: FunctionComponent<
       <React.Fragment>
         <Adr36DataSection
           content={message}
-          isShowRawMessage={messageIsShownAsJSON}
+          isShowRawMessage={false}
           isCollapsable={forceCollapsable}
           onToggle={setIsMessageExpanded}
         />
@@ -162,18 +156,17 @@ const Adr36DataSection: FunctionComponent<Adr36DataSectionProps> = ({
     margin: 0,
     fontWeight: 400,
     fontSize: isShowRawMessage ? "0.875rem" : "1rem",
+    whiteSpace: "pre-wrap",
     ...(isShowRawMessage
       ? {
           color: ColorPalette["gray-200"],
           wordBreak: "break-all",
-          whiteSpace: "pre-wrap",
         }
       : {
           color:
             theme.mode === "light"
               ? ColorPalette["gray-500"]
               : ColorPalette["white"],
-          whiteSpace: "normal",
           overflowWrap: "break-word",
         }),
   };
