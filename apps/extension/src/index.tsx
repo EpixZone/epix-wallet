@@ -1,6 +1,4 @@
-// Shim ------------
-require("setimmediate");
-// Shim ------------
+import "./immediate.js";
 
 // Make sure that icon file will be included in bundle
 require("./public/assets/logo-256.png");

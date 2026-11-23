@@ -1,6 +1,4 @@
-// Shim ------------
-require("setimmediate");
-// Shim ------------
+import "./immediate.js";
 
 import React, { FunctionComponent } from "react";
 import { createRoot } from "react-dom/client";
