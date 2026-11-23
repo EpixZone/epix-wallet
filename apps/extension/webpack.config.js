@@ -108,6 +108,11 @@ module.exports = {
     injectedScript: ["./src/content-scripts/inject/injected-script.ts"],
   },
   output: {
+    // The Firefox packaging step copies this entire generated directory.
+    clean:
+      isBuildManifestV2 &&
+      !isEnvDevelopment &&
+      process.env.BUILD_OUTPUT === "build/manifest-v2",
     path: path.resolve(
       __dirname,
       isEnvDevelopment ? "dist" : process.env.BUILD_OUTPUT || "build/default"
@@ -193,6 +198,16 @@ module.exports = {
               __dirname,
               "browser-native-bind.cjs"
             ),
+            // These published versions discover generator constructors through
+            // native syntax. Keep one full intrinsic table for all consumers.
+            "get-intrinsic$": require.resolve("get-intrinsic"),
+            // Old typed-array helpers embed their own intrinsic table.
+            // Current es-abstract delegates this same helper to gopd.
+            "es-abstract/helpers/getOwnPropertyDescriptor$":
+              require.resolve("gopd"),
+            "is-generator-function$": require.resolve("is-generator-function"),
+            "lodash.debounce$": require.resolve("lodash/debounce"),
+            "lodash.throttle$": require.resolve("lodash/throttle"),
             // Wallet animations use SVG without expressions or effects.
             "lottie-web$": require.resolve(
               "lottie-web/build/player/lottie_light"
@@ -213,6 +228,20 @@ module.exports = {
   },
   module: {
     rules: [
+      ...(isBuildManifestV2
+        ? [
+            {
+              // Both Lodash module formats request their global from _root.
+              test: /[\\/]node_modules[\\/]lodash(?:-es)?[\\/]/,
+              resolve: {
+                alias: {
+                  "./_root$": path.resolve(__dirname, "browser-global.cjs"),
+                  "./_root.js$": path.resolve(__dirname, "browser-global.cjs"),
+                },
+              },
+            },
+          ]
+        : []),
       tsRule,
       fileRule,
       {

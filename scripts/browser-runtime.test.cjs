@@ -23,6 +23,90 @@ test("native bind preserves the dependency's supported Firefox behavior", () => 
   assert.throws(() => bind.call({}, null), TypeError);
 });
 
+const requireExtension = require("node:module").createRequire(
+  path.join(extension, "package.json")
+);
+
+test("browser dependencies can resolve native generator and typed array intrinsics", () => {
+  const getIntrinsic = requireExtension("get-intrinsic");
+  assert.equal(
+    getIntrinsic("%GeneratorFunction%"),
+    function* () {}.constructor
+  );
+  assert.equal(
+    getIntrinsic("%AsyncFunction%"),
+    async function () {}.constructor
+  );
+  assert.equal(
+    getIntrinsic("%AsyncGeneratorFunction%"),
+    async function* () {}.constructor
+  );
+  const getBuffer = getIntrinsic("TypedArray.prototype.buffer", true);
+  const foreign = require("node:vm").runInNewContext("new Uint16Array(4)");
+  assert.equal(getBuffer.call(foreign), foreign.buffer);
+  const getDescriptor = requireExtension("gopd");
+  assert.equal(
+    getDescriptor,
+    getIntrinsic("%Object.getOwnPropertyDescriptor%")
+  );
+  assert.equal(
+    getDescriptor(Object.getPrototypeOf(Uint8Array.prototype), "buffer").get,
+    getBuffer
+  );
+  assert.equal(getIntrinsic("Math.noSuchProperty", true), undefined);
+  assert.throws(() => getIntrinsic("Math.noSuchProperty"), TypeError);
+});
+
+test("the browser generator check recognizes generators across realms", () => {
+  const isGenerator = requireExtension("is-generator-function");
+  const generator = function* () {};
+  const foreign = require("node:vm").runInNewContext("(function* () {})");
+  assert.equal(isGenerator(generator), true);
+  assert.equal(isGenerator(generator.bind(null)), true);
+  assert.equal(isGenerator(foreign), true);
+  assert.equal(
+    isGenerator(async function* () {}),
+    false
+  );
+  assert.equal(
+    isGenerator(() => {}),
+    false
+  );
+  assert.equal(
+    isGenerator({ [Symbol.toStringTag]: "GeneratorFunction" }),
+    false
+  );
+});
+
+test("Lodash browser entry points preserve debounce and throttle behavior", (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+  function calls(schedule) {
+    const calls = [];
+    const update = schedule(
+      function (value) {
+        calls.push([this.id, value]);
+        return value;
+      },
+      60_000,
+      { leading: true, trailing: true }
+    );
+    const receiver = { id: 1, update };
+    const returns = [receiver.update(1), receiver.update(2), update.flush()];
+    receiver.update(3);
+    update.cancel();
+    returns.push(update.flush());
+    return { calls, returns };
+  }
+  for (const name of ["debounce", "throttle"]) {
+    const behavior = calls(requireExtension(`lodash/${name}`));
+    assert.deepEqual(behavior, calls(requireExtension(`lodash.${name}`)));
+    assert.deepEqual(behavior.calls, [
+      [1, 1],
+      [1, 2],
+    ]);
+  }
+});
+
 function checkAnimation(value, location) {
   if (!value || typeof value !== "object") return;
   assert.notEqual(
