@@ -44,6 +44,15 @@ test("browser dependencies can resolve native generator and typed array intrinsi
   const getBuffer = getIntrinsic("TypedArray.prototype.buffer", true);
   const foreign = require("node:vm").runInNewContext("new Uint16Array(4)");
   assert.equal(getBuffer.call(foreign), foreign.buffer);
+  const getDescriptor = requireExtension("gopd");
+  assert.equal(
+    getDescriptor,
+    getIntrinsic("%Object.getOwnPropertyDescriptor%")
+  );
+  assert.equal(
+    getDescriptor(Object.getPrototypeOf(Uint8Array.prototype), "buffer").get,
+    getBuffer
+  );
   assert.equal(getIntrinsic("Math.noSuchProperty", true), undefined);
   assert.throws(() => getIntrinsic("Math.noSuchProperty"), TypeError);
 });
