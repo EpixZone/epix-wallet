@@ -16,8 +16,8 @@ for (const name of bundles) {
   const source = fs.readFileSync(path.join(directory, name), "utf8");
   // Check the removed legacy branches without hiding other dependency findings.
   assert.ok(
-    !/new Function\(["']return this["']\)/.test(source),
-    `${name}: legacy global runtime`
+    !/\bFunction\(\s*["']/.test(source),
+    `${name}: string-based Function constructor`
   );
   assert.ok(
     !/eval\(["']\[function _expression_function/.test(source),
